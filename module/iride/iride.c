@@ -35,7 +35,7 @@
 #include <lvinfo.h>
 #include <math.h>
 
-#define IRIDE_VERSION "0.7"
+#define IRIDE_VERSION "0.8"
 
 /* ------------------------------------------------------------------ compatibilita' API */
 
@@ -201,6 +201,9 @@ static int key_pending() { return kq_tail != kq_head; }
 /* cestino dentro Iride: si passa al menu di Magic Lantern invece di chiudere tutto */
 static volatile int to_ml_menu = 0;
 static volatile int open_settle = 0;   /* aperta dalla schermata di scatto: Canon apre il suo menu sotto */
+static volatile int lv_toggle = 0;     /* START/STOP dentro Iride: Live View acceso/spento e ritorno qui */
+static int lv_resume_screen = 0;
+static volatile int skip_splash = 0;    /* riapertura dopo il Live View: subito al lavoro */
 
 /* diagnostica: ultimi eventi dei tasti visti da Iride, per capire cosa manda la 6D */
 #define KLOG_N 12
@@ -224,6 +227,7 @@ static volatile int job_abort = 0;
 
 static void say(int color, const char *text);
 static void go(int s, int dir);
+static void lv_task(void *unused);
 static int persist_touch_ms = 0;
 static void persist_touch() { persist_dirty = 1; persist_touch_ms = get_ms_clock(); }
 
@@ -269,18 +273,21 @@ static void app_task(void *unused)
     /* ML apre il menu di Canon sotto il suo (circa 200 ms) e poi ferma i disegni di Canon:
        aspettiamo che abbia finito, altrimenti Canon disegna sopra Iride */
     if (open_settle) { msleep(350); open_settle = 0; }
-    int open_ms = get_ms_clock(), last_full = 0;
+    /* in Live View ML spegne la grafica finche' non ridisegna il suo menu (che Iride blocca) */
+    bmp_on();
+    int open_ms = get_ms_clock(), last_full = 0, last_poke = 0;
     kq_tail = kq_head;
     theme_apply();
     clrscr();
-    if (opt_splash && opt_anim != 2) splash();
+    if (opt_splash && opt_anim != 2 && !skip_splash) splash();
+    skip_splash = 0;
     dirty = 1;
     transition = 0;
     int last_tick = 0;
 
     TASK_LOOP
     {
-        if (!gui_menu_shown() || to_ml_menu) break;
+        if (!gui_menu_shown() || to_ml_menu || lv_toggle) break;
 
         int k = kq_pop();
         if (k >= 0)
@@ -303,6 +310,10 @@ static void app_task(void *unused)
             last_tick = now;
             if (screens[screen].tick()) dirty = 1;
         }
+
+        /* in Live View la 6D chiude il menu Canon sotto se nessuno lo risveglia: ci pensa ML
+           a ogni ridisegno (che resta bloccato, ma il controllo del dialogo gira lo stesso) */
+        if (lv && now - last_poke >= 500) { last_poke = now; menu_redraw(); }
 
         /* ridisegno completo periodico (invisibile, doppio buffer): cancella qualsiasi disegno
            arrivato da fuori (Canon, ML) - spesso nei primi secondi, poi ogni secondo */
@@ -330,6 +341,12 @@ static void app_task(void *unused)
         /* il menu di Magic Lantern e' ancora aperto: lo ridisegniamo */
         to_ml_menu = 0;
         menu_redraw();
+    }
+    if (lv_toggle)
+    {
+        lv_toggle = 0;
+        gui_stop_menu();
+        task_create("iride_lv", 0x1e, 0x1000, lv_task, (void *)0);
     }
     persist_save_if_dirty();
 
@@ -362,18 +379,21 @@ static int can_open_from_shooting()
         !is_play_mode() && !RECORDING && !dofpreview && is_camera("6D", "1.1.6");
 }
 
-static void open_from_shooting()
+static void open_on(int scr)
 {
     menu_redraw_blocked = 1;          /* niente lampo del menu ML prima di Iride */
     /* menu ML sulla scheda Shoot, voce Iride: niente indicatori audio (scheda Audio) sotto Iride,
        e il cestino da Iride riporta proprio qui */
     select_menu_by_name("Shoot", "Iride");
-    screen = SCR_HOME;
+    screen = COERCE(scr, 0, SCR_COUNT - 1);
     hl_reset();
+    if (screens[screen].enter) screens[screen].enter();
     open_settle = 1;
     gui_open_menu();
     iride_start();
 }
+
+static void open_from_shooting() { open_on(SCR_HOME); }
 
 /* all'accensione: aspetta che Canon e ML abbiano finito (pulizia del sensore, schermata di
    scatto accesa) e apre la Home. Se nel frattempo si usa un tasto o si tiene premuto a meta'
@@ -382,6 +402,19 @@ static volatile int boot_done = 0;
 static int boot_ready()
 {
     return can_open_from_shooting() && display_is_on() && !sensor_cleaning;
+}
+
+/* START/STOP dentro Iride: Iride si chiude, la 6D accende (o spegne) il Live View come col suo
+   tasto, poi Iride si riapre sulla stessa schermata */
+static void lv_task(void *unused)
+{
+    int was = lv;
+    msleep(300);                                /* ML chiude il suo menu e quello di Canon */
+    if (!was) force_liveview(); else close_liveview();
+    for (int i = 0; i < 40 && lv == was; i++) msleep(100);
+    msleep(400);
+    for (int i = 0; i < 30 && !can_open_from_shooting(); i++) msleep(100);
+    if (can_open_from_shooting()) { skip_splash = 1; open_on(lv_resume_screen); }
 }
 
 static void boot_task(void *unused)
@@ -425,6 +458,14 @@ static unsigned int iride_keypress(unsigned int key)
         /* cestino: da Iride al menu di Magic Lantern (un altro cestino lo chiude) */
         case MODULE_KEY_TRASH:
             to_ml_menu = 1;
+            return 0;
+        /* START/STOP (sulla 6D Live View e REC sono lo stesso tasto): in foto accende/spegne
+           il Live View e torna qui; in filmato lo lasciamo a Canon (registrazione) */
+        case MODULE_KEY_LV:
+        case MODULE_KEY_REC:
+            if (is_movie_mode() || RECORDING) return 1;
+            lv_resume_screen = screen;
+            lv_toggle = 1;
             return 0;
         /* lasciamo passare: chiudono il menu e quindi Iride */
         case MODULE_KEY_PRESS_HALFSHUTTER:

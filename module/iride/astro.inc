@@ -371,8 +371,8 @@ static void draw_stars()
     fill(C_BG, 0, 336, SCR_W, 108);
     if (!lv)
     {
-        txt(FONT_MED, C_WARN, 16, 346, "Attiva il Live View (tasto Start/Stop) e punta");
-        txt(FONT_MED, C_DIM, 16, 376, "una stella luminosa al centro dell'inquadratura.");
+        txt(FONT_MED, C_WARN, 16, 346, "Premi START/STOP: Iride accende il Live View e torna qui.");
+        txt(FONT_MED, C_DIM, 16, 376, "Poi punta una stella luminosa al centro.");
     }
     else if (hfr_last < 0)
     {
@@ -403,7 +403,7 @@ static void draw_stars()
             fill((hfr_best > 0 && val * 100 <= hfr_best * 105) ? C_OK : C_ACCENT, gx + i * bw, gy + gh - bh, MAX(bw - 1, 1), bh);
         }
     }
-    draw_footer("SET zoom   </> fuoco -/+   ^/v passo   INFO azzera   MENU");
+    draw_footer(lv ? "SET zoom  </> fuoco  ^/v passo  INFO azzera  START esci LV" : "START/STOP accende il Live View   MENU indietro");
 }
 
 static void stars_key(int key, int dx, int dy)

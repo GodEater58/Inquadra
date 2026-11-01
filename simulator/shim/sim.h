@@ -106,6 +106,8 @@ struct event { int type; int param; void *obj; int arg; };
 #define MODULE_KEY_PLAY 24
 #define MODULE_KEY_TRASH 25
 #define MODULE_KEY_Q 29
+#define MODULE_KEY_REC 27
+#define MODULE_KEY_LV 28
 
 /* ---- tempo e task */
 void msleep(int ms);
@@ -129,6 +131,10 @@ int display_is_on(void);
 extern int sensor_cleaning;
 int get_halfshutter_pressed(void);
 void menu_redraw(void);
+void force_liveview(void);
+void close_liveview(void);
+void bmp_on(void);
+int is_movie_mode(void);
 void select_menu_by_name(char *name, const char *entry);
 #define PICQ_RAW                 0x4060000
 #define PICQ_RAW_JPG_LARGE_FINE  0x3070000

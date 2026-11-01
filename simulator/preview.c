@@ -83,6 +83,11 @@ int sensor_cleaning = 0;
 int get_halfshutter_pressed(void) { return sim_half; }
 static int menu_redraw_calls = 0;
 void menu_redraw(void) { menu_redraw_calls++; }
+static int lv_forced = 0, lv_closed = 0, bmp_on_calls = 0, sim_movie = 0;
+void force_liveview(void) { lv_forced++; lv = 1; }
+void close_liveview(void) { lv_closed++; lv = 0; }
+void bmp_on(void) { bmp_on_calls++; }
+int is_movie_mode(void) { return sim_movie; }
 static char sim_menu_tab[32] = "Audio", sim_menu_entry[32] = "";
 void select_menu_by_name(char *name, const char *entry) { snprintf(sim_menu_tab, sizeof(sim_menu_tab), "%s", name); snprintf(sim_menu_entry, sizeof(sim_menu_entry), "%s", entry); }
 int menu_redraw_blocked, ml_shutdown_requested, shooting_mode = SHOOTMODE_M, lv = 0, lv_dispsize = 1, image_review_time = 2, RECORDING = 0;
@@ -420,6 +425,28 @@ int main(void)
       CHECK(clock_ms - t0 >= 350 && frames_shown > f0 && !app_running && menu_redraw_blocked == 0 && !open_settle,
           "Iride aspetta il menu Canon (%d ms) e poi disegna", clock_ms - t0);
       menu_open = mo; }
+
+    /* ---------- START/STOP dentro Iride: Live View e ritorno sulla stessa schermata */
+    { int l0 = lv; lv = 0; app_running = 1; screen = SCR_STARS;
+      CHECK(iride_keypress(MODULE_KEY_LV) == 0 && lv_toggle == 1 && lv_resume_screen == SCR_STARS, "START/STOP in Fuoco stelle: chiesto il Live View");
+      lv_toggle = 0;
+      sim_movie = 1; CHECK(iride_keypress(MODULE_KEY_REC) == 1 && !lv_toggle, "in modalita' filmato START/STOP resta a Canon (registra)"); sim_movie = 0;
+      /* il ciclo di Iride esce, chiude il menu e lancia il compito del Live View */
+      int mo = menu_open; menu_open = 1; lv_toggle = 1; int tc0 = tasks_created, mc0 = menu_closed_calls;
+      app_task(NULL);
+      CHECK(!app_running && tasks_created == tc0 + 1 && menu_closed_calls == mc0 + 1, "Iride si chiude e accende il Live View");
+      /* il compito accende il LV e riapre Iride su Fuoco stelle */
+      app_running = 0; menu_open = 0; gui_state = 0; screen = SCR_HOME; int before = menu_opened_calls, b0 = bmp_on_calls;
+      lv_task(NULL);
+      CHECK(lv == 1 && lv_forced > 0 && menu_opened_calls == before + 1 && screen == SCR_STARS, "Live View acceso e Iride riaperta su Fuoco stelle");
+      menu_redraw_blocked = 0; open_settle = 0;
+      /* in LV la grafica viene riaccesa e il menu Canon tenuto sveglio */
+      menu_open = 1; open_settle = 0; int r0 = menu_redraw_calls; app_task(NULL);
+      CHECK(bmp_on_calls > b0 && menu_redraw_calls > r0, "in Live View: grafica accesa e menu Canon risvegliato");
+      /* di nuovo START/STOP: LV spento */
+      app_running = 0; menu_open = 0; lv_resume_screen = SCR_STARS; lv_task(NULL);
+      CHECK(lv == 0 && lv_closed > 0 && screen == SCR_STARS, "secondo START/STOP: Live View spento, si resta su Fuoco stelle");
+      menu_redraw_blocked = 0; open_settle = 0; menu_open = mo; lv = l0; app_running = 0; screen = SCR_HOME; }
 
     /* ---------- apertura all'accensione */
     menu_open = 0; app_running = 0; gui_state = 0;
