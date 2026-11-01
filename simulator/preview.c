@@ -83,6 +83,8 @@ int sensor_cleaning = 0;
 int get_halfshutter_pressed(void) { return sim_half; }
 static int menu_redraw_calls = 0;
 void menu_redraw(void) { menu_redraw_calls++; }
+static char sim_menu_tab[32] = "Audio", sim_menu_entry[32] = "";
+void select_menu_by_name(char *name, const char *entry) { snprintf(sim_menu_tab, sizeof(sim_menu_tab), "%s", name); snprintf(sim_menu_entry, sizeof(sim_menu_entry), "%s", entry); }
 int menu_redraw_blocked, ml_shutdown_requested, shooting_mode = SHOOTMODE_M, lv = 0, lv_dispsize = 1, image_review_time = 2, RECORDING = 0;
 int hdr_stepsize = 16;
 struct lens_info lens_info;
@@ -397,6 +399,9 @@ int main(void)
     { int before = menu_opened_calls; screen = SCR_SHELF; menu_redraw_blocked = 0;
       CHECK(iride_keypress(MODULE_KEY_TRASH) == 0 && menu_opened_calls == before + 1 && screen == SCR_HOME && menu_redraw_blocked == 1,
           "cestino apre Iride sulla Home, senza lampo del menu ML");
+      CHECK(streq(sim_menu_tab, "Shoot") && streq(sim_menu_entry, "Iride") && open_settle == 1,
+          "menu ML portato su Shoot > Iride (niente indicatori audio) e attesa del menu Canon");
+      open_settle = 0;
       menu_redraw_blocked = 0; }
     gui_state = 1;   /* riproduzione: il cestino cancella le foto, non si tocca */
     { int before = menu_opened_calls; CHECK(iride_keypress(MODULE_KEY_TRASH) == 1 && menu_opened_calls == before, "in riproduzione il cestino resta di Canon"); }
@@ -408,6 +413,13 @@ int main(void)
     opt_trash_open = 0;
     CHECK(iride_keypress(MODULE_KEY_TRASH) == 1, "opzione spenta: il cestino apre il menu ML come sempre");
     opt_trash_open = 1;
+
+    /* ---------- ciclo di Iride aperta dalla schermata di scatto */
+    { int mo = menu_open; menu_open = 1; open_settle = 1; int t0 = clock_ms, f0 = frames_shown, sp = opt_splash; opt_splash = 0;
+      screen = SCR_HOME; app_task(NULL); opt_splash = sp;
+      CHECK(clock_ms - t0 >= 350 && frames_shown > f0 && !app_running && menu_redraw_blocked == 0 && !open_settle,
+          "Iride aspetta il menu Canon (%d ms) e poi disegna", clock_ms - t0);
+      menu_open = mo; }
 
     /* ---------- apertura all'accensione */
     menu_open = 0; app_running = 0; gui_state = 0;

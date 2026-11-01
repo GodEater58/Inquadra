@@ -129,6 +129,7 @@ int display_is_on(void);
 extern int sensor_cleaning;
 int get_halfshutter_pressed(void);
 void menu_redraw(void);
+void select_menu_by_name(char *name, const char *entry);
 #define PICQ_RAW                 0x4060000
 #define PICQ_RAW_JPG_LARGE_FINE  0x3070000
 #define PICQ_LARGE_FINE          0x3010000

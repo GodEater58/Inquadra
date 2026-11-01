@@ -35,7 +35,7 @@
 #include <lvinfo.h>
 #include <math.h>
 
-#define IRIDE_VERSION "0.6"
+#define IRIDE_VERSION "0.7"
 
 /* ------------------------------------------------------------------ compatibilita' API */
 
@@ -200,6 +200,7 @@ static int key_pending() { return kq_tail != kq_head; }
 
 /* cestino dentro Iride: si passa al menu di Magic Lantern invece di chiudere tutto */
 static volatile int to_ml_menu = 0;
+static volatile int open_settle = 0;   /* aperta dalla schermata di scatto: Canon apre il suo menu sotto */
 
 /* diagnostica: ultimi eventi dei tasti visti da Iride, per capire cosa manda la 6D */
 #define KLOG_N 12
@@ -265,6 +266,10 @@ static void app_task(void *unused)
 
     menu_redraw_blocked = 1;
     to_ml_menu = 0;
+    /* ML apre il menu di Canon sotto il suo (circa 200 ms) e poi ferma i disegni di Canon:
+       aspettiamo che abbia finito, altrimenti Canon disegna sopra Iride */
+    if (open_settle) { msleep(350); open_settle = 0; }
+    int open_ms = get_ms_clock(), last_full = 0;
     kq_tail = kq_head;
     theme_apply();
     clrscr();
@@ -299,9 +304,14 @@ static void app_task(void *unused)
             if (screens[screen].tick()) dirty = 1;
         }
 
+        /* ridisegno completo periodico (invisibile, doppio buffer): cancella qualsiasi disegno
+           arrivato da fuori (Canon, ML) - spesso nei primi secondi, poi ogni secondo */
+        if (now - last_full >= (now - open_ms < 3000 ? 150 : 1000)) dirty = 1;
+
         if (dirty || anim_active())
         {
             dirty = 0;
+            last_full = now;
             theme_apply();
             render(transition);
             transition = 0;
@@ -355,8 +365,12 @@ static int can_open_from_shooting()
 static void open_from_shooting()
 {
     menu_redraw_blocked = 1;          /* niente lampo del menu ML prima di Iride */
+    /* menu ML sulla scheda Shoot, voce Iride: niente indicatori audio (scheda Audio) sotto Iride,
+       e il cestino da Iride riporta proprio qui */
+    select_menu_by_name("Shoot", "Iride");
     screen = SCR_HOME;
     hl_reset();
+    open_settle = 1;
     gui_open_menu();
     iride_start();
 }
