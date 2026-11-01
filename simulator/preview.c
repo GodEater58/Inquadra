@@ -473,6 +473,7 @@ int main(void)
     P.nd_base = 80; P.nd_idx = 7; sel[SCR_ND] = 3; screenshot(SCR_ND, "12_filtri_nd");
     sel[SCR_MOTION] = 0; screenshot(SCR_MOTION, "13_movimento");
     shelf_enter(); screenshot(SCR_SHELF, "14_rullini");
+    { int th = opt_theme; opt_theme = 1; screenshot(SCR_SHELF, "14c_rullini_notte"); opt_theme = th; }
     conf_mode = CONF_LOAD; load_exp = 36; load_push = 1; sel[SCR_CONFIRM] = 1; screenshot(SCR_CONFIRM, "15_carica");
     { int rl = P.roll_loaded; P.roll_loaded = 0; pic_quality = PICQ_RAW; conf_mode = CONF_LOAD; screenshot(SCR_CONFIRM, "15b_carica_solo_raw");
       P.roll_loaded = 1; P.roll_paused = 0; screenshot(SCR_SHELF, "14b_scaffale_solo_raw"); P.roll_loaded = rl; pic_quality = PICQ_RAW_JPG_LARGE_FINE; }
@@ -495,6 +496,26 @@ int main(void)
 
     { int t0 = clock_ms; splash(); anim_rewind(&films[1], 12); frame_show(1); frame_show(-1);
       CHECK(clock_ms - t0 < 5000, "splash, riavvolgimento e transizioni finiscono da soli (%d ms simulati)", clock_ms - t0); }
+
+    /* ---------- tavola dei 16 rullini (due schermate da 8) */
+    for (int page = 0; page < 2; page++)
+    {
+        theme_apply();
+        frame_begin();
+        fill(C_BG, 0, 0, SCR_W, SCR_H);
+        for (int i = 0; i < 8; i++)
+        {
+            int fi = page * 8 + i;
+            int cx = 46 + i * 89;
+            draw_canister(&films[fi], cx, 40, 100, 0);
+            draw_canister(&films[fi], cx, 250, 60, 0);
+            txt_c(FONT_SMALL, C_DIM, cx, 340, films[fi].name);
+        }
+        draw_canister(&films[page * 8 + 2], 200, 360, 80, 30);
+        draw_canister(&films[page * 8 + 5], 480, 360, 80, 30);
+        frame_show(0);
+        shot(page ? "rullini_2" : "rullini_1");
+    }
 
     /* ---------- tutte le schermate in entrambi i temi, con tutti i tasti: nessun crash */
     int keys[] = { MODULE_KEY_PRESS_UP, MODULE_KEY_PRESS_DOWN, MODULE_KEY_PRESS_LEFT, MODULE_KEY_PRESS_RIGHT, MODULE_KEY_WHEEL_LEFT, MODULE_KEY_WHEEL_RIGHT,

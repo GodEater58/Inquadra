@@ -35,7 +35,7 @@
 #include <lvinfo.h>
 #include <math.h>
 
-#define IRIDE_VERSION "0.4"
+#define IRIDE_VERSION "0.5"
 
 /* ------------------------------------------------------------------ compatibilita' API */
 

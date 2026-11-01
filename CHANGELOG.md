@@ -1,5 +1,11 @@
 # Novità
 
+## 0.5 – 1 novembre 2026
+- Rullini ridisegnati con tanti dettagli: perno della bobina, coperchi metallici zigrinati con riflesso, cilindro ombreggiato coi toni della tavolozza Canon, fessura di velluto, marca, nome, processo e ISO, filetti, codice DX e codice a barre
+- Tre impaginazioni originali (fascia, diviso, righe); nessun logo o confezione reale riprodotti
+- Linguetta perforata col taglio a mezza altezza; scaffale con piano in prospettiva e ombre di contatto
+- Tema notte dedicato ai rullini (rosso, rosso scuro, nero)
+
 ## 0.4 – 1 novembre 2026
 - Rullini: nuove animazioni di caricamento (rullino nel vano, linguetta che si aggancia alla bobina, pellicola perforata che avanza, sportello che si chiude, contapose S → 0 → 1) e di riavvolgimento (manovella, bobina che si svuota, rullino che esce)
 - Scaffale: i rullini poggiano su una mensola, quello scelto si solleva e mostra la linguetta

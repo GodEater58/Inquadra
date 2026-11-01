@@ -220,8 +220,9 @@ static void draw_shelf()
         }
     /* mensola: tutti i rullini ci appoggiano sopra, piu' piccoli man mano che si allontanano */
     const int shelf_y = 254;
-    fill(tc(COLOR_GRAY(30)), 40, shelf_y, SCR_W - 80, 2);
-    fill(tc(COLOR_GRAY(12)), 40, shelf_y + 2, SCR_W - 80, 5);
+    fill(cc(COLOR_GRAY(16)), 40, shelf_y - 4, SCR_W - 80, 8);         /* piano in prospettiva */
+    fill(cc(COLOR_GRAY(36)), 40, shelf_y + 4, SCR_W - 80, 2);         /* bordo davanti */
+    fill(cc(COLOR_GRAY(8)), 40, shelf_y + 6, SCR_W - 80, 3);
     for (int k = 0; k < cnt; k++)
     {
         int j = order[k];
@@ -230,10 +231,11 @@ static void draw_shelf()
         if (ad > 2600) continue;
         int scale = 100 - MIN(ad, 2000) * 25 / 1000;          /* 100 al centro, 50 a due posti */
         int cx = 360 + d * 140 / 1000 - (d > 0 ? 1 : -1) * MAX(ad - 1000, 0) * 20 / 1000;
-        int cap = MAX(10 * scale / 100, 3), hh = 126 * scale / 100;
         int lift = MAX(0, 700 - ad) * 8 / 700;               /* quello scelto si solleva un poco */
-        int top = shelf_y - (3 * cap + hh) - lift;
-        int leader = MAX(0, 600 - ad) * 30 / 600;            /* la linguetta esce piano */
+        int top = shelf_y - canister_height(scale) - lift;
+        int leader = MAX(0, 600 - ad) * 44 / 600;            /* la linguetta esce piano */
+        int sw = 76 * scale / 100 + 10 - lift;                /* ombra sul piano */
+        fill(cc(COLOR_GRAY(6)), cx - sw / 2 + 3, shelf_y - 3, sw, 6);
         draw_canister(&films[cat_films[j]], cx, top, scale, leader);
     }
 
@@ -361,7 +363,7 @@ static void draw_confirm()
     if (conf_mode == CONF_LOAD)
     {
         const struct film *fm = &films[shelf_film()];
-        draw_canister(fm, 110, 64, 70, 0);
+        draw_canister(fm, 110, 60, 80, 0);
         snprintf(buf, sizeof(buf), "%s %s", fm->brand, fm->name);
         txt(FONT_LARGE, C_TEXT, 190, 76, buf);
         txt(FONT_MED, C_DIM, 190, 120, fm->desc);
@@ -376,7 +378,7 @@ static void draw_confirm()
     else
     {
         const struct film *fm = cur_film();
-        draw_canister(fm, 110, 64, 70, 26);
+        draw_canister(fm, 110, 60, 80, 26);
         snprintf(buf, sizeof(buf), "Rullino %03d  %s", P.roll_num % 1000, fm->name);
         txt(FONT_LARGE, C_TEXT, 190, 76, buf);
         snprintf(buf, sizeof(buf), "%d pose su %d%s", P.roll_shots, P.roll_exp,

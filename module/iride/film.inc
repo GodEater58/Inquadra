@@ -205,41 +205,256 @@ static void film_init()
 
 /* ------------------------------------------------------------------ disegno dei rullini */
 
+/* grafica originale di ogni rullino (solo i colori richiamano la pellicola: niente loghi) */
+enum { ART_BAND, ART_SPLIT, ART_STRIPES };
+static const unsigned char film_art[] = {
+    ART_BAND, ART_BAND, ART_BAND, ART_SPLIT, ART_STRIPES, ART_SPLIT, ART_BAND, ART_STRIPES,
+    ART_BAND, ART_BAND, ART_SPLIT, ART_BAND, ART_STRIPES, ART_SPLIT, ART_BAND, ART_BAND,
+};
+
+static int film_index(const struct film *fm) { return COERCE((int)(fm - films), 0, NUM_FILMS - 1); }
+
+/* colore dei rullini: di giorno quello vero; di notte tre livelli (rosso, rosso scuro, nero)
+   cosi' fascia, coperchi e ombre restano distinguibili */
+static int cc(int c)
+{
+    if (!night || c == COLOR_EMPTY) return c;
+    if (c >= COLOR_GRAY(0) && c <= COLOR_GRAY(100))
+    {
+        int g = (c - 38) * 100 / 41;
+        return g < 20 ? COLOR_BLACK : g < 66 ? COLOR_DARK_RED : COLOR_RED;
+    }
+    if (c == COLOR_BLACK) return COLOR_BLACK;
+    if (c == COLOR_WHITE || c == COLOR_ALMOST_WHITE || c == COLOR_YELLOW || c == COLOR_CYAN ||
+        c == COLOR_ORANGE || c == COLOR_GREEN2 || c == COLOR_LIGHT_BLUE) return COLOR_RED;
+    return COLOR_DARK_RED;
+}
+
+/* di notte la fascia prende il tono opposto al corpo */
+static int night_label(const struct film *fm)
+{
+    if (!night || cc(fm->label) != cc(fm->body)) return fm->label;
+    return cc(fm->body) == COLOR_RED ? COLOR_GRAY(40) : COLOR_WHITE;
+}
+
+/* colore chiaro? (per scegliere testo nero o bianco sopra) */
+static int is_light(int c)
+{
+    if (c == COLOR_WHITE || c == COLOR_ALMOST_WHITE || c == COLOR_YELLOW || c == COLOR_CYAN || c == COLOR_ORANGE) return 1;
+    return c >= COLOR_GRAY(55) && c <= COLOR_GRAY(100);
+}
+static int ink_on(int c) { return is_light(c) ? COLOR_BLACK : COLOR_WHITE; }
+
+/* testo piccolo centrato, solo se ci sta */
+static void can_text(int font, int color, int cx, int y, int maxw, const char *s)
+{
+    if (txt_w(font, s) <= maxw) txt_c(font, color, cx, y, s);
+}
+
+/* coperchio metallico: zigrinatura, riflesso, ombra e giunzione */
+static void draw_cap(int x, int y, int w, int h, int fine)
+{
+    fill(cc(COLOR_GRAY(60)), x, y, w, h);
+    if (h < 4) return;
+    fill(cc(COLOR_GRAY(80)), x + 1, y, w - 2, 1);                       /* bordo alto in luce */
+    fill(cc(COLOR_GRAY(30)), x, y + h - 1, w, 1);                       /* giunzione col corpo */
+    if (fine)
+        for (int xx = x + 2; xx < x + w - 2; xx += 3)
+            fill(cc(xx < x + w * 7 / 10 ? COLOR_GRAY(48) : COLOR_GRAY(36)), xx, y + 2, 1, h - 4);
+    fill(cc(COLOR_GRAY(86)), x + w * 18 / 100, y + 1, MAX(w / 16, 1), h - 2);   /* riflesso */
+    fill(cc(COLOR_GRAY(34)), x + w - MAX(w / 9, 2), y + 1, MAX(w / 9, 2), h - 2); /* lato in ombra */
+}
+
+/* codice DX (due file di contatti argento/neri) e codice a barre: decorativi, dall'ISO */
+static void draw_dx(const struct film *fm, int x, int y, int cw, int ch)
+{
+    unsigned bits = (unsigned)fm->iso * 2654435761u;
+    for (int r = 0; r < 2; r++)
+        for (int c = 0; c < 6; c++)
+        {
+            int on = c == 0 || ((bits >> (r * 6 + c)) & 1);
+            fill(cc(on ? COLOR_GRAY(74) : COLOR_BLACK), x + c * (cw + 1), y + r * (ch + 1), cw, ch);
+        }
+}
+
+static void draw_barcode(const struct film *fm, int x, int y, int w, int h)
+{
+    fill(cc(COLOR_WHITE), x, y, w, h);
+    unsigned bits = (unsigned)(fm->iso + 7) * 2246822519u ^ (unsigned)film_index(fm) * 3266489917u;
+    int xx = x + 2;
+    for (int i = 0; xx < x + w - 2; i++)
+    {
+        int bw = ((bits >> (i % 30)) & 1) ? 2 : 1;
+        if (i & 1) fill(COLOR_BLACK, xx, y + 1, bw, h - 2);
+        xx += bw;
+    }
+}
+
+/* ombra del cilindro: per ogni colore il tono piu' scuro che esiste nella tavolozza Canon;
+   -1 = nessun tono adatto, si usa una retinatura leggera */
+static int shade_of(int c, int level)
+{
+    if (night) return -1;
+    if (c == COLOR_WHITE || c == COLOR_ALMOST_WHITE) return level == 1 ? COLOR_GRAY(84) : COLOR_GRAY(68);
+    if (c >= COLOR_GRAY(0) && c <= COLOR_GRAY(100))
+    {
+        int g = (c - 38) * 100 / 41;
+        return COLOR_GRAY(MAX(g - (level == 1 ? 12 : 26), 0));
+    }
+    switch (c)
+    {
+        case COLOR_YELLOW:     return level == 1 ? COLOR_ORANGE : -1;
+        case COLOR_ORANGE:     return -1;
+        case COLOR_RED:        return level == 1 ? COLOR_DARK_RED : -1;
+        case COLOR_GREEN2:     return level == 1 ? COLOR_GREEN1 : -1;
+        case COLOR_LIGHT_BLUE: return level == 1 ? COLOR_BLUE : -1;
+        case COLOR_CYAN:       return level == 1 ? COLOR_LIGHT_BLUE : COLOR_BLUE;
+        case COLOR_BLACK:      return COLOR_BLACK;
+    }
+    return -1;
+}
+
+/* fascia orizzontale del cilindro: colore pieno, ombra a destra, riflesso a sinistra */
+static void cyl_zone(int x, int y, int w, int h, int c)
+{
+    if (h <= 0) return;
+    fill(cc(c), x, y, w, h);
+    if (w < 8 || c == COLOR_BLACK) return;
+    int a = x + w * 70 / 100, b = x + w * 87 / 100, e = x + w - 1;
+    int s1c = shade_of(c, 1);
+    if (s1c >= 0) fill(cc(s1c), b, y, e - b, h);   /* la zona piu' scura parte dal primo tono */
+    for (int lv = 1; lv <= 2; lv++)
+    {
+        int x0 = lv == 1 ? a : b, x1 = lv == 1 ? b : e;
+        int sc = shade_of(c, lv);
+        if (sc >= 0) fill(cc(sc), x0, y, x1 - x0, h);
+        else
+        {
+            /* retinatura sopra il tono precedente (o il colore pieno) */
+            int step = lv == 1 ? 3 : 2;
+            for (int i = x0; i < x1; i += step) fill(COLOR_BLACK, i, y, 1, h);
+        }
+    }
+    fill(COLOR_BLACK, e, y, 1, h);                                   /* bordi */
+    int s1 = shade_of(c, 1);
+    fill(s1 >= 0 ? cc(s1) : COLOR_BLACK, x, y, 1, h);
+    if (c != COLOR_WHITE && c != COLOR_ALMOST_WHITE)                 /* riflesso */
+    {
+        int hx = x + w * 16 / 100;
+        fill(cc(COLOR_WHITE), hx, y, 1, h);
+        if (w >= 40) fill(cc(COLOR_ALMOST_WHITE), hx + 2, y, 1, h);
+    }
+}
+
+static int canister_height(int scale) { return 3 * MAX(10 * scale / 100, 3) + 126 * scale / 100; }
+
 static void draw_canister(const struct film *fm, int cx, int top, int scale, int leader)
 {
     int w = 76 * scale / 100;
     int h = 126 * scale / 100;
     int x = cx - w / 2;
     int cap = MAX(10 * scale / 100, 3);
-    int body = tc(fm->body), label = tc(fm->label), ink = tc(fm->ink);
-    if (night && label == body) label = COLOR_BLACK;
+    int fine = scale >= 78;                     /* dettagli fini solo da vicino */
+    int label = cc(fm->label), ink = cc(fm->ink);
+    int art = film_art[film_index(fm)];
+    int by = top + 2 * cap;
+    int d = MAX(2 * scale / 100, 1);
 
-    fill(tc(COLOR_GRAY(45)), cx - 7 * scale / 100, top, 14 * scale / 100, cap);
-    fill(tc(COLOR_GRAY(65)), x + w / 10, top + cap, w * 8 / 10, cap);
-    fill(body, x, top + 2 * cap, w, h);
-    fill(tc(COLOR_GRAY(30)), x + w - MAX(w / 12, 2), top + 2 * cap, MAX(w / 12, 2), h);   /* ombra */
-    fill(tc(COLOR_GRAY(65)), x + w / 10, top + 2 * cap + h, w * 8 / 10, cap);
+    /* perno della bobina con la sua tacca */
+    int sw = MAX(18 * scale / 100, 4);
+    fill(cc(COLOR_GRAY(50)), cx - sw / 2, top + cap / 3, sw, cap - cap / 3);
+    fill(cc(COLOR_GRAY(72)), cx - sw / 2 + 1, top + cap / 3, MAX(sw / 5, 1), cap - cap / 3);
+    if (fine) fill(cc(COLOR_GRAY(22)), cx - 1, top + cap / 3, 2, cap / 2);
 
-    int by = top + 2 * cap + h * 32 / 100;
-    int bh = h * 36 / 100;
-    fill(label, x, by, w, bh);
+    draw_cap(x - d, top + cap, w + 2 * d, cap, fine);
+
+    /* corpo e grafica: ogni fascia ha la sua ombra */
+    int band_y = by + h * 32 / 100, band_h = h * 36 / 100;
+    int t = MAX(h / 60, 1);
+    if (art == ART_SPLIT)
+    {
+        int sy = by + h * 58 / 100;
+        cyl_zone(x, by, w, sy - by, fm->body);
+        cyl_zone(x, sy, w, by + h - sy, night_label(fm));
+        cyl_zone(x, sy - t, w, t, COLOR_WHITE);
+        band_y = by + h * 24 / 100; band_h = h * 32 / 100;
+    }
+    else
+    {
+        cyl_zone(x, by, w, h, fm->body);
+        cyl_zone(x, band_y, w, band_h, night_label(fm));
+        cyl_zone(x, band_y - 3 * t, w, t, night_label(fm));                 /* filetti */
+        cyl_zone(x, band_y + band_h + 2 * t, w, t, night_label(fm));
+        if (art == ART_STRIPES)
+            for (int i = 0; i < 3; i++)
+                cyl_zone(x, by + h * 6 / 100 + i * MAX(h / 22, 2), w, t, night_label(fm));
+    }
+
+    /* bassa: codice DX e codice a barre (oppure un accenno da lontano) */
+    if (fine)
+    {
+        int cw = MAX(w / 16, 2), ch = MAX(h / 34, 2);
+        draw_dx(fm, x + w * 8 / 100, by + h - 2 * ch - h * 6 / 100, cw, ch);
+        int bw = w * 26 / 100;
+        draw_barcode(fm, x + w * 50 / 100, by + h - h * 6 / 100 - 2 * ch - 1, bw, 2 * ch + 1);
+    }
+    else if (scale >= 50)
+        fill(cc(COLOR_GRAY(74)), x + w * 10 / 100, by + h * 86 / 100, w * 30 / 100, MAX(h / 30, 1));
+
+    /* fessura di velluto da cui esce la pellicola */
+    int lipw = MAX(4 * scale / 100, 2);
+    fill(COLOR_BLACK, x + w - lipw, by + h * 14 / 100, lipw, h * 72 / 100);
+    if (fine) fill(cc(COLOR_GRAY(14)), x + w - lipw / 2 - 1, by + h * 16 / 100, 1, h * 68 / 100);
+
+    /* scritte */
+    int tw = w - lipw - 6;
+    int tcx = cx - lipw / 2;
+    if (fine)
+    {
+        int ty = art == ART_STRIPES ? by + h * 18 / 100 - 4 : by + h * 5 / 100;
+        int c_top = ink_on(fm->body);
+        if (art != ART_STRIPES) can_text(FONT_SMALL, cc(c_top), tcx, ty, tw, fm->brand);
+        char nm[16];
+        int i = 0;
+        while (fm->name[i] && fm->name[i] != ' ' && i < 15) { nm[i] = fm->name[i]; i++; }
+        nm[i] = 0;
+        int ny = art == ART_STRIPES ? ty : ty + 13;
+        if (band_y - ny >= 13) can_text(FONT_SMALL, cc(c_top), tcx, ny, tw, nm);
+        char proc[12];
+        snprintf(proc, sizeof(proc), "%s", fm->process);
+        int c_low = ink_on(art == ART_SPLIT ? fm->label : fm->body);
+        can_text(FONT_SMALL, cc(c_low), tcx, by + h * 70 / 100, tw, proc);
+    }
     char iso[8];
     snprintf(iso, sizeof(iso), "%d", fm->iso);
     int font = scale >= 90 ? FONT_LARGE : scale >= 60 ? FONT_MED : FONT_SMALL;
     int fh = scale >= 90 ? 32 : scale >= 60 ? 23 : 12;
-    txt_c(font, ink == label ? C_TEXT : ink, cx, by + (bh - fh) / 2, iso);
+    int isoc = art == ART_SPLIT ? cc(ink_on(fm->body)) : (ink == label ? C_TEXT : ink);
+    if (night) isoc = cc(art == ART_SPLIT ? fm->body : night_label(fm)) == COLOR_RED ? COLOR_BLACK : COLOR_RED;
+    if (txt_w(font, iso) > tw && font != FONT_SMALL) { font = font == FONT_LARGE ? FONT_MED : FONT_SMALL; fh = font == FONT_MED ? 23 : 12; }
+    txt_c(font, isoc, tcx, band_y + (band_h - fh) / 2, iso);
+
+    draw_cap(x - d, by + h, w + 2 * d, cap, fine);
 
     if (leader > 0)
     {
-        /* linguetta della pellicola, lunga "leader" pixel */
-        int lx = x + w;
-        int ly = top + 2 * cap + h * 40 / 100;
-        int lh = h * 26 / 100;
-        fill(tc(COLOR_GRAY(22)), lx, ly, leader, lh);
-        for (int px = lx + 4; px + 4 < lx + leader; px += 9)
+        /* linguetta: pellicola perforata che esce dalla fessura, taglio a mezza altezza */
+        int lx = x + w - lipw / 2;
+        int ly = by + h * 30 / 100;
+        int lh = h * 40 / 100;
+        int tongue = MIN(leader * 6 / 10, 26 * scale / 100);
+        int full = leader - tongue;
+        int base = cc(COLOR_GRAY(22)), rim = cc(COLOR_GRAY(40)), hole = cc(COLOR_GRAY(72));
+        fill(base, lx, ly, full, lh);
+        fill(base, lx + full, ly, tongue - 3, lh / 2 + 2);
+        fill(base, lx + full + tongue - 3, ly, 3, lh / 2 - 3);          /* smusso */
+        fill(rim, lx, ly, leader - 3, 1);
+        fill(rim, lx, ly + lh - 1, full, 1);
+        int hs = MAX(4 * scale / 100, 2), pitch = hs + MAX(3 * scale / 100, 2);
+        for (int px = lx + 3; px + hs < lx + leader - 3; px += pitch)
         {
-            fill(tc(COLOR_GRAY(55)), px, ly + 3, 4, 4);
-            fill(tc(COLOR_GRAY(55)), px, ly + lh - 7, 4, 4);
+            fill(hole, px, ly + 3, hs, hs + 1);
+            if (px + hs < lx + full) fill(hole, px, ly + lh - hs - 4, hs, hs + 1);
         }
     }
 }

@@ -30,6 +30,12 @@ Un'interfaccia a tutto schermo, animata, con menu dedicati ad **astrofotografia*
 
 La 6D riceve il tasto luce del display superiore come evento `0x20`, e Magic Lantern lo usa nella riproduzione. Non è ancora confermato che lo invii anche in modalità di scatto. **Opzioni → Diagnostica tasti** mostra gli ultimi tasti ricevuti e li salva in `ML/LOGS/IRIDEKEY.TXT`.
 
+### Rullini
+
+<p align="center"><img src="docs/screenshots/rullini_tutti.png" width="720" alt="I 16 rullini"></p>
+
+Ogni rullino è disegnato in macchina, con grafiche originali: perno, coperchi zigrinati, cilindro ombreggiato, fessura di velluto, codice DX e codice a barre.
+
 ### Rullini e RAW
 
 Il look della pellicola la 6D lo applica solo al **JPEG**: con la qualità in solo RAW, LightCraft e Lightroom mostrano un attimo l'anteprima con il look e poi il RAW neutro.
