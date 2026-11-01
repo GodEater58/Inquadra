@@ -198,6 +198,14 @@ static int kq_pop()
 
 static int key_pending() { return kq_tail != kq_head; }
 
+/* un tasto premuto durante un'animazione la salta e viene consumato (non fa altro) */
+static int anim_skip()
+{
+    if (!key_pending()) return 0;
+    kq_pop();
+    return 1;
+}
+
 /* cestino dentro Iride: si passa al menu di Magic Lantern invece di chiudere tutto */
 static volatile int to_ml_menu = 0;
 static volatile int open_settle = 0;   /* aperta dalla schermata di scatto: Canon apre il suo menu sotto */
@@ -452,6 +460,10 @@ static unsigned int iride_keypress(unsigned int key)
         }
         return 1;
     }
+
+    /* 0 = evento che non e' un tasto (aggiornamenti interni di Canon quando cambiano ISO, stile,
+       bianco...): passa a Canon e non entra nella coda, altrimenti interrompe le animazioni */
+    if (key <= 0) return 1;
 
     switch (key)
     {

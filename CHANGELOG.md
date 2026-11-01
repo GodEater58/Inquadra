@@ -2,6 +2,9 @@
 
 ## 0.9 – 1 novembre 2026
 - Il progetto si chiama **Iride 6D**: nomi aggiornati in firmware, istruzioni, preset (gruppo *Iride 6D - Pellicole*) e file delle release (`Iride6D-<versione>-SD.zip`, `Iride6D-preset-pellicole.zip`)
+- Corretto: cambiando rullino si vedeva solo il riavvolgimento. Gli eventi interni di Canon (ISO, stile, bianco che cambiano) venivano presi per tasti e interrompevano il caricamento; ora passano a Canon come devono
+- Un tasto premuto per saltare un'animazione viene consumato: non salta anche la successiva e non fa partire altre azioni
+- Simulatore: 81 test
 
 ## 0.8 – 1 novembre 2026
 - START/STOP dentro Iride accende o spegne il Live View e riapre Iride sulla stessa schermata (in modalità filmato resta il tasto di registrazione)

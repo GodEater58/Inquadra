@@ -448,6 +448,19 @@ int main(void)
       CHECK(lv == 0 && lv_closed > 0 && screen == SCR_STARS, "secondo START/STOP: Live View spento, si resta su Fuoco stelle");
       menu_redraw_blocked = 0; open_settle = 0; menu_open = mo; lv = l0; app_running = 0; screen = SCR_HOME; }
 
+    /* ---------- cambio rullino: riavvolgimento E caricamento animati */
+    { app_running = 1; kq_tail = kq_head;
+      CHECK(iride_keypress(0) == 1 && !key_pending(), "eventi interni di Canon (codice 0): passano e non interrompono le animazioni");
+      struct persist saved = P;
+      P.roll_loaded = 1; P.roll_paused = 0; P.roll_shots = 5;
+      conf_mode = CONF_LOAD; shelf_cat = 0; shelf_pos[0] = 2; load_exp = 36; load_push = 0;
+      int t0 = clock_ms; conf_activate(2);
+      CHECK(clock_ms - t0 > 1850 + 2150, "cambio rullino: riavvolgimento e poi caricamento (%d ms)", clock_ms - t0);
+      kq_push(MODULE_KEY_PRESS_SET);              /* tasto per saltare il riavvolgimento */
+      t0 = clock_ms; conf_activate(2);
+      CHECK(clock_ms - t0 > 2150 && !key_pending(), "un tasto salta solo il riavvolgimento e viene consumato (%d ms)", clock_ms - t0);
+      P = saved; prefix_refresh(); film_activate(); app_running = 0; }
+
     /* ---------- apertura all'accensione */
     menu_open = 0; app_running = 0; gui_state = 0;
     { int before = menu_opened_calls; boot_done = 0; screen = SCR_SHELF; int t0 = clock_ms;

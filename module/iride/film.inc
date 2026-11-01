@@ -683,7 +683,7 @@ static void anim_load(const struct film *fm)
     while (!done)
     {
         int t = get_ms_clock() - t0;
-        if (t >= dur || key_pending()) { t = dur; done = 1; }
+        if (t >= dur || anim_skip()) { t = dur; done = 1; }
         int tv = dur ? t * LOAD_FULL / dur : LOAD_FULL;
 
         int e_drop = phase(tv, 0, 320, EZ_BACK);
@@ -727,7 +727,7 @@ static void anim_load(const struct film *fm)
         frame_show(0);
         msleep(10);
     }
-    for (int i = 0; i < 65 && !key_pending(); i++) msleep(20);
+    for (int i = 0; i < 65 && !anim_skip(); i++) msleep(20);
 }
 
 /* riavvolgimento: la manovella gira, la pellicola torna indietro e la bobina si svuota,
@@ -744,7 +744,7 @@ static void anim_rewind(const struct film *fm, int shots)
     while (!done)
     {
         int t = get_ms_clock() - t0;
-        if (t >= dur || key_pending()) { t = dur; done = 1; }
+        if (t >= dur || anim_skip()) { t = dur; done = 1; }
         int tv = dur ? t * REW_FULL / dur : REW_FULL;
 
         int e_in = phase(tv, 0, 150, EZ_OUT);
@@ -782,5 +782,5 @@ static void anim_rewind(const struct film *fm, int shots)
         frame_show(0);
         msleep(10);
     }
-    for (int i = 0; i < 60 && !key_pending(); i++) msleep(20);
+    for (int i = 0; i < 60 && !anim_skip(); i++) msleep(20);
 }
