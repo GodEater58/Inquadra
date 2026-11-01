@@ -1,5 +1,8 @@
 # Novità
 
+## 0.9 – 1 novembre 2026
+- Il progetto si chiama **Iride 6D**: nomi aggiornati in firmware, istruzioni, preset (gruppo *Iride 6D - Pellicole*) e file delle release (`Iride6D-<versione>-SD.zip`, `Iride6D-preset-pellicole.zip`)
+
 ## 0.8 – 1 novembre 2026
 - START/STOP dentro Iride accende o spegne il Live View e riapre Iride sulla stessa schermata (in modalità filmato resta il tasto di registrazione)
 - Fuoco stelle: istruzioni e aiuto dei tasti aggiornati

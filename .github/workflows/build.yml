@@ -27,7 +27,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          path: IrideFW
+          path: Iride6D
       - name: Toolchain ARM
         run: |
           sudo apt-get update
@@ -37,8 +37,8 @@ jobs:
           git clone https://github.com/reticulatedpines/magiclantern_simplified ml
           cd ml
           git checkout ed3e7c0dfacfdeaf3349dee73edf9e3621217462
-          cp -r ../IrideFW/module/iride modules/
-          git apply ../IrideFW/module/magiclantern.patch
+          cp -r ../Iride6D/module/iride modules/
+          git apply ../Iride6D/module/magiclantern.patch
       - name: Compila
         run: cd ml/platform/6D.116 && make -j4
       - name: Pacchetto per la scheda SD
@@ -47,12 +47,12 @@ jobs:
           unzip -q ../ml/platform/6D.116/build/magiclantern.zip
           mkdir -p ML/SETTINGS
           for m in IRIDE AUTOEXPO DEFLICK DUAL_ISO ETTR; do : > ML/SETTINGS/$m.EN; done
-          cp ../IrideFW/docs/LEGGIMI.txt .
-          zip -qr ../IrideFW-6D116-SD.zip .
+          cp ../Iride6D/docs/LEGGIMI.txt .
+          zip -qr ../Iride6D-SD.zip .
       - uses: actions/upload-artifact@v4
         with:
-          name: IrideFW-6D116-SD
-          path: IrideFW-6D116-SD.zip
+          name: Iride6D-SD
+          path: Iride6D-SD.zip
 
   release:
     name: Release su GitHub
@@ -65,23 +65,23 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          name: IrideFW-6D116-SD
+          name: Iride6D-SD
       - name: File della release
         run: |
           V="${GITHUB_REF_NAME#v}"
           mkdir rel
-          mv IrideFW-6D116-SD.zip "rel/IrideFW-$V-6D116-SD.zip"
-          unzip -p "rel/IrideFW-$V-6D116-SD.zip" ML/modules/iride.mo > rel/iride.mo
+          mv Iride6D-SD.zip "rel/Iride6D-$V-SD.zip"
+          unzip -p "rel/Iride6D-$V-SD.zip" ML/modules/iride.mo > rel/iride.mo
           python3 presets/make_presets.py presets_out
-          cp presets_out/IrideFW-preset-pellicole.zip rel/
+          cp presets_out/Iride6D-preset-pellicole.zip rel/
           awk -v v="$V" 'index($0, "## " v " ")==1 {f=1; next} /^## /{f=0} f' CHANGELOG.md > notes.md
           {
             echo
             echo "**Aggiornare:** copia solo \`iride.mo\` nella cartella \`ML/modules\` della scheda: impostazioni e rullini restano."
             echo
-            echo "**Prima installazione:** firmware Canon 1.1.6, poi il contenuto di \`IrideFW-$V-6D116-SD.zip\` nella radice della scheda (vedi LEGGIMI.txt)."
+            echo "**Prima installazione:** firmware Canon 1.1.6, poi il contenuto di \`Iride6D-$V-SD.zip\` nella radice della scheda (vedi LEGGIMI.txt)."
             echo
-            echo "**Preset pellicola:** \`IrideFW-preset-pellicole.zip\` per LightCraft e Lightroom (Importa predefiniti)."
+            echo "**Preset pellicola:** \`Iride6D-preset-pellicole.zip\` per LightCraft e Lightroom (Importa predefiniti)."
           } >> notes.md
       - name: Pubblica
         env:
@@ -95,5 +95,5 @@ jobs:
               gh release edit "$TAG" --notes-file notes.md
             fi
           else
-            gh release create "$TAG" rel/* --title "Iride FW ${TAG#v}" --notes-file notes.md --latest
+            gh release create "$TAG" rel/* --title "Iride 6D ${TAG#v}" --notes-file notes.md --latest
           fi

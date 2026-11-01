@@ -10,7 +10,7 @@
 
 ## Installazione
 Copia i 5 file `.md` (non questo README) in una di queste cartelle:
-- `<tuo-repo>/.claude/agents/` → agenti solo per quel progetto (es. Iride, Inquadra, Ubicora)
+- `<tuo-repo>/.claude/agents/` → agenti solo per quel progetto (es. Iride, Ubicora)
 - `~/.claude/agents/` → agenti disponibili in tutti i progetti
 
 Poi in Claude Code esegui `/agents` per verificare che siano caricati.

@@ -1,8 +1,8 @@
-# Iride FW - preset pellicola (XMP Lightroom/LightCraft)
+# Iride 6D - preset pellicola (XMP Lightroom/LightCraft)
 # Valori sulla scala crs: (-100..100, curve 0..255). Nessun bilanciamento del bianco:
 # la temperatura della pellicola e' gia' nel RAW (Iride la imposta in macchina, "As Shot").
 
-GROUP = "Iride FW - Pellicole"
+GROUP = "Iride 6D - Pellicole"
 
 # curve base riusate
 LIFT_SOFT = [(0, 10), (64, 66), (128, 130), (192, 191), (255, 247)]   # negativo morbido

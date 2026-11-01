@@ -145,7 +145,7 @@ def main():
     pad = 14
     sheet = Image.new("RGB", (cols * tw + (cols + 1) * pad, rows * th + (rows + 1) * pad + 50), (14, 14, 14))
     d = ImageDraw.Draw(sheet)
-    d.text((pad, 14), "Iride FW - preset pellicola (anteprima indicativa)", fill=(255, 255, 255), font=font)
+    d.text((pad, 14), "Iride 6D - preset pellicola (anteprima indicativa)", fill=(255, 255, 255), font=font)
     for n, t in enumerate(tiles):
         r, c = divmod(n, cols)
         sheet.paste(t, (pad + c * (tw + pad), 50 + pad + r * (th + pad)))

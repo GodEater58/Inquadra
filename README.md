@@ -1,4 +1,4 @@
-# Iride FW
+# Iride 6D
 
 **Firmware personalizzato per Canon EOS 6D** (firmware Canon 1.1.6), costruito come modulo di [Magic Lantern](https://www.magiclantern.fm/).
 Un'interfaccia a tutto schermo, animata, con menu dedicati ad **astrofotografia**, **foto**, **rullini** in stile pellicola e **profili**, più un tasto che riporta la macchina com'era.
@@ -46,7 +46,7 @@ I calcoli astronomici girano in macchina, senza internet, e sono confrontati con
 ## Installazione
 
 1. La 6D deve avere il **firmware Canon 1.1.6** (vedi [Magic Lantern – 6D](https://builds.magiclantern.fm/6D.html)). Il firmware Canon non è incluso in questo repository.
-2. Scarica `IrideFW-<versione>-6D116-SD.zip` dalla pagina **Releases** (per aggiornare basta `iride.mo` in `ML/modules`).
+2. Scarica `Iride6D-<versione>-SD.zip` dalla pagina **Releases** (per aggiornare basta `iride.mo` in `ML/modules`).
 3. Formatta la scheda nella 6D e copia tutto il contenuto dello zip nella radice.
 4. Ghiera su M, Menu → Versione firmware → aggiorna: parte l'installatore di Magic Lantern.
 5. All'accensione compare la Home di Iride (si può spegnere in Opzioni). Poi si apre col **cestino**: dentro Iride il cestino porta al menu di Magic Lantern, un altro cestino lo chiude. Si può usare anche il tasto luce del display superiore (vedi «Tasto luce» qui sopra).
@@ -87,10 +87,6 @@ simulator/          test su PC e generatore delle schermate
 presets/            preset pellicola XMP per LightCraft e Lightroom (e il loro generatore)
 docs/               istruzioni e schermate
 ```
-
-## L'app Android Inquadra
-
-Questo repository prima ospitava l'app Android **Inquadra**. Il suo codice è intatto nel ramo [`inquadra-app`](../../tree/inquadra-app).
 
 ## Crediti e licenza
 

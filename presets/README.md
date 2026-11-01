@@ -12,11 +12,11 @@ Questi 16 preset (uno per pellicola, stessi nomi del firmware) danno il caratter
 | `make_presets.py` | genera gli XMP e lo zip: `python3 make_presets.py out` |
 | `preview.py` | anteprima **indicativa** (approssima i cursori, non è il motore di LightCraft) |
 
-![Anteprima](../docs/screenshots/preset_pellicole.jpg)
+![Anteprima](../docs/screenshots/preset_pellicole-v09.jpg)
 
 ## Importare
 
-- **LightCraft**: pannello Presets (`Shift`+`P`) → **Import Presets…** → scegli lo zip o i file `.xmp`. Compaiono nel gruppo *Iride FW - Pellicole*.
+- **LightCraft**: pannello Presets (`Shift`+`P`) → **Import Presets…** → scegli lo zip o i file `.xmp`. Compaiono nel gruppo *Iride 6D - Pellicole*.
 - **Lightroom Classic / Lightroom**: pannello Predefiniti → `+` → **Importa predefiniti** → zip o `.xmp`.
 
 ## Usare

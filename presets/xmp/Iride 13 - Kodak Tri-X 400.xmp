@@ -13,7 +13,7 @@
    crs:SupportsSceneReferred="True"
    crs:SupportsOutputReferred="True"
    crs:CameraModelRestriction=""
-   crs:Copyright="GPLv2 - Iride FW"
+   crs:Copyright="GPLv2 - Iride 6D"
    crs:ContactInfo=""
    crs:Version="15.4"
    crs:ProcessVersion="11.0"
@@ -91,7 +91,7 @@
    </crs:SortName>
    <crs:Group>
     <rdf:Alt>
-     <rdf:li xml:lang="x-default">Iride FW - Pellicole</rdf:li>
+     <rdf:li xml:lang="x-default">Iride 6D - Pellicole</rdf:li>
     </rdf:Alt>
    </crs:Group>
    <crs:Description>

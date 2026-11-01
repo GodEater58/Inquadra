@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Genera i preset XMP (crs:) delle pellicole di Iride FW e un'anteprima indicativa.
+"""Genera i preset XMP (crs:) delle pellicole di Iride 6D e un'anteprima indicativa.
 
 Uso: make_presets.py OUT_DIR [IMMAGINE ...]
 """
@@ -75,13 +75,14 @@ def settings(f):
 
 
 def xmp(f, idx):
+    # identificativo fisso (mai mostrato): reimportando, i preset si aggiornano invece di duplicarsi
     uid = uuid.uuid5(uuid.NAMESPACE_URL, "iride-fw/film/" + full_name(f)).hex.upper()
     attrs = [
         ('PresetType', 'Normal'), ('Cluster', ''), ('UUID', uid),
         ('SupportsAmount', 'True'), ('SupportsColor', 'True'), ('SupportsMonochrome', 'True'),
         ('SupportsHighDynamicRange', 'True'), ('SupportsNormalDynamicRange', 'True'),
         ('SupportsSceneReferred', 'True'), ('SupportsOutputReferred', 'True'),
-        ('CameraModelRestriction', ''), ('Copyright', 'GPLv2 - Iride FW'), ('ContactInfo', ''),
+        ('CameraModelRestriction', ''), ('Copyright', 'GPLv2 - Iride 6D'), ('ContactInfo', ''),
         ('Version', '15.4'), ('ProcessVersion', '11.0'),
     ]
     for k, v in settings(f).items():
@@ -119,7 +120,7 @@ def main():
         with open(p, "w", encoding="utf-8") as fh:
             fh.write(xmp(f, i))
         files.append(p)
-    zp = os.path.join(out, "IrideFW-preset-pellicole.zip")
+    zp = os.path.join(out, "Iride6D-preset-pellicole.zip")
     with zipfile.ZipFile(zp, "w", zipfile.ZIP_DEFLATED) as z:
         for p in files:
             z.write(p, os.path.basename(p))

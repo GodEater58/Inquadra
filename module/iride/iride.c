@@ -1,5 +1,5 @@
 /*
- * Iride FW 0.2 - firmware personalizzato per Canon EOS 6D (fw 1.1.6), modulo Magic Lantern.
+ * Iride 6D - firmware personalizzato per Canon EOS 6D (fw 1.1.6), modulo Magic Lantern.
  *
  * Interfaccia propria a tutto schermo, animata e senza sfarfallio (doppio buffer):
  *   ASTRO    Via Lattea (NPF), intervallometro (Via Lattea, Deep sky, Star trails, Timelapse,
@@ -35,7 +35,7 @@
 #include <lvinfo.h>
 #include <math.h>
 
-#define IRIDE_VERSION "0.8"
+#define IRIDE_VERSION "0.9"
 
 /* ------------------------------------------------------------------ compatibilita' API */
 

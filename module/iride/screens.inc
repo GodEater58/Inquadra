@@ -550,7 +550,7 @@ static void klog_save()
     FIO_CreateDirectory("ML/LOGS");
     FILE *f = FIO_CreateFile("ML/LOGS/IRIDEKEY.TXT");
     if (!f) return;
-    my_fprintf(f, "Iride FW %s - ultimi tasti (nuovo in alto), ora %d ms\n", IRIDE_VERSION, get_ms_clock());
+    my_fprintf(f, "Iride 6D %s - ultimi tasti (nuovo in alto), ora %d ms\n", IRIDE_VERSION, get_ms_clock());
     my_fprintf(f, "codice,arg,nome,gui_state,iride,menu_ml,play,aperto,ms\n");
     int n = MIN(klog_count, KLOG_N);
     for (int i = 0; i < n; i++)
@@ -603,7 +603,7 @@ static void draw_keys()
         txt_r(FONT_MED, C_DIM, SCR_W - 30, y, buf);
     }
     txt(FONT_SMALL, C_DIM, 30, 396, "Salvato anche in ML/LOGS/IRIDEKEY.TXT (all'apertura di questa pagina)");
-    txt(FONT_SMALL, C_DIM, 30, 414, "Iride FW " IRIDE_VERSION " su Magic Lantern - Canon EOS 6D 1.1.6");
+    txt(FONT_SMALL, C_DIM, 30, 414, "Iride 6D " IRIDE_VERSION " su Magic Lantern - Canon EOS 6D 1.1.6");
     draw_footer("MENU indietro");
 }
 

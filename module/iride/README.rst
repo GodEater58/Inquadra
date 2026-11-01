@@ -1,4 +1,4 @@
-Iride FW
+Iride 6D
 ========
 
 Firmware personalizzato per Canon EOS 6D: interfaccia a tutto schermo, animata.
