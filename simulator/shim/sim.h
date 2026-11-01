@@ -125,6 +125,9 @@ extern struct lens_info lens_info;
 extern int shooting_mode, lv, lv_dispsize, image_review_time, RECORDING;
 extern int pic_quality;
 extern int dofpreview;
+int display_is_on(void);
+extern int sensor_cleaning;
+int get_halfshutter_pressed(void);
 void menu_redraw(void);
 #define PICQ_RAW                 0x4060000
 #define PICQ_RAW_JPG_LARGE_FINE  0x3070000

@@ -5,15 +5,15 @@ Un'interfaccia a tutto schermo, animata, con menu dedicati ad **astrofotografia*
 
 *English: custom full-screen UI for the Canon EOS 6D (fw 1.1.6) running on Magic Lantern — astrophotography tools (NPF, intervalometer presets, HFR star focus, polar alignment, sky calendar), photo tools (HDR, focus stacking, Dual ISO, ETTR, ND), film-roll simulation and user profiles. UI in Italian.*
 
-> ⚠️ **Software sperimentale.** Prime prove su una 6D reale: rullini e nomi dei file funzionano. Il resto è verificato su un simulatore che esegue lo stesso codice (65 test) ed è compilato contro il firmware 6D 1.1.6. Usalo a tuo rischio. Non è affiliato né approvato da Canon.
+> ⚠️ **Software sperimentale.** Prime prove su una 6D reale: rullini e nomi dei file funzionano. Il resto è verificato su un simulatore che esegue lo stesso codice (70 test) ed è compilato contro il firmware 6D 1.1.6. Usalo a tuo rischio. Non è affiliato né approvato da Canon.
 
 | | | |
 |---|---|---|
-<p align="center"><img src="docs/screenshots/caricamento-v05.gif" width="540" alt="Caricamento di un rullino"></p>
+<p align="center"><img src="docs/screenshots/caricamento-v06.gif" width="540" alt="Caricamento di un rullino"></p>
 
-| ![Home](docs/screenshots/01_home-v05.png) | ![Astro](docs/screenshots/02_astro-v05.png) | ![Rullini](docs/screenshots/14_rullini-v05.png) |
-| ![Allineamento polare](docs/screenshots/06_polare-v05.png) | ![Calendario del cielo](docs/screenshots/07_cielo-v05.png) | ![Tema notte](docs/screenshots/21_cielo_notte-v05.png) |
-| ![Fuoco stelle](docs/screenshots/05_stelle-v05.png) | ![Foto](docs/screenshots/08_foto-v05.png) | ![Torna alla 6D](docs/screenshots/19_torna_6d-v05.png) |
+| ![Home](docs/screenshots/01_home-v06.png) | ![Astro](docs/screenshots/02_astro-v06.png) | ![Rullini](docs/screenshots/14_rullini-v06.png) |
+| ![Allineamento polare](docs/screenshots/06_polare-v06.png) | ![Calendario del cielo](docs/screenshots/07_cielo-v06.png) | ![Tema notte](docs/screenshots/21_cielo_notte-v06.png) |
+| ![Fuoco stelle](docs/screenshots/05_stelle-v06.png) | ![Foto](docs/screenshots/08_foto-v06.png) | ![Torna alla 6D](docs/screenshots/19_torna_6d-v06.png) |
 
 ## Funzioni
 
@@ -24,7 +24,7 @@ Un'interfaccia a tutto schermo, animata, con menu dedicati ad **astrofotografia*
 | 🎞️ **Rullini** | 16 pellicole (colore, dia, B/N, cine) · push/pull · 12/24/36 pose · pausa e ripresa · contatore nella barra del Live View · registro su scheda · avviso se la macchina è in solo RAW · [preset per LightCraft e Lightroom](presets/) |
 | 💾 **Profili** | 5 posti per le impostazioni preferite |
 | 🔁 **Torna alla 6D** | Rimette tutto com'era prima di Iride: stile immagine e cursori, ISO, tempo, diaframma, bianco, anteprima, impostazioni di Magic Lantern, nomi dei file |
-| ✨ **Interfaccia** | Animazioni senza sfarfallio (doppio buffer), caricamento e riavvolgimento del rullino animati, tema notte rosso, si apre col cestino (o col tasto luce) · diagnostica dei tasti |
+| ✨ **Interfaccia** | Animazioni senza sfarfallio (doppio buffer), caricamento e riavvolgimento del rullino animati, tema notte rosso, compare all'accensione, si apre col cestino (o col tasto luce) · diagnostica dei tasti |
 
 ### Tasto luce
 
@@ -32,7 +32,7 @@ La 6D riceve il tasto luce del display superiore come evento `0x20`, e Magic Lan
 
 ### Rullini
 
-<p align="center"><img src="docs/screenshots/rullini_tutti-v05.png" width="720" alt="I 16 rullini"></p>
+<p align="center"><img src="docs/screenshots/rullini_tutti-v06.png" width="720" alt="I 16 rullini"></p>
 
 Ogni rullino è disegnato in macchina, con grafiche originali: perno, coperchi zigrinati, cilindro ombreggiato, fessura di velluto, codice DX e codice a barre.
 
@@ -49,7 +49,7 @@ I calcoli astronomici girano in macchina, senza internet, e sono confrontati con
 2. Scarica `IrideFW-<versione>-6D116-SD.zip` dalla pagina **Releases** (per aggiornare basta `iride.mo` in `ML/modules`).
 3. Formatta la scheda nella 6D e copia tutto il contenuto dello zip nella radice.
 4. Ghiera su M, Menu → Versione firmware → aggiorna: parte l'installatore di Magic Lantern.
-5. Apri Iride col **cestino**: dentro Iride il cestino porta al menu di Magic Lantern, un altro cestino lo chiude. Si può usare anche il tasto luce del display superiore (vedi «Tasto luce» qui sopra).
+5. All'accensione compare la Home di Iride (si può spegnere in Opzioni). Poi si apre col **cestino**: dentro Iride il cestino porta al menu di Magic Lantern, un altro cestino lo chiude. Si può usare anche il tasto luce del display superiore (vedi «Tasto luce» qui sopra).
 
 Istruzioni complete in [docs/LEGGIMI.txt](docs/LEGGIMI.txt). Se la macchina si blocca: togli e rimetti la batteria. Magic Lantern gira dalla scheda e non modifica la ROM.
 
@@ -72,7 +72,7 @@ La compilazione e i test girano anche in automatico con GitHub Actions a ogni mo
 
 ```
 cd simulator && mkdir -p out
-gcc -std=gnu99 -Ishim -o preview preview.c -lm && ./preview   # 65 test
+gcc -std=gnu99 -Ishim -o preview preview.c -lm && ./preview   # 70 test
 pip install astropy pillow
 python3 check_astro.py   # confronto astronomico con astropy
 python3 render.py        # schermate in png/

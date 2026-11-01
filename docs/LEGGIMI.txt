@@ -1,4 +1,4 @@
-IRIDE FW 0.5 per Canon EOS 6D (firmware Canon 1.1.6)
+IRIDE FW 0.6 per Canon EOS 6D (firmware Canon 1.1.6)
 =====================================================
 
 Magic Lantern per 6D 1.1.6 (build ufficiale del 20/06/2025, commit ed3e7c0)
@@ -6,7 +6,7 @@ Magic Lantern per 6D 1.1.6 (build ufficiale del 20/06/2025, commit ed3e7c0)
 
 ATTENZIONE
 - Sperimentale. Prime prove su una 6D vera: rullini e nomi dei file funzionano.
-  Il resto: 65 test superati sul simulatore, calcoli astronomici confrontati
+  Il resto: 70 test superati sul simulatore, calcoli astronomici confrontati
   con astropy, compilato contro il firmware 1.1.6.
 - Magic Lantern gira dalla scheda e non modifica la ROM: con una scheda senza
   ML la macchina e' quella di sempre.
@@ -23,6 +23,9 @@ INSTALLAZIONE (serve il firmware Canon 1.1.6: vedi builds.magiclantern.fm/6D.htm
 
 APRIRE IRIDE
 ------------
+- ALL'ACCENSIONE: dopo 2-3 secondi compare la Home (Opzioni > Apri
+  all'accensione). Se accendi tenendo premuto a meta' lo scatto per
+  fotografare subito, non compare. Mezzo scatto la chiude sempre.
 - CESTINO dalla schermata di scatto: si apre Iride (Opzioni > Cestino apre
   Iride; spento = il cestino apre il menu Magic Lantern come sempre).
 - Dentro Iride il CESTINO porta al menu di Magic Lantern, un altro cestino
@@ -75,7 +78,8 @@ TORNA ALLA 6D
             Lantern cambiate da Iride, nomi dei file. Il rullino va in pausa.
 
 OPZIONI     Tema (normale / notte rossa / notte solo in Astro), animazioni
-            (complete / rapide / spente), schermata iniziale, cestino apre
+            (complete / rapide / spente), schermata iniziale, apri all'accensione,
+            cestino apre
             Iride, tasto luce,
             anteprima col rullino, avviso posa, luogo (di fabbrica Roma
             41.90 N 12.50 E: imposta il tuo per polare e calendario), fuso orario,

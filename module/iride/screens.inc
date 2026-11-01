@@ -50,14 +50,11 @@ static void draw_home()
     for (int i = 0; i < 3; i++)
     {
         int x = 24 + i * 230, y = 62;
-        fill(i == s ? C_SEL : C_PANEL, x, y, 212, 196);
-        if (i == 0) icon_stars(x + 30, y + 54);
-        else if (i == 1) icon_camera(x + 58, y + 34);
-        else
-        {
-            const struct film *fm = P.roll_loaded ? cur_film() : &films[1];
-            draw_canister(fm, x + 106, y + 14, 58, 0);
-        }
+        int bg = i == s ? C_SEL : C_PANEL;
+        fill(bg, x, y, 212, 196);
+        if (i == 0) icon_sky(x + 11, y + 8, bg);
+        else if (i == 1) icon_dslr(x + 31, y + 6, bg);
+        else icon_rolls(P.roll_loaded ? cur_film() : &films[1], x + 6, y + 6);
         txt(FONT_LARGE, C_TEXT, x + 16, y + 118, big[i]);
         char line[48];
         if (i == 2)
@@ -73,10 +70,11 @@ static void draw_home()
     for (int i = 0; i < 3; i++)
     {
         int x = 24 + i * 230, y = 272;
-        fill(i + 3 == s ? C_SEL : C_PANEL, x, y, 212, 84);
-        if (i == 0) icon_restore(x + 34, y + 42);
-        else if (i == 1) icon_sliders(x + 34, y + 44);
-        else icon_gear(x + 34, y + 42);
+        int bg = i + 3 == s ? C_SEL : C_PANEL;
+        fill(bg, x, y, 212, 84);
+        if (i == 0) icon_undo(x + 34, y + 42);
+        else if (i == 1) icon_faders(x + 34, y + 42);
+        else icon_gears(x + 32, y + 46, bg);
         txt(FONT_MED, C_TEXT, x + 66, y + 14, small[i]);
         char line[40];
         if (i == 0)
@@ -464,9 +462,9 @@ static void profiles_key(int key, int dx, int dy)
 
 /* ------------------------------------------------------------------ opzioni */
 
-static const char *const opt_labels[] = { "Tema", "Animazioni", "Schermata iniziale", "Cestino apre Iride",
-    "Tasto luce LCD", "Anteprima col rullino", "Avviso posa", "Latitudine", "Longitudine", "Fuso orario",
-    "Diagnostica tasti" };
+static const char *const opt_labels[] = { "Tema", "Animazioni", "Schermata iniziale", "Apri all'accensione",
+    "Cestino apre Iride", "Tasto luce LCD", "Anteprima col rullino", "Avviso posa", "Latitudine", "Longitudine",
+    "Fuso orario", "Diagnostica tasti" };
 
 static void opt_value(int row, char *buf, int len, int *kind)
 {
@@ -477,17 +475,18 @@ static void opt_value(int row, char *buf, int len, int *kind)
         case 0: snprintf(buf, len, "< %s >", theme[COERCE(opt_theme, 0, 2)]); break;
         case 1: snprintf(buf, len, "< %s >", anim[COERCE(opt_anim, 0, 2)]); break;
         case 2: *kind = opt_splash ? VK_ON : VK_OFF; break;
-        case 3: *kind = opt_trash_open ? VK_ON : VK_OFF; break;
-        case 4: *kind = opt_light_key ? VK_ON : VK_OFF; break;
-        case 5: snprintf(buf, len, "< %s >", opt_review_off ? "spegni" : "lascia com'e'"); break;
-        case 6: *kind = opt_wind ? VK_ON : VK_OFF; break;
-        case 7: snprintf(buf, len, "< %d.%02d N >", P.lat100 / 100, ABS(P.lat100 % 100)); break;
-        case 8: snprintf(buf, len, "< %d.%02d E >", P.lon100 / 100, ABS(P.lon100 % 100)); break;
-        case 9:
+        case 3: *kind = opt_boot_open ? VK_ON : VK_OFF; break;
+        case 4: *kind = opt_trash_open ? VK_ON : VK_OFF; break;
+        case 5: *kind = opt_light_key ? VK_ON : VK_OFF; break;
+        case 6: snprintf(buf, len, "< %s >", opt_review_off ? "spegni" : "lascia com'e'"); break;
+        case 7: *kind = opt_wind ? VK_ON : VK_OFF; break;
+        case 8: snprintf(buf, len, "< %d.%02d N >", P.lat100 / 100, ABS(P.lat100 % 100)); break;
+        case 9: snprintf(buf, len, "< %d.%02d E >", P.lon100 / 100, ABS(P.lon100 % 100)); break;
+        case 10:
             if (P.tz_mode == 0) snprintf(buf, len, "< Italia (ora legale auto) >");
             else snprintf(buf, len, "< UTC+%d fisso >", P.tz_mode - 1);
             break;
-        case 10: *kind = VK_ACTION; snprintf(buf, len, ">"); break;
+        case 11: *kind = VK_ACTION; snprintf(buf, len, ">"); break;
     }
 }
 
@@ -498,24 +497,25 @@ static void opt_change(int row, int dir, int big)
         case 0: opt_theme = MOD(opt_theme + dir, 3); break;
         case 1: opt_anim = MOD(opt_anim + dir, 3); break;
         case 2: opt_splash = !opt_splash; break;
-        case 3: opt_trash_open = !opt_trash_open; break;
-        case 4: opt_light_key = !opt_light_key; break;
-        case 5: opt_review_off = !opt_review_off; break;
-        case 6: opt_wind = !opt_wind; break;
-        case 7: P.lat100 = COERCE(P.lat100 + dir * (big ? 100 : 1), -9000, 9000); persist_touch(); break;
-        case 8: P.lon100 = COERCE(P.lon100 + dir * (big ? 100 : 1), -18000, 18000); persist_touch(); break;
-        case 9: P.tz_mode = MOD(P.tz_mode + dir, 5); persist_touch(); break;
+        case 3: opt_boot_open = !opt_boot_open; break;
+        case 4: opt_trash_open = !opt_trash_open; break;
+        case 5: opt_light_key = !opt_light_key; break;
+        case 6: opt_review_off = !opt_review_off; break;
+        case 7: opt_wind = !opt_wind; break;
+        case 8: P.lat100 = COERCE(P.lat100 + dir * (big ? 100 : 1), -9000, 9000); persist_touch(); break;
+        case 9: P.lon100 = COERCE(P.lon100 + dir * (big ? 100 : 1), -18000, 18000); persist_touch(); break;
+        case 10: P.tz_mode = MOD(P.tz_mode + dir, 5); persist_touch(); break;
     }
 }
 
 static void opt_activate(int row)
 {
-    if (row == 10) { go(SCR_KEYS, 1); return; }
+    if (row == 11) { go(SCR_KEYS, 1); return; }
     opt_change(row, 1, 0);
 }
 
-static const struct form opt_form = { 11, opt_labels, opt_value, opt_change, opt_activate, 0,
-    "^/v riga   </> cambia (ghiera superiore x100)   MENU indietro", 50, 35 };
+static const struct form opt_form = { 12, opt_labels, opt_value, opt_change, opt_activate, 0,
+    "^/v riga   </> cambia (ghiera superiore x100)   MENU indietro", 49, 32 };
 
 /* ------------------------------------------------------------------ diagnostica tasti */
 

@@ -459,6 +459,54 @@ static void draw_canister(const struct film *fm, int cx, int top, int scale, int
     }
 }
 
+/* icona Rullini della Home: il rullino attuale con la pellicola che esce e tre fotogrammi
+   con mini-foto (paesaggio, tramonto, cielo stellato). Area 200 x 100 da (x, y). */
+static void icon_rolls(const struct film *fm, int x, int y)
+{
+    const int scale = 62;
+    int cx = x + 50, top = y + 4;
+    int h = 126 * scale / 100, cap = MAX(10 * scale / 100, 3);
+    int by = top + 2 * cap;
+    int sy = by + h * 30 / 100, sh = h * 40 / 100;
+    int sx0 = cx + 76 * scale / 100 / 2 - 1, sx1 = x + 198;
+    int base = cc(COLOR_GRAY(22)), hole = cc(COLOR_GRAY(72));
+
+    /* striscia con taglio finale a mezza altezza */
+    fill(base, sx0, sy, sx1 - sx0 - 16, sh);
+    fill(base, sx1 - 16, sy, 16, sh / 2 + 1);
+    for (int px = sx0 + 3; px < sx1 - 3; px += 6)
+    {
+        fill(hole, px, sy + 2, 3, 3);
+        if (px < sx1 - 18) fill(hole, px, sy + sh - 5, 3, 3);
+    }
+    /* fotogrammi con le mini-foto */
+    int fy = sy + 7, fh = sh - 14, fw = fh * 3 / 2;
+    for (int k = 0; k < 3; k++)
+    {
+        int fx = sx0 + 10 + k * (fw + 6);
+        if (fx + fw > sx1 - 18) break;
+        if (k == 0)
+        {
+            fill(cc(COLOR_LIGHT_BLUE), fx, fy, fw, fh / 2);
+            fill(cc(COLOR_GREEN1), fx, fy + fh / 2, fw, fh - fh / 2);
+            fill(cc(COLOR_GREEN2), fx + fw / 3, fy + fh / 2 - 3, fw / 3, 3);
+        }
+        else if (k == 1)
+        {
+            fill(cc(COLOR_ORANGE), fx, fy, fw, fh * 6 / 10);
+            fill(cc(COLOR_DARK_RED), fx, fy + fh * 6 / 10, fw, fh - fh * 6 / 10);
+            fill_circle(fx + fw / 2, fy + fh * 6 / 10, 4, cc(COLOR_YELLOW));
+            fill(cc(COLOR_DARK_RED), fx, fy + fh * 6 / 10 + 1, fw, fh - fh * 6 / 10 - 1);
+        }
+        else
+        {
+            fill(COLOR_BLACK, fx, fy, fw, fh);
+            for (int i = 0; i < 9; i++) fill(cc(COLOR_WHITE), fx + 2 + (i * 7) % (fw - 3), fy + 1 + (i * 5) % (fh - 2), 1, 1);
+        }
+    }
+    draw_canister(fm, cx, top, scale, 0);
+}
+
 /* ------------------------------------------------------------------ scena "dorso aperto" */
 
 /* geometria: la 6D vista da dietro con lo sportello aperto, come una reflex a pellicola */

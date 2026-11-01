@@ -77,6 +77,10 @@ static void shot(const char *name)
 int gui_state = 0;   /* GUISTATE_IDLE su DryOS */
 int pic_quality = PICQ_RAW_JPG_LARGE_FINE;
 int dofpreview = 0;
+static int sim_display = 1, sim_half = 0;
+int display_is_on(void) { return sim_display; }
+int sensor_cleaning = 0;
+int get_halfshutter_pressed(void) { return sim_half; }
 static int menu_redraw_calls = 0;
 void menu_redraw(void) { menu_redraw_calls++; }
 int menu_redraw_blocked, ml_shutdown_requested, shooting_mode = SHOOTMODE_M, lv = 0, lv_dispsize = 1, image_review_time = 2, RECORDING = 0;
@@ -405,6 +409,21 @@ int main(void)
     CHECK(iride_keypress(MODULE_KEY_TRASH) == 1, "opzione spenta: il cestino apre il menu ML come sempre");
     opt_trash_open = 1;
 
+    /* ---------- apertura all'accensione */
+    menu_open = 0; app_running = 0; gui_state = 0;
+    { int before = menu_opened_calls; boot_done = 0; screen = SCR_SHELF; int t0 = clock_ms;
+      boot_task(NULL);
+      CHECK(menu_opened_calls == before + 1 && screen == SCR_HOME && clock_ms - t0 >= 2500, "all'accensione si apre la Home (dopo %d ms)", clock_ms - t0);
+      menu_redraw_blocked = 0; }
+    { int before = menu_opened_calls; boot_done = 0; sim_half = 1; boot_task(NULL); sim_half = 0;
+      CHECK(menu_opened_calls == before, "acceso col mezzo scatto premuto: niente Iride"); }
+    { int before = menu_opened_calls; boot_done = 0; sensor_cleaning = 1; int t0 = clock_ms; boot_task(NULL); sensor_cleaning = 0;
+      CHECK(menu_opened_calls == before && clock_ms - t0 < 15000, "pulizia del sensore infinita: rinuncia dopo %d ms", clock_ms - t0); }
+    { int before = menu_opened_calls; boot_done = 0; opt_boot_open = 0; boot_task(NULL); opt_boot_open = 1;
+      CHECK(menu_opened_calls == before, "opzione spenta: niente Iride all'accensione"); }
+    { int before = menu_opened_calls; boot_done = 0; sim_display = 0; boot_task(NULL); sim_display = 1;
+      CHECK(menu_opened_calls == before, "display spento: niente Iride"); }
+
     /* ---------- diagnostica tasti */
     { int n0 = klog_count;
       ev->param = 0x69; iride_keypress_raw(evp);
@@ -456,6 +475,7 @@ int main(void)
     P.prof[0].valid = 1; P.prof[0].name = 0; P.prof[1].valid = 1; P.prof[1].name = 3; P.prof[1].mode = SHOOTMODE_M;
     P.prof[1].shutter = 32; P.prof[1].aperture = 28; P.prof[1].iso = 120; P.prof[1].style = PS_NEUTRAL;
     sel[SCR_HOME] = 0; screenshot(SCR_HOME, "01_home");
+    { int th = opt_theme; opt_theme = 1; screenshot(SCR_HOME, "01b_home_notte"); opt_theme = th; }
     sel[SCR_ASTRO] = 1; screenshot(SCR_ASTRO, "02_astro");
     P.npf_focal = 24; P.npf_ap10 = 28; sel[SCR_NPF] = 2; msg[0] = 0; screenshot(SCR_NPF, "03_npf");
     preset_select(PRESET_HG); sel[SCR_INTERVAL] = 0; screenshot(SCR_INTERVAL, "04_intervallometro");

@@ -35,7 +35,7 @@
 #include <lvinfo.h>
 #include <math.h>
 
-#define IRIDE_VERSION "0.5"
+#define IRIDE_VERSION "0.6"
 
 /* ------------------------------------------------------------------ compatibilita' API */
 
@@ -105,6 +105,7 @@ static CONFIG_INT("iride.review",   opt_review_off, 1);   /* spegni anteprima co
 static CONFIG_INT("iride.wind",     opt_wind, 1);         /* avviso posa dopo ogni scatto */
 static CONFIG_INT("iride.lightkey", opt_light_key, 1);    /* tasto luce LCD apre Iride */
 static CONFIG_INT("iride.trash",    opt_trash_open, 1);   /* cestino apre Iride (dentro Iride: menu ML) */
+static CONFIG_INT("iride.boot",     opt_boot_open, 1);    /* Iride appare all'accensione */
 static CONFIG_INT("iride.anim",     opt_anim, 0);         /* 0 complete, 1 rapide, 2 spente */
 static CONFIG_INT("iride.theme",    opt_theme, 2);        /* 0 normale, 1 notte, 2 notte in Astro */
 static CONFIG_INT("iride.splash",   opt_splash, 1);
@@ -360,6 +361,32 @@ static void open_from_shooting()
     iride_start();
 }
 
+/* all'accensione: aspetta che Canon e ML abbiano finito (pulizia del sensore, schermata di
+   scatto accesa) e apre la Home. Se nel frattempo si usa un tasto o si tiene premuto a meta'
+   il pulsante di scatto (risveglio per scattare subito) non apre nulla. */
+static volatile int boot_done = 0;
+static int boot_ready()
+{
+    return can_open_from_shooting() && display_is_on() && !sensor_cleaning;
+}
+
+static void boot_task(void *unused)
+{
+    int keys0 = klog_count;
+    msleep(2500);
+    for (int i = 0; i < 40 && !boot_done; i++)
+    {
+        if (!opt_boot_open || klog_count != keys0 || get_halfshutter_pressed() || app_running) break;
+        if (boot_ready())
+        {
+            open_from_shooting();
+            break;
+        }
+        msleep(250);
+    }
+    boot_done = 1;
+}
+
 static unsigned int iride_keypress(unsigned int key)
 {
     /* durante un lavoro (sequenza, stack, posa B) il cestino lo ferma */
@@ -442,6 +469,13 @@ static struct menu_entry iride_menu[] =
         .children = (struct menu_entry[])
         {
             {
+                .name    = "All'accensione",
+                .priv    = &opt_boot_open,
+                .max     = 1,
+                .choices = CHOICES("niente", "apre Iride"),
+                .help    = "Accendendo la 6D compare la Home di Iride (mezzo scatto per scattare).",
+            },
+            {
                 .name    = "Cestino",
                 .priv    = &opt_trash_open,
                 .max     = 1,
@@ -486,6 +520,7 @@ static unsigned int iride_init()
     menu_add("Shoot", iride_menu, COUNT(iride_menu));
     lvinfo_add_items(roll_info_items, COUNT(roll_info_items));
     prefix_pending = 1;
+    if (opt_boot_open) task_create("iride_boot", 0x1e, 0x1000, boot_task, (void *)0);
     return 0;
 }
 
@@ -514,6 +549,7 @@ MODULE_CONFIGS_START()
     MODULE_CONFIG(opt_wind)
     MODULE_CONFIG(opt_light_key)
     MODULE_CONFIG(opt_trash_open)
+    MODULE_CONFIG(opt_boot_open)
     MODULE_CONFIG(opt_anim)
     MODULE_CONFIG(opt_theme)
     MODULE_CONFIG(opt_splash)

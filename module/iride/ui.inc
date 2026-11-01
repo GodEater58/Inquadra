@@ -264,61 +264,205 @@ static void draw_progress(int x, int y, int w, int h, int permille)
     fill(C_ACCENT, x, y, w * COERCE(permille, 0, 1000) / 1000, h);
 }
 
-static void icon_stars(int x, int y)
+/* ------------------------------------------------------------------ icone della Home */
+
+/* numeri pseudo-casuali ripetibili (stelle sempre al loro posto) */
+static unsigned icon_rng = 1;
+static int irand(int n) { icon_rng = icon_rng * 1103515245u + 12345u; return (int)((icon_rng >> 16) % (unsigned)n); }
+
+/* stella con croce di luce */
+static void star(int x, int y, int r, int c)
 {
-    int c1 = tc(COLOR_WHITE), c2 = tc(COLOR_YELLOW), c3 = tc(COLOR_LIGHT_BLUE), cl = C_LINE;
-    draw_line(x, y, x + 40, y + 22, cl);
-    draw_line(x + 40, y + 22, x + 76, y - 6, cl);
-    draw_line(x + 76, y - 6, x + 110, y + 18, cl);
-    fill_circle(x, y, 3, c1);
-    fill_circle(x + 40, y + 22, 2, c1);
-    fill_circle(x + 76, y - 6, 4, c2);
-    fill_circle(x + 110, y + 18, 2, c1);
-    fill_circle(x + 140, y + 2, 3, c3);
+    fill_circle(x, y, r, c);
+    if (r >= 2)
+    {
+        fill(c, x - r - 3, y, 2 * r + 7, 1);
+        fill(c, x, y - r - 3, 1, 2 * r + 7);
+    }
 }
 
-static void icon_camera(int x, int y)
+/* Astro: Via Lattea, costellazione, falce di luna, montagne con treppiede. Area 190 x 100. */
+static void icon_sky(int x, int y, int bg)
 {
-    int c = tc(COLOR_GRAY(75)), d = tc(COLOR_GRAY(35));
-    fill(c, x + 30, y - 10, 34, 12);          /* pentaprisma */
-    fill(c, x, y, 96, 52);                    /* corpo */
-    fill(d, x + 6, y + 6, 18, 8);             /* impugnatura */
-    fill_circle(x + 48, y + 26, 21, d);       /* obiettivo */
-    fill_circle(x + 48, y + 26, 13, tc(COLOR_BLACK));
-    fill_circle(x + 52, y + 21, 4, tc(COLOR_LIGHT_BLUE));
+    int w = 190, h = 100;
+    /* Via Lattea: fascia diagonale di puntini, piu' fitta al centro */
+    icon_rng = 7;
+    for (int i = 0; i < 90; i++)
+    {
+        int t = irand(w);
+        int spread = 14 - ABS(t - w / 2) / 10;
+        int px = x + t, py = y + 70 - t * 55 / w + irand(2 * spread + 1) - spread;
+        int c = irand(4) == 0 ? COLOR_WHITE : irand(2) ? COLOR_GRAY(62) : COLOR_GRAY(44);
+        fill(tc(c), px, py, 1 + (irand(5) == 0), 1);
+    }
+    /* stelle di campo */
+    for (int i = 0; i < 16; i++) fill(tc(COLOR_GRAY(80)), x + irand(w), y + irand(h - 34), 1, 1);
+    /* costellazione */
+    static const short cs[6][2] = { {18, 30}, {46, 44}, {74, 36}, {98, 52}, {122, 40}, {112, 18} };
+    for (int i = 0; i < 5; i++)
+        draw_line(x + cs[i][0], y + cs[i][1], x + cs[i + 1][0], y + cs[i + 1][1], tc(COLOR_GRAY(40)));
+    for (int i = 0; i < 6; i++)
+        star(x + cs[i][0], y + cs[i][1], i == 2 ? 3 : i == 5 ? 2 : 1, tc(i == 2 ? COLOR_YELLOW : i == 4 ? COLOR_LIGHT_BLUE : COLOR_WHITE));
+    /* falce di luna */
+    fill_circle(x + 166, y + 18, 12, tc(COLOR_ALMOST_WHITE));
+    fill_circle(x + 171, y + 14, 11, bg);
+    /* montagne: catena lontana in grigio e colline vicine in nero, treppiede sulla cima */
+    static const short far_pk[3][3] = { {40, 46, 48}, {120, 54, 52}, {178, 40, 46} };   /* x, altezza, pendenza% */
+    static const short near_pk[3][3] = { {10, 22, 40}, {84, 34, 44}, {160, 24, 38} };
+    for (int layer = 0; layer < 2; layer++)
+    {
+        const short (*pk)[3] = layer ? near_pk : far_pk;
+        int col = layer ? COLOR_BLACK : tc(COLOR_GRAY(14));
+        for (int c = 0; c < w; c += 2)
+        {
+            int hh = 0;
+            for (int k = 0; k < 3; k++)
+            {
+                int v = pk[k][1] - ABS(c - pk[k][0]) * pk[k][2] / 100;
+                if (v > hh) hh = v;
+            }
+            if (hh > 0) fill(col, x + c, y + h - hh, 2, hh);
+        }
+    }
+    /* neve sulla cima lontana piu' alta */
+    for (int c = -6; c <= 6; c += 2) fill(tc(COLOR_GRAY(60)), x + 120 + c, y + h - 54 + ABS(c) * 52 / 100, 2, 2);
+    int tx = x + 84, ty = y + h - 34;            /* cima della collina vicina */
+    draw_line(tx, ty - 10, tx - 6, ty, tc(COLOR_GRAY(70)));
+    draw_line(tx, ty - 10, tx + 6, ty, tc(COLOR_GRAY(70)));
+    draw_line(tx, ty - 10, tx + 1, ty, tc(COLOR_GRAY(70)));
+    fill(tc(COLOR_GRAY(70)), tx - 4, ty - 16, 9, 6);
+    fill(C_ACCENT, tx + 3, ty - 18, 2, 2);
 }
 
-static void icon_restore(int x, int y)
+/* triangolo pieno (righe orizzontali) */
+static void fill_tri(int x0, int y0, int x1, int y1, int x2, int y2, int c)
+{
+    int ymin = MIN(y0, MIN(y1, y2)), ymax = MAX(y0, MAX(y1, y2));
+    for (int yy = ymin; yy <= ymax; yy++)
+    {
+        int xa = 10000, xb = -10000;
+        int px[3] = { x0, x1, x2 }, py[3] = { y0, y1, y2 };
+        for (int e = 0; e < 3; e++)
+        {
+            int ax = px[e], ay = py[e], bx = px[(e + 1) % 3], by = py[(e + 1) % 3];
+            if ((yy < ay && yy < by) || (yy > ay && yy > by)) continue;
+            int xx = ay == by ? ax : ax + (bx - ax) * (yy - ay) / (by - ay);
+            if (ay == by) { xa = MIN(xa, MIN(ax, bx)); xb = MAX(xb, MAX(ax, bx)); }
+            else { xa = MIN(xa, xx); xb = MAX(xb, xx); }
+        }
+        if (xb >= xa) fill(c, xa, yy, xb - xa + 1, 1);
+    }
+}
+
+/* Foto: reflex vista di fronte. Area ~150 x 100, (x, y) = angolo in alto a sinistra del corpo */
+static void icon_dslr(int x, int y, int bg)
+{
+    int body = tc(COLOR_GRAY(24)), edge = tc(COLOR_GRAY(44)), dark = tc(COLOR_GRAY(12));
+    int bw = 150, bh = 74, by = y + 22;
+    /* pentaprisma a gradini e slitta flash */
+    for (int i = 0; i < 12; i++) fill(body, x + 52 - i * 2, by - 2 - i, 46 + i * 4, 2);
+    fill(edge, x + 52 - 22, by - 14, 46 + 44, 1);
+    fill(tc(COLOR_GRAY(55)), x + 64, by - 20, 22, 5);
+    fill(dark, x + 66, by - 18, 18, 2);
+    /* corpo con angoli smussati */
+    fill(body, x + 3, by, bw - 6, bh);
+    fill(body, x, by + 3, bw, bh - 6);
+    fill(edge, x + 3, by, bw - 6, 1);
+    /* impugnatura con texture */
+    fill(dark, x, by + 8, 28, bh - 14);
+    for (int yy = by + 12; yy < by + bh - 8; yy += 4)
+        for (int xx = x + 3 + ((yy / 4) & 1) * 2; xx < x + 26; xx += 4) fill(tc(COLOR_GRAY(20)), xx, yy, 1, 1);
+    /* pulsante di scatto e ghiera dei modi */
+    fill(C_ACCENT, x + 8, by - 5, 14, 5);
+    fill(tc(COLOR_GRAY(60)), x + 9, by - 5, 12, 1);
+    fill(edge, x + 116, by - 6, 26, 6);
+    for (int xx = x + 118; xx < x + 140; xx += 3) fill(dark, xx, by - 5, 1, 4);
+    /* luce AF */
+    fill_circle(x + 38, by + 14, 3, tc(COLOR_GRAY(50)));
+    /* obiettivo: barilotto, ghiera zigrinata, anello arancione, lente con riflessi */
+    int cx = x + 80, cy = by + 36;
+    fill_circle(cx, cy, 34, edge);
+    fill_circle(cx, cy, 32, body);
+    for (int i = 0; i < 28; i++)
+    {
+        float a = (float)i * 0.2244f;
+        fill(dark, cx + (int)(29.0f * cosf(a)) - 1, cy + (int)(29.0f * sinf(a)) - 1, 2, 2);
+    }
+    draw_circle(cx, cy, 25, C_ACCENT);
+    draw_circle(cx, cy, 24, C_ACCENT);
+    fill_circle(cx, cy, 22, tc(COLOR_GRAY(8)));
+    fill_circle(cx, cy, 16, COLOR_BLACK);
+    fill_circle(cx - 3, cy - 3, 9, tc(COLOR_BLUE));
+    fill_circle(cx - 4, cy - 4, 6, COLOR_BLACK);
+    fill_circle(cx - 8, cy - 9, 3, tc(COLOR_LIGHT_BLUE));
+    fill(tc(COLOR_WHITE), cx - 9, cy - 10, 2, 2);
+    fill(tc(COLOR_GRAY(50)), cx + 7, cy + 8, 3, 2);
+    (void)bg;
+}
+
+/* Torna alla 6D: freccia circolare spessa (antioraria) con una piccola reflex al centro */
+static void icon_undo(int x, int y)
 {
     int c = C_ACCENT;
-    draw_circle(x, y, 14, c);
-    draw_circle(x, y, 13, c);
-    fill(C_PANEL, x - 16, y - 16, 14, 10);    /* apertura dell'anello */
-    draw_line(x - 14, y - 6, x - 6, y - 12, c);
-    draw_line(x - 14, y - 6, x - 16, y - 16, c);
+    const float a0 = 1.05f, a1 = 5.70f;                 /* da 60 a 327 gradi */
+    for (int i = 0; i <= 40; i++)
+    {
+        float a = a0 + (a1 - a0) * (float)i / 40.0f;
+        int px = x + (int)(17.0f * cosf(a)), py = y - (int)(17.0f * sinf(a));
+        fill(c, px - 2, py - 2, 5, 5);
+    }
+    /* punta in partenza (in alto a destra), verso il senso di rotazione */
+    float ca = cosf(a0), sa = sinf(a0);
+    int ax = x + (int)(17.0f * ca), ay = y - (int)(17.0f * sa);
+    int tx = (int)(-sa * 9.0f), ty = (int)(-ca * 9.0f);            /* tangente (verso antiorario) */
+    int nx = (int)(ca * 8.0f), ny = (int)(-sa * 8.0f);             /* normale */
+    fill_tri(ax + nx, ay + ny, ax - nx, ay - ny, ax + tx * 13 / 10, ay + ty * 13 / 10, c);
+    /* reflex al centro */
+    int g = tc(COLOR_GRAY(70));
+    fill(g, x - 7, y - 3, 14, 9);
+    fill(g, x - 3, y - 6, 6, 3);
+    fill_circle(x, y + 1, 3, COLOR_BLACK);
 }
 
-static void icon_sliders(int x, int y)
+/* Profili: tre cursori verticali da mixer, centro (x, y) */
+static void icon_faders(int x, int y)
 {
-    int c = C_ACCENT, l = C_LINE;
+    static const signed char pos[3] = { 8, -10, 2 };
     for (int i = 0; i < 3; i++)
     {
-        fill(l, x - 16, y - 12 + i * 12, 32, 2);
-        fill_circle(x - 10 + ((i * 13) % 22), y - 11 + i * 12, 4, c);
+        int fx = x - 15 + i * 15;
+        fill(C_LINE, fx - 2, y - 22, 5, 44);
+        fill(COLOR_BLACK, fx, y - 21, 1, 42);
+        int ky = y + pos[i];
+        fill(C_ACCENT, fx - 6, ky - 4, 13, 9);
+        fill(tc(COLOR_WHITE), fx - 5, ky, 11, 1);
+        fill(tc(COLOR_GRAY(30)), fx - 6, ky + 4, 13, 1);
     }
 }
 
-static void icon_gear(int x, int y)
+/* Opzioni: due ingranaggi che si incastrano, centro del grande (x, y) */
+static void gear(int x, int y, int r, int teeth, float rot, int c, int bg)
 {
-    int c = C_ACCENT;
-    for (int i = 0; i < 8; i++)
+    for (int i = 0; i < teeth; i++)
     {
-        float a = (float)i * 0.785398f;
-        int x1 = x + (int)(17.0f * cosf(a)), y1 = y + (int)(17.0f * sinf(a));
-        fill_circle(x1, y1, 3, c);
+        float a = rot + (float)i * 6.2832f / (float)teeth;
+        float ca = cosf(a), sa = sinf(a);
+        for (int k = -1; k <= 1; k++)
+        {
+            int ox = (int)((float)k * 1.6f * -sa), oy = (int)((float)k * 1.6f * ca);
+            draw_line(x + (int)((float)(r - 2) * ca) + ox, y + (int)((float)(r - 2) * sa) + oy,
+                      x + (int)((float)(r + 4) * ca) + ox, y + (int)((float)(r + 4) * sa) + oy, c);
+        }
     }
-    fill_circle(x, y, 13, c);
-    fill_circle(x, y, 6, C_PANEL);
+    fill_circle(x, y, r, c);
+    fill_circle(x, y, r * 4 / 10, bg);
+    draw_circle(x, y, r - 3, bg);
+}
+
+static void icon_gears(int x, int y, int bg)
+{
+    gear(x - 3, y + 2, 15, 10, 0.0f, C_ACCENT, bg);
+    gear(x + 18, y - 17, 8, 7, 0.25f, tc(COLOR_GRAY(70)), bg);
 }
 
 /* "IRIDE" che si apre come un diaframma */
