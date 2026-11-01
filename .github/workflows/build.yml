@@ -51,3 +51,37 @@ jobs:
         with:
           name: IrideFW-6D116-SD
           path: IrideFW-6D116-SD.zip
+
+  release:
+    name: Release su GitHub
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    needs: build
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: IrideFW-6D116-SD
+      - name: File della release
+        run: |
+          V="${GITHUB_REF_NAME#v}"
+          mkdir rel
+          mv IrideFW-6D116-SD.zip "rel/IrideFW-$V-6D116-SD.zip"
+          unzip -p "rel/IrideFW-$V-6D116-SD.zip" ML/modules/iride.mo > rel/iride.mo
+          python3 presets/make_presets.py presets_out
+          cp presets_out/IrideFW-preset-pellicole.zip rel/
+          awk -v v="$V" 'index($0, "## " v " ")==1 {f=1; next} /^## /{f=0} f' CHANGELOG.md > notes.md
+          {
+            echo
+            echo "**Aggiornare:** copia solo \`iride.mo\` nella cartella \`ML/modules\` della scheda: impostazioni e rullini restano."
+            echo
+            echo "**Prima installazione:** firmware Canon 1.1.6, poi il contenuto di \`IrideFW-$V-6D116-SD.zip\` nella radice della scheda (vedi LEGGIMI.txt)."
+            echo
+            echo "**Preset pellicola:** \`IrideFW-preset-pellicole.zip\` per LightCraft e Lightroom (Importa predefiniti)."
+          } >> notes.md
+      - name: Pubblica
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" rel/* --title "Iride FW ${GITHUB_REF_NAME#v}" --notes-file notes.md --latest

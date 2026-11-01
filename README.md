@@ -9,11 +9,11 @@ Un'interfaccia a tutto schermo, animata, con menu dedicati ad **astrofotografia*
 
 | | | |
 |---|---|---|
-<p align="center"><img src="docs/screenshots/caricamento.gif" width="540" alt="Caricamento di un rullino"></p>
+<p align="center"><img src="docs/screenshots/caricamento-v05.gif" width="540" alt="Caricamento di un rullino"></p>
 
-| ![Home](docs/screenshots/01_home.png) | ![Astro](docs/screenshots/02_astro.png) | ![Rullini](docs/screenshots/14_rullini.png) |
-| ![Allineamento polare](docs/screenshots/06_polare.png) | ![Calendario del cielo](docs/screenshots/07_cielo.png) | ![Tema notte](docs/screenshots/21_cielo_notte.png) |
-| ![Fuoco stelle](docs/screenshots/05_stelle.png) | ![Foto](docs/screenshots/08_foto.png) | ![Torna alla 6D](docs/screenshots/19_torna_6d.png) |
+| ![Home](docs/screenshots/01_home-v05.png) | ![Astro](docs/screenshots/02_astro-v05.png) | ![Rullini](docs/screenshots/14_rullini-v05.png) |
+| ![Allineamento polare](docs/screenshots/06_polare-v05.png) | ![Calendario del cielo](docs/screenshots/07_cielo-v05.png) | ![Tema notte](docs/screenshots/21_cielo_notte-v05.png) |
+| ![Fuoco stelle](docs/screenshots/05_stelle-v05.png) | ![Foto](docs/screenshots/08_foto-v05.png) | ![Torna alla 6D](docs/screenshots/19_torna_6d-v05.png) |
 
 ## Funzioni
 
@@ -32,7 +32,7 @@ La 6D riceve il tasto luce del display superiore come evento `0x20`, e Magic Lan
 
 ### Rullini
 
-<p align="center"><img src="docs/screenshots/rullini_tutti.png" width="720" alt="I 16 rullini"></p>
+<p align="center"><img src="docs/screenshots/rullini_tutti-v05.png" width="720" alt="I 16 rullini"></p>
 
 Ogni rullino è disegnato in macchina, con grafiche originali: perno, coperchi zigrinati, cilindro ombreggiato, fessura di velluto, codice DX e codice a barre.
 
@@ -46,7 +46,7 @@ I calcoli astronomici girano in macchina, senza internet, e sono confrontati con
 ## Installazione
 
 1. La 6D deve avere il **firmware Canon 1.1.6** (vedi [Magic Lantern – 6D](https://builds.magiclantern.fm/6D.html)). Il firmware Canon non è incluso in questo repository.
-2. Scarica `IrideFW-6D116-SD.zip` dalla pagina **Releases**.
+2. Scarica `IrideFW-<versione>-6D116-SD.zip` dalla pagina **Releases** (per aggiornare basta `iride.mo` in `ML/modules`).
 3. Formatta la scheda nella 6D e copia tutto il contenuto dello zip nella radice.
 4. Ghiera su M, Menu → Versione firmware → aggiorna: parte l'installatore di Magic Lantern.
 5. Apri Iride col **cestino**: dentro Iride il cestino porta al menu di Magic Lantern, un altro cestino lo chiude. Si può usare anche il tasto luce del display superiore (vedi «Tasto luce» qui sopra).
@@ -64,7 +64,7 @@ git apply ../module/magiclantern.patch
 cd platform/6D.116 && make -j8      # -> build/magiclantern.zip
 ```
 
-La compilazione e i test girano anche in automatico con GitHub Actions a ogni modifica (`.github/workflows/build.yml`).
+La compilazione e i test girano anche in automatico con GitHub Actions a ogni modifica (`.github/workflows/build.yml`). Un tag `vX.Y` (es. `git tag v0.5 && git push origin v0.5`) crea da solo la **Release** con pacchetto SD, `iride.mo` e preset pellicola.
 
 ## Simulatore e test
 
