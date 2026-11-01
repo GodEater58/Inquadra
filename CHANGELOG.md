@@ -13,8 +13,10 @@
   - avvisi in basso che entrano con la loro tacca e si spengono piano
   - caricamento: contapose a rullo (S → 0 → 1 che scorrono), passaggi che entrano, barra di avanzamento e spunta finale; riavvolgimento con barra e spunta; alla fine la scena riscende e scopre lo scaffale (prima si tagliava di colpo)
   - Torna alla 6D: barra di ripristino, spunta, poi ritorno nella Home
+- **Allineamento polare rifatto**: reticolo con corona graduata ogni 15 minuti, croce, cerchio della Polare con la sua distanza dal polo; la lancetta arriva con un piccolo rimbalzo, la Polare lancia un impulso a ogni aggiornamento; occhio nudo / cannocchiale è un interruttore e il passaggio ruota la lancetta di mezzo giro; orario della prossima culminazione; nuova mappa del cielo a nord con Grande Carro, Cassiopea, Polare e orizzonte per trovarla (coordinate verificate)
+- **Calendario del cielo rifatto**: su/giù sceglie una delle 7 notti; per la notte scelta fase lunare, buio, sorgere e tramonto della Luna (entro 1 minuto da astropy), centro della Via Lattea e una linea del tempo dalle 16 alle 8 con crepuscoli, Luna, Via Lattea, finestra buia senza Luna e il momento attuale; ogni riga ha la sua mini-notte; stella sulla notte migliore; tutto entra con animazioni. Tema notte solo in rosso scuro
 - Corretto: dopo "Torna alla 6D" l'avviso "Fatto" non compariva
-- Simulatore: 85 test (descrizioni che stanno nel dialogo, transizioni verificate sulla memoria video), fotogrammi di tutte le animazioni; `simulator/gif.py` crea le GIF del README
+- Simulatore: 86 test (anche sorgere e tramonto della Luna confrontati con astropy) (descrizioni che stanno nel dialogo, transizioni verificate sulla memoria video), fotogrammi di tutte le animazioni; `simulator/gif.py` crea le GIF del README
 
 ## 0.9 – 1 novembre 2026
 - Il progetto si chiama **Iride 6D**: nomi aggiornati in firmware, istruzioni, preset (gruppo *Iride 6D - Pellicole*) e file delle release (`Iride6D-<versione>-SD.zip`, `Iride6D-preset-pellicole.zip`)

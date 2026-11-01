@@ -579,8 +579,8 @@ int main(void)
     sky_enter(); while (!sky_ready) sky_tick();
     jf = fopen("out/nights.json", "w"); fprintf(jf, "[\n");
     for (int i = 0; i < SKY_NIGHTS; i++)
-        fprintf(jf, " {\"day1970\":%d,\"sunset\":%d,\"dusk\":%d,\"dawn\":%d,\"sunrise\":%d,\"moon_illum\":%d,\"moonless\":%d,\"gc_start\":%d,\"gc_end\":%d}%s\n",
-            nights[i].day1970, nights[i].sunset, nights[i].dusk, nights[i].dawn, nights[i].sunrise, nights[i].moon_illum, nights[i].moonless_min,
+        fprintf(jf, " {\"day1970\":%d,\"sunset\":%d,\"dusk\":%d,\"dawn\":%d,\"sunrise\":%d,\"moonrise\":%d,\"moonset\":%d,\"moon_illum\":%d,\"moonless\":%d,\"gc_start\":%d,\"gc_end\":%d}%s\n",
+            nights[i].day1970, nights[i].sunset, nights[i].dusk, nights[i].dawn, nights[i].sunrise, nights[i].moonrise, nights[i].moonset, nights[i].moon_illum, nights[i].moonless_min,
             nights[i].gc_start, nights[i].gc_end, i + 1 < SKY_NIGHTS ? "," : "");
     fprintf(jf, "]\n"); fclose(jf);
 
@@ -702,6 +702,18 @@ int main(void)
         handle_key(MODULE_KEY_PRESS_RIGHT);
         frames_at("z_scaffale_rullino", tsh, COUNT(tsh));
         shelf_cat = CAT_COLOR; shelf_enter();
+        /* Astro: entrata dell'allineamento polare, impulso, cambio di vista; calendario */
+        static const int tp[] = { 0, 120, 260, 420, 600, 800, 1500 };
+        screen = SCR_POLAR; P.polar_view = 0; polar_enter(); frames_at("z_polare", tp, COUNT(tp));
+        static const int tq[] = { 0, 100, 220, 420 };
+        handle_key(MODULE_KEY_INFO); frames_at("z_polare_vista", tq, COUNT(tq));
+        P.polar_view = 0;
+        static const int tk[] = { 0, 80, 180, 300, 450, 700 };
+        screen = SCR_SKY; sky_enter(); while (!sky_ready) sky_tick(); frames_at("z_cielo", tk, COUNT(tk));
+        handle_key(MODULE_KEY_PRESS_DOWN); handle_key(MODULE_KEY_PRESS_DOWN); frames_at("z_cielo_notte_scelta", tk, COUNT(tk));
+        CHECK(sky_sel == 2, "calendario: ^/v sceglie la notte (%d)", sky_sel);
+        sky_sel = 0;
+
         /* Torna alla 6D: barra, spunta, poi la Home con l'avviso */
         struct persist saved = P;
         snap_take(); screen = SCR_RESTORE; hl_reset(); render(0);

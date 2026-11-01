@@ -173,6 +173,19 @@ static void txt_c_in(int font, int c, int cx, int y, const char *s, int e, int d
 static int val_t0 = -100000, val_dir = 0;
 static void val_kick(int dir) { val_t0 = get_ms_clock(); val_dir = dir; }
 
+/* valore animato x1000 che insegue il suo obiettivo (carosello, sottolineatura) */
+struct glider { int vis, from, to, t0; };
+static int glide(struct glider *g, int target, int full)
+{
+    int now = get_ms_clock(), dur = anim_ms(full);
+    if (g->vis < 0 || dur == 0) { g->vis = g->from = g->to = target; return target; }
+    if (target != g->to) { g->from = g->vis; g->to = target; g->t0 = now; }
+    int e = ease(now - g->t0, dur);
+    g->vis = lerp(g->from, g->to, e);
+    if (e < 1000) anim_keep();
+    return g->vis;
+}
+
 /* barra di selezione elastica: il bordo davanti arriva subito, quello dietro la segue */
 static int hl_to = -1, hl_lead, hl_tail, hl_fl, hl_ft, hl_t0;
 

@@ -239,8 +239,6 @@ static void foto_key(int key, int dx, int dy)
 
 static int shelf_cat = CAT_COLOR;
 static int shelf_pos[CAT_COUNT] = { 1, 0, 0, 0 };
-/* valore animato x1000 che insegue il suo obiettivo (carosello, sottolineatura) */
-struct glider { int vis, from, to, t0; };
 static struct glider shelf_g = { -1, 0, 0, 0 }, tab_g = { -1, 0, 0, 0 };
 static int pop_t0 = -100000;                                /* cambio categoria: i rullini spuntano */
 static int bump_t0 = -100000, bump_dir = 0;                 /* fine dello scaffale: piccolo urto */
@@ -259,17 +257,6 @@ static int shelf_film()
     int n = cat_list(shelf_cat);
     shelf_pos[shelf_cat] = COERCE(shelf_pos[shelf_cat], 0, MAX(n - 1, 0));
     return cat_films[shelf_pos[shelf_cat]];
-}
-
-static int glide(struct glider *g, int target, int full)
-{
-    int now = get_ms_clock(), dur = anim_ms(full);
-    if (g->vis < 0 || dur == 0) { g->vis = g->from = g->to = target; return target; }
-    if (target != g->to) { g->from = g->vis; g->to = target; g->t0 = now; }
-    int e = ease(now - g->t0, dur);
-    g->vis = lerp(g->from, g->to, e);
-    if (e < 1000) anim_keep();
-    return g->vis;
 }
 
 static void draw_shelf()
@@ -816,8 +803,8 @@ static const struct screen_def screens[SCR_COUNT] = {
     [SCR_NPF]      = { "Via Lattea",          SCR_ASTRO, &npf_form,    0,             0,            npf_enter,   0, 0 },
     [SCR_INTERVAL] = { "Intervallometro",     SCR_ASTRO, &int_form,    0,             0,            0,           0, 0 },
     [SCR_STARS]    = { "Fuoco stelle",        SCR_ASTRO, 0,            draw_stars,    stars_key,    stars_enter, stars_tick, 250 },
-    [SCR_POLAR]    = { "Allineamento polare", SCR_ASTRO, 0,            draw_polar,    polar_key,    0,           polar_tick, 1000 },
-    [SCR_SKY]      = { "Calendario del cielo",SCR_ASTRO, 0,            draw_sky,      0,            sky_enter,   sky_tick, 1 },
+    [SCR_POLAR]    = { "Allineamento polare", SCR_ASTRO, 0,            draw_polar,    polar_key,    polar_enter, polar_tick, 1000 },
+    [SCR_SKY]      = { "Calendario del cielo",SCR_ASTRO, 0,            draw_sky,      sky_key,      sky_enter,   sky_tick, 1 },
     [SCR_SHELF]    = { "Rullini",             SCR_HOME,  0,            draw_shelf,    shelf_key,    shelf_enter, 0, 0 },
     [SCR_CONFIRM]  = { "Rullini",             SCR_SHELF, 0,            draw_confirm,  confirm_key,  0,           0, 0 },
     [SCR_HDR]      = { "Bracketing HDR",      SCR_FOTO,  &hdr_form,    0,             0,            0,           0, 0 },

@@ -5,21 +5,21 @@ Un'interfaccia a tutto schermo, animata, con menu dedicati ad **astrofotografia*
 
 *English: custom full-screen UI for the Canon EOS 6D (fw 1.1.6) running on Magic Lantern — astrophotography tools (NPF, intervalometer presets, HFR star focus, polar alignment, sky calendar), photo tools (HDR, focus stacking, Dual ISO, ETTR, ND), film-roll simulation and user profiles. UI in Italian.*
 
-> ⚠️ **Software sperimentale.** Prime prove su una 6D reale: rullini e nomi dei file funzionano. Il resto è verificato su un simulatore che esegue lo stesso codice (85 test) ed è compilato contro il firmware 6D 1.1.6. Usalo a tuo rischio. Non è affiliato né approvato da Canon.
+> ⚠️ **Software sperimentale.** Prime prove su una 6D reale: rullini e nomi dei file funzionano. Il resto è verificato su un simulatore che esegue lo stesso codice (86 test) ed è compilato contro il firmware 6D 1.1.6. Usalo a tuo rischio. Non è affiliato né approvato da Canon.
 
 | | | |
 |---|---|---|
 <p align="center"><img src="docs/screenshots/animazioni-v10.gif" width="540" alt="Avvio, Home, scaffale dei rullini e dialogo"></p>
 
 | ![Home](docs/screenshots/01_home-v06.png) | ![Astro](docs/screenshots/02_astro-v06.png) | ![Rullini](docs/screenshots/14_rullini-v10.png) |
-| ![Allineamento polare](docs/screenshots/06_polare-v06.png) | ![Calendario del cielo](docs/screenshots/07_cielo-v06.png) | ![Tema notte](docs/screenshots/21_cielo_notte-v06.png) |
+| ![Allineamento polare](docs/screenshots/06_polare-v10.png) | ![Calendario del cielo](docs/screenshots/07_cielo-v10.png) | ![Tema notte](docs/screenshots/21_cielo_notte-v10.png) |
 | ![Fuoco stelle](docs/screenshots/05_stelle-v08.png) | ![Foto](docs/screenshots/08_foto-v06.png) | ![Torna alla 6D](docs/screenshots/19_torna_6d-v06.png) |
 
 ## Funzioni
 
 | Area | Cosa fa |
 |---|---|
-| 🌌 **Astro** | Via Lattea con regola NPF (applica tempo, diaframma, ISO, bianco) · intervallometro con preset Via Lattea, Deep sky, Star trails, Timelapse, Giorno-notte, Dark, Flat, Bias · fuoco sulle stelle con misura HFR in Live View · allineamento polare · calendario di Luna, buio e Via Lattea per 7 notti · nomi file LGHT/DARK/FLAT/BIAS per lo stacking |
+| 🌌 **Astro** | Via Lattea con regola NPF (applica tempo, diaframma, ISO, bianco) · intervallometro con preset Via Lattea, Deep sky, Star trails, Timelapse, Giorno-notte, Dark, Flat, Bias · fuoco sulle stelle con misura HFR in Live View · allineamento polare su reticolo con mappa del cielo a nord (Grande Carro e Cassiopea) · calendario di 7 notti con linea del tempo della notte (crepuscoli, Luna, centro della Via Lattea), sorgere e tramonto della Luna e notte migliore · nomi file LGHT/DARK/FLAT/BIAS per lo stacking |
 | 📷 **Foto** | Bracketing HDR · focus stacking · Dual ISO · ETTR · scatto su movimento e trappola di fuoco · strumenti del Live View (peaking, zebra, istogramma, falsi colori, zoom, spot) · filtri ND con posa B automatica |
 | 🎞️ **Rullini** | 16 pellicole (colore, dia, B/N, cine) · push/pull · 12/24/36 pose · pausa e ripresa · contatore nella barra del Live View · registro su scheda · avviso se la macchina è in solo RAW · [preset per LightCraft e Lightroom](presets/) |
 | 💾 **Profili** | 5 posti per le impostazioni preferite |
@@ -44,7 +44,7 @@ Sotto lo scaffale due righe per pellicola: il carattere e l'uso ideale (verifica
 Il look della pellicola la 6D lo applica solo al **JPEG**: con la qualità in solo RAW, LightCraft e Lightroom mostrano un attimo l'anteprima con il look e poi il RAW neutro.
 Due soluzioni: scattare in **RAW+L** (Iride avvisa se sei in solo RAW, ma non cambia la qualità da solo: Magic Lantern lo considera rischioso) oppure usare i **[16 preset XMP](presets/)**, uno per pellicola, che danno lo stesso carattere al RAW.
 
-I calcoli astronomici girano in macchina, senza internet, e sono confrontati con [astropy](https://www.astropy.org/): Polare entro 0,4 s di angolo orario, Sole entro 0,004°, Luna entro 0,24°, orari di tramonto e buio al minuto.
+I calcoli astronomici girano in macchina, senza internet, e sono confrontati con [astropy](https://www.astropy.org/): Polare entro 0,4 s di angolo orario, Sole entro 0,004°, Luna entro 0,24°, orari di tramonto e buio al minuto, sorgere e tramonto della Luna entro 1 minuto.
 
 ## Installazione
 
@@ -75,7 +75,7 @@ La compilazione e i test girano anche in automatico con GitHub Actions a ogni mo
 
 ```
 cd simulator && mkdir -p out
-gcc -std=gnu99 -Ishim -o preview preview.c -lm && ./preview   # 85 test
+gcc -std=gnu99 -Ishim -o preview preview.c -lm && ./preview   # 86 test
 pip install astropy pillow
 python3 check_astro.py   # confronto astronomico con astropy
 python3 render.py        # schermate in png/

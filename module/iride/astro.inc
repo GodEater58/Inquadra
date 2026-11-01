@@ -585,7 +585,78 @@ static float polar_ha_hours(struct jtime j)
     return wrap360(lst_deg(j, lon_deg()) - ra) / 15.0f;
 }
 
-static int polar_tick() { return 1; }   /* ridisegna ogni secondo: la Polare si muove */
+/* stelle guida intorno al polo (J2000; la precessione non si vede alla scala della mappa) */
+struct guide_star { float ra_h, dec; };
+static const struct guide_star uma[7] = {        /* Grande Carro: Dubhe, Merak, Phecda, Megrez, Alioth, Mizar, Alkaid */
+    { 11.0621f, 61.751f }, { 11.0307f, 56.382f }, { 11.8972f, 53.695f }, { 12.2571f, 57.033f },
+    { 12.9005f, 55.960f }, { 13.3988f, 54.925f }, { 13.7923f, 49.313f } };
+static const struct guide_star cas[5] = {        /* Cassiopea: Caph, Schedar, Navi, Ruchbah, Segin */
+    { 0.1530f, 59.150f }, { 0.6751f, 56.537f }, { 0.9451f, 60.717f }, { 1.4303f, 60.235f }, { 1.9066f, 63.670f } };
+static const signed char uma_lines[7][2] = { {0, 1}, {1, 2}, {2, 3}, {3, 0}, {3, 4}, {4, 5}, {5, 6} };
+
+static int polar_t0 = 0, polar_ping = 0;          /* entrata (lancetta che arriva) e impulso ogni secondo */
+static struct glider polar_rot = { -1, 0, 0, 0 }; /* 0 = occhio nudo, 180000 = cannocchiale (gradi x1000) */
+static struct glider polar_seg = { -1, 0, 0, 0 };
+
+static void polar_enter() { polar_t0 = get_ms_clock(); polar_rot.vis = -1; polar_seg.vis = -1; }
+static int polar_tick() { polar_ping = get_ms_clock(); return 1; }   /* la Polare si muove: ridisegna */
+
+/* posizione sul quadrante: angolo orario (gradi) e distanza in pixel; vista a occhio nudo
+   guardando a nord: in alto lo zenit, le stelle girano in senso antiorario intorno al polo */
+static void sky_xy(int cx, int cy, float ha_deg, float r, int *x, int *y)
+{
+    float a = ha_deg * DEG2RAD;
+    *x = cx - (int)(r * sinf(a));
+    *y = cy - (int)(r * cosf(a));
+}
+
+/* mappa del cielo a nord per orientarsi: Grande Carro, Cassiopea, Polare e orizzonte */
+static void draw_north_map(int mx, int my, int mr, float lst, float lat)
+{
+    const float k = (float)mr / 46.0f;                /* 46 gradi dal polo fino al bordo */
+    fill_circle(mx, my, mr, C_PANEL);
+    /* terreno: sotto l'orizzonte, a "lat" gradi dal polo verso il basso */
+    int hy = my + (int)(lat * k);
+    for (int yy = MAX(hy, my - mr); yy <= my + mr; yy++)
+    {
+        int half = (int)sqrtf((float)MAX(mr * mr - (yy - my) * (yy - my), 0));
+        fill(night ? COLOR_BLACK : COLOR_GRAY(4), mx - half, yy, 2 * half + 1, 1);
+    }
+    if (hy < my + mr)
+    {
+        int half = (int)sqrtf((float)MAX(mr * mr - (hy - my) * (hy - my), 0));
+        fill(C_LINE, mx - half, hy, 2 * half + 1, 1);
+        txt_c(FONT_SMALL, C_DIM, mx, hy + 3, "N");
+    }
+    draw_circle(mx, my, mr, C_LINE);
+    int px[7], py[7];
+    for (int i = 0; i < 7; i++)
+        sky_xy(mx, my, lst - uma[i].ra_h * 15.0f, (90.0f - uma[i].dec) * k, &px[i], &py[i]);
+    for (int i = 0; i < 7; i++)
+        draw_line(px[uma_lines[i][0]], py[uma_lines[i][0]], px[uma_lines[i][1]], py[uma_lines[i][1]], tc(COLOR_GRAY(40)));
+    for (int i = 0; i < 7; i++) fill_circle(px[i], py[i], i == 3 ? 1 : 2, tc(COLOR_WHITE));
+    int qx[5], qy[5];
+    for (int i = 0; i < 5; i++)
+        sky_xy(mx, my, lst - cas[i].ra_h * 15.0f, (90.0f - cas[i].dec) * k, &qx[i], &qy[i]);
+    for (int i = 0; i < 4; i++) draw_line(qx[i], qy[i], qx[i + 1], qy[i + 1], tc(COLOR_GRAY(40)));
+    for (int i = 0; i < 5; i++) fill_circle(qx[i], qy[i], 2, tc(COLOR_LIGHT_BLUE));
+    /* polo e Polare (a meno di un grado: praticamente al centro) */
+    fill(C_DIM, mx - 5, my, 11, 1);
+    fill(C_DIM, mx, my - 5, 1, 11);
+    fill_circle(mx + 1, my - 1, 2, C_ACCENT);
+}
+
+/* interruttore a due voci con il fondo che scivola */
+static void draw_segments(int x, int y, int w, int h, const char *a, const char *b, int pos)
+{
+    int half = w / 2;
+    fill(C_PANEL, x, y, w, h);
+    int sx = x + half * glide(&polar_seg, pos * 1000, 220) / 1000;
+    fill(C_SEL, sx, y, half, h);
+    fill(C_ACCENT, sx, y + h - 3, half, 3);
+    txt_c(FONT_MED, pos == 0 ? C_TEXT : C_DIM, x + half / 2, y + (h - 23) / 2, a);
+    txt_c(FONT_MED, pos == 1 ? C_TEXT : C_DIM, x + half + half / 2, y + (h - 23) / 2, b);
+}
 
 static void draw_polar()
 {
@@ -597,79 +668,139 @@ static void draw_polar()
     float ra, dec;
     polaris(j, &ra, &dec);
     int inverted = P.polar_view;
+    int now = get_ms_clock();
 
-    int cx = 200, cy = 236, R = 150, rp = R * 70 / 100;
+    /* ---- reticolo del cannocchiale polare */
+    const int cx = 196, cy = 246, R = 150, rp = 100;
+    fill_circle(cx, cy, R, night ? COLOR_BLACK : COLOR_GRAY(10));
+    fill_circle(cx, cy, R - 18, C_BG);
     draw_circle(cx, cy, R, C_LINE);
-    draw_circle(cx, cy, R - 1, C_LINE);
-    draw_circle(cx, cy, rp, C_LINE);
+    draw_circle(cx, cy, R - 18, C_LINE);
+    for (int t = 0; t < 48; t++)                       /* tacche ogni 15 minuti dell'orologio */
+    {
+        float a = (float)t * 7.5f * DEG2RAD, sa = sinf(a), ca = cosf(a);
+        int len = t % 4 == 0 ? 18 : t % 2 == 0 ? 9 : 5;
+        int c = t % 4 == 0 ? C_DIM : C_LINE;
+        int r0 = R - 18, r1 = r0 + len;
+        draw_line(cx + (int)((float)r0 * sa), cy - (int)((float)r0 * ca), cx + (int)((float)r1 * sa), cy - (int)((float)r1 * ca), c);
+        if (t % 12 == 0)                               /* 12, 3, 6, 9 piu' marcati */
+            draw_line(cx + (int)((float)r0 * sa) + 1, cy - (int)((float)r0 * ca), cx + (int)((float)r1 * sa) + 1, cy - (int)((float)r1 * ca), C_TEXT);
+    }
     for (int h = 0; h < 12; h++)
     {
         float a = (float)h * 30.0f * DEG2RAD;
-        int x1 = cx + (int)((float)(R - 12) * sinf(a)), y1 = cy - (int)((float)(R - 12) * cosf(a));
-        int x2 = cx + (int)((float)R * sinf(a)), y2 = cy - (int)((float)R * cosf(a));
-        draw_line(x1, y1, x2, y2, C_DIM);
         char n[8];
         snprintf(n, sizeof(n), "%d", h == 0 ? 12 : h);
-        txt_c(FONT_SMALL, C_DIM, cx + (int)((float)(R + 14) * sinf(a)), cy - (int)((float)(R + 14) * cosf(a)) - 6, n);
+        txt_c(FONT_SMALL, h % 3 == 0 ? C_TEXT : C_DIM, cx + (int)((float)(R + 13) * sinf(a)), cy - (int)((float)(R + 13) * cosf(a)) - 6, n);
     }
-    draw_line(cx - 8, cy, cx + 8, cy, C_DIM);
-    draw_line(cx, cy - 8, cx, cy + 8, C_DIM);
+    /* croce con lo spazio al centro, cerchio della Polare e cerchio interno */
+    int cross = tc(COLOR_GRAY(24));
+    fill(cross, cx - R + 24, cy, R - 34, 1); fill(cross, cx + 10, cy, R - 34, 1);
+    fill(cross, cx, cy - R + 24, 1, R - 34); fill(cross, cx, cy + 10, 1, R - 34);
+    draw_circle(cx, cy, rp, tc(COLOR_GRAY(34)));
+    draw_circle(cx, cy, rp + 1, tc(COLOR_GRAY(20)));
+    draw_circle(cx, cy, rp / 2, tc(COLOR_GRAY(16)));
+    draw_circle(cx, cy, 4, C_DIM);
+    char buf[64];
+    snprintf(buf, sizeof(buf), "%d'", (int)((90.0f - dec) * 60.0f + 0.5f));
+    txt(FONT_SMALL, C_DIM, cx + rp * 71 / 100 + 6, cy + rp * 71 / 100 - 2, buf);
 
-    /* vista a occhio nudo: dal 12 la Polare gira in senso antiorario di HA x 15 gradi */
-    float a = ha * 15.0f * DEG2RAD;
-    int sx = inverted ? 1 : -1;
-    int px = cx + sx * (int)((float)rp * sinf(a));
-    int py = cy + (inverted ? 1 : -1) * (int)((float)rp * cosf(a));
+    /* lancetta: all'entrata parte dalle 12; cambiando vista ruota di mezzo giro */
+    float target = ha * 15.0f;
+    if (target > 180.0f) target -= 360.0f;            /* la lancetta prende la via piu' corta */
+    int ee = phase(now - polar_t0, 0, anim_ms(750), EZ_BACK);
+    if (ee < 1000) anim_keep();
+    float shown = target * (float)ee / 1000.0f + (float)glide(&polar_rot, inverted ? 180000 : 0, 420) / 1000.0f;
+    int px, py;
+    sky_xy(cx, cy, shown, (float)rp, &px, &py);
     draw_line(cx, cy, px, py, C_ACCENT);
-    fill_circle(px, py, 8, C_ACCENT);
-    fill_circle(px, py, 3, C_BG);
+    draw_line(cx + 1, cy, px + 1, py, C_ACCENT);
+    /* impulso: un anello che si allarga e si spegne dopo ogni aggiornamento */
+    int ep = anim_e(polar_ping, 650, EZ_OUT);
+    if (ep < 1000 && ee >= 1000)
+    {
+        int c = fade_c(C_ACCENT, 1000 - ep);
+        draw_circle(px, py, lerp(11, 26, ep), c);
+        draw_circle(px, py, lerp(11, 26, ep) + 1, c);
+    }
+    fill_circle(px, py, 10, C_ACCENT);
+    fill_circle(px, py, 5, C_BG);
+    fill_circle(px, py, 2, C_TEXT);
 
+    /* ---- pannello a destra */
     float clock = 12.0f - ha / 2.0f + (inverted ? 6.0f : 0.0f);
     clock = fmodf(clock + 24.0f, 12.0f);
     int ch = (int)clock, cm = (int)((clock - (float)ch) * 60.0f);
-    char buf[64];
-    int x2 = 390;
-    txt(FONT_MED, C_DIM, x2, 64, "Posizione della Polare");
+    const int x2 = 388;
+    int e1 = phase(now - polar_t0, 0, anim_ms(300), EZ_OUT), e2 = phase(now - polar_t0, anim_ms(80), anim_ms(300), EZ_OUT);
+    int e3 = phase(now - polar_t0, anim_ms(160), anim_ms(300), EZ_OUT), e4 = phase(now - polar_t0, anim_ms(240), anim_ms(300), EZ_OUT);
+    txt_in(FONT_SMALL, C_DIM, x2, 56, "POSIZIONE DELLA POLARE", e1, 20, 0);
     snprintf(buf, sizeof(buf), "ore %d:%02d", ch == 0 ? 12 : ch, cm);
-    txt(FONT_LARGE, C_ACCENT, x2, 92, buf);
+    txt_in(FONT_LARGE, C_ACCENT, x2, 72, buf, e1, 20, 0);
+    float to_transit = (24.0f - ha) * 0.99727f;          /* ore siderali -> ore solari */
+    int tt = (int)(to_transit * 60.0f + 0.5f);
+    char at[8];
+    fmt_hm(at, sizeof(at), mins + tt);
+    snprintf(buf, sizeof(buf), "Culmina tra %dh %02dm, alle %s", tt / 60, tt % 60, at);
+    txt_in(FONT_MED, C_TEXT, x2, 112, buf, e2, 20, 0);
     int hah = (int)ha, ham = (int)((ha - (float)hah) * 60.0f);
     snprintf(buf, sizeof(buf), "Angolo orario %02dh %02dm", hah, ham);
-    txt(FONT_MED, C_TEXT, x2, 140, buf);
-    snprintf(buf, sizeof(buf), "Distanza dal polo %d'", (int)((90.0f - dec) * 60.0f + 0.5f));
-    txt(FONT_MED, C_TEXT, x2, 170, buf);
-    float to_transit = (24.0f - ha) * 0.99727f;
-    snprintf(buf, sizeof(buf), "Culmina tra %dh %02dm", (int)to_transit, (int)((to_transit - (float)(int)to_transit) * 60.0f));
-    txt(FONT_MED, C_DIM, x2, 200, buf);
-    txt(FONT_MED, C_DIM, x2, 246, inverted ? "Vista: cannocchiale polare" : "Vista: a occhio nudo");
-    txt(FONT_MED, C_DIM, x2, 272, inverted ? "(immagine capovolta)" : "(guardando a nord)");
+    txt_in(FONT_MED, C_DIM, x2, 138, buf, e2, 20, 0);
+
+    /* mappa per trovare la Polare (sempre a occhio nudo) */
+    const int mx = 456, my = 248, mr = 72;
+    if (e3 > 0) draw_north_map(mx, my, mr, lst_deg(j, lon_deg()), lat_deg());
+    txt_in(FONT_SMALL, C_DIM, 540, 182, "CIELO A NORD", e3, 16, 0);
+    if (e3 >= 1000)
+    {
+        fill_circle(546, 207, 3, tc(COLOR_WHITE));
+        fill_circle(546, 227, 3, tc(COLOR_LIGHT_BLUE));
+        fill_circle(546, 247, 3, C_ACCENT);
+    }
+    txt_in(FONT_SMALL, C_TEXT, 560, 200, "Grande Carro", e3, 16, 0);
+    txt_in(FONT_SMALL, C_TEXT, 560, 220, "Cassiopea", e3, 16, 0);
+    txt_in(FONT_SMALL, C_TEXT, 560, 240, "Polare", e3, 16, 0);
+    txt_in(FONT_SMALL, C_DIM, 540, 268, "Tra le due, quasi", e3, 16, 0);
+    txt_in(FONT_SMALL, C_DIM, 540, 284, "a meta': la Polare.", e3, 16, 0);
+
+    draw_segments(x2, 336, 312, 34, "Occhio nudo", "Cannocchiale", inverted);
+    txt_in(FONT_SMALL, C_DIM, x2, 378, inverted ? "Immagine capovolta, come nel cannocchiale" : "Guardando a nord, senza ottiche", e4, 0, 6);
     char la[16], lo[16];
     snprintf(la, sizeof(la), "%d.%02d", P.lat100 / 100, ABS(P.lat100 % 100));
     snprintf(lo, sizeof(lo), "%d.%02d", P.lon100 / 100, ABS(P.lon100 % 100));
-    snprintf(buf, sizeof(buf), "Luogo %s N  %s E", la, lo);
-    txt(FONT_MED, C_DIM, x2, 318, buf);
-    snprintf(buf, sizeof(buf), "Fuso UTC+%d%s", off / 60, P.tz_mode ? "" : " (auto)");
-    txt(FONT_MED, C_DIM, x2, 344, buf);
-    draw_footer("INFO vista occhio/cannocchiale   MENU indietro   (luogo in Opzioni)");
+    snprintf(buf, sizeof(buf), "Luogo %s N  %s E   UTC+%d%s", la, lo, off / 60, P.tz_mode ? "" : " (auto)");
+    txt_in(FONT_SMALL, C_DIM, x2, 398, buf, e4, 0, 6);
+    draw_footer("INFO o SET cambia vista   MENU indietro   (luogo in Opzioni)");
 }
 
 static void polar_key(int key, int dx, int dy)
 {
-    if (key == MODULE_KEY_INFO || key == MODULE_KEY_PRESS_SET) { P.polar_view = !P.polar_view; persist_touch(); }
+    if (key == MODULE_KEY_INFO || key == MODULE_KEY_PRESS_SET || dx) { P.polar_view = dx ? (dx > 0) : !P.polar_view; persist_touch(); }
 }
 
 /* ------------------------------------------------------------------ calendario del cielo */
 
 #define SKY_NIGHTS 7
+#define SKY_SAMPLES 97                    /* dalle 16:00 alle 08:00, ogni 10 minuti */
+#define SKY_T0 960                        /* minuti locali del primo campione */
+enum { SK_DAY, SK_CIVIL, SK_NAUT, SK_ASTRO, SK_NIGHT };   /* Sole: giorno, crepuscoli, notte */
+#define SK_SUN  0x07
+#define SK_MOON 0x08                      /* Luna sopra l'orizzonte */
+#define SK_GC   0x10                      /* centro della Via Lattea a piu' di 10 gradi */
 struct night
 {
     int day1970;
     int sunset, dusk, dawn, sunrise;      /* minuti locali, -1 se assente */
+    int moonrise, moonset;                /* tra le 12 e le 12 del giorno dopo, -1 se assente */
     int dark_min, moonless_min;
     int moon_illum, moon_waxing;
     int gc_start, gc_end, gc_max_alt;     /* finestra del centro della Via Lattea, buio e senza Luna */
+    unsigned char s[SKY_SAMPLES];         /* stato del cielo ogni 10 minuti */
 };
 static struct night nights[SKY_NIGHTS];
 static int sky_ready = 0, sky_progress = 0, sky_scroll = 0;
+static int sky_sel = 0, sky_t0 = 0, sky_ready_t0 = 0, sky_best = 0;
+static struct glider sky_moon_g = { -1, 0, 0, 0 };
 
 /* centro galattico (Sgr A*), equinozio 2026.5 */
 #define GC_RA  (17.789203f * 15.0f)
@@ -681,6 +812,7 @@ static void sky_compute_night(int n, int day1970)
     memset(nt, 0, sizeof(*nt));
     nt->day1970 = day1970;
     nt->sunset = nt->dusk = nt->dawn = nt->sunrise = nt->gc_start = nt->gc_end = -1;
+    nt->moonrise = nt->moonset = -1;
     float lat = lat_deg(), lon = lon_deg();
     int y = 0, m = 0, d = 0;
     {
@@ -690,7 +822,7 @@ static void sky_compute_night(int n, int day1970)
         int doy = doe - (365 * yoe + yoe / 4 - yoe / 100), mp = (5 * doy + 2) / 153;
         d = doy - (153 * mp + 2) / 5 + 1; m = mp + (mp < 10 ? 3 : -9); y = yoe + era * 400 + (m <= 2);
     }
-    float prev_sun = 0.0f;
+    float prev_sun = 0.0f, prev_moon = 0.0f;
     for (int k = 0; k <= 144; k++)
     {
         int mins = 720 + k * 10;                 /* dalle 12:00 alle 12:00 del giorno dopo */
@@ -704,21 +836,30 @@ static void sky_compute_night(int n, int day1970)
         float moon = mgeo - 0.95f * cosf(mgeo * DEG2RAD);   /* parallasse lunare */
         float gc = altitude(GC_RA, GC_DEC, lst, lat);
         int lm = mins % 1440;
+        int moon_up = moon >= -0.833f;                      /* bordo superiore, con la rifrazione */
         if (k > 0)
         {
             /* istante del passaggio interpolato tra i due campioni (10 min) */
-            #define CROSS(th) MOD(mins - 10 + (int)(10.0f * (prev_sun - (th)) / (prev_sun - sun) + 0.5f), 1440)
-            if (prev_sun >= -0.833f && sun < -0.833f && nt->sunset < 0) nt->sunset = CROSS(-0.833f);
-            if (prev_sun >= -18.0f && sun < -18.0f && nt->dusk < 0) nt->dusk = CROSS(-18.0f);
-            if (prev_sun < -18.0f && sun >= -18.0f) nt->dawn = CROSS(-18.0f);
-            if (prev_sun < -0.833f && sun >= -0.833f) nt->sunrise = CROSS(-0.833f);
+            #define CROSS(prev, cur, th) MOD(mins - 10 + (int)(10.0f * ((prev) - (th)) / ((prev) - (cur)) + 0.5f), 1440)
+            if (prev_sun >= -0.833f && sun < -0.833f && nt->sunset < 0) nt->sunset = CROSS(prev_sun, sun, -0.833f);
+            if (prev_sun >= -18.0f && sun < -18.0f && nt->dusk < 0) nt->dusk = CROSS(prev_sun, sun, -18.0f);
+            if (prev_sun < -18.0f && sun >= -18.0f) nt->dawn = CROSS(prev_sun, sun, -18.0f);
+            if (prev_sun < -0.833f && sun >= -0.833f) nt->sunrise = CROSS(prev_sun, sun, -0.833f);
+            if (prev_moon < -0.833f && moon >= -0.833f && nt->moonrise < 0) nt->moonrise = CROSS(prev_moon, moon, -0.833f);
+            if (prev_moon >= -0.833f && moon < -0.833f && nt->moonset < 0) nt->moonset = CROSS(prev_moon, moon, -0.833f);
             #undef CROSS
         }
         prev_sun = sun;
+        prev_moon = moon;
+        if (k >= 24 && k <= 120)
+        {
+            int cls = sun > -0.833f ? SK_DAY : sun > -6.0f ? SK_CIVIL : sun > -12.0f ? SK_NAUT : sun > -18.0f ? SK_ASTRO : SK_NIGHT;
+            nt->s[k - 24] = cls | (moon_up ? SK_MOON : 0) | (gc > 10.0f ? SK_GC : 0);
+        }
         if (k < 144 && sun < -18.0f)
         {
             nt->dark_min += 10;
-            if (moon < 0.0f)
+            if (!moon_up)
             {
                 nt->moonless_min += 10;
                 if (gc > 10.0f)
@@ -733,6 +874,8 @@ static void sky_compute_night(int n, int day1970)
     }
 }
 
+static int gc_window(const struct night *n) { return n->gc_start < 0 ? 0 : MOD(n->gc_end - n->gc_start, 1440); }
+
 /* calcolo a pezzi: una notte per giro, cosi' l'interfaccia resta fluida */
 static int sky_tick()
 {
@@ -742,11 +885,30 @@ static int sky_tick()
     if (mins < 720) d70 -= 1;   /* prima di mezzogiorno vale ancora la notte appena passata */
     sky_compute_night(sky_progress, d70 + sky_progress);
     sky_progress++;
-    if (sky_progress >= SKY_NIGHTS) sky_ready = 1;
+    if (sky_progress >= SKY_NIGHTS)
+    {
+        /* notte migliore: piu' buio senza Luna, con un premio se c'e' il centro della Via Lattea */
+        int best = 0, score = -1;
+        for (int i = 0; i < SKY_NIGHTS; i++)
+        {
+            int sc = nights[i].moonless_min + 2 * gc_window(&nights[i]);
+            if (sc > score) { score = sc; best = i; }
+        }
+        sky_best = best;
+        sky_ready = 1;
+        sky_ready_t0 = sky_t0 = get_ms_clock();
+    }
     return 1;
 }
 
-static void sky_enter() { sky_ready = 0; sky_progress = 0; sky_scroll = 0; }
+static void sky_enter() { sky_ready = 0; sky_progress = 0; sky_scroll = 0; sky_sel = 0; sky_moon_g.vis = -1; }
+
+static void sky_key(int key, int dx, int dy)
+{
+    if (!sky_ready || !dy) return;
+    int s = COERCE(sky_sel + dy, 0, SKY_NIGHTS - 1);
+    if (s != sky_sel) { sky_sel = s; sky_t0 = get_ms_clock(); }
+}
 
 static const char *moon_phase_name(int illum, int waxing)
 {
@@ -770,75 +932,211 @@ static void draw_moon_icon(int cx, int cy, int r, int illum, int waxing)
         int x1 = waxing ? cx + half : cx - term;
         if (x1 > x0) draw_line(x0, cy + yy, x1, cy + yy, lit);
     }
+    if (r >= 20) draw_circle(cx, cy, r, tc(COLOR_GRAY(34)));
+}
+
+/* colore del cielo per lo stato del Sole */
+static int sky_color(int cls)
+{
+    static const unsigned char c[5] = { COLOR_LIGHT_BLUE, COLOR_BLUE, COLOR_GRAY(24), COLOR_GRAY(12), COLOR_BLACK };
+    if (night) return cls <= SK_CIVIL ? COLOR_DARK_RED : COLOR_BLACK;
+    return c[COERCE(cls, 0, 4)];
+}
+
+/* Luna in cielo: chiara se e' piu' di mezza */
+static int moon_color(int illum)
+{
+    if (night) return COLOR_DARK_RED;
+    return illum > 500 ? COLOR_GRAY(80) : COLOR_GRAY(58);
+}
+
+/* sorgere e tramonto della Luna dentro la striscia (16 - 8), in ordine di tempo */
+static void moon_line(const struct night *t, char *buf, int len)
+{
+    char a[8], b[8];
+    int pr = t->moonrise >= 0 ? MOD(t->moonrise - SKY_T0, 1440) : 9999;
+    int ps = t->moonset >= 0 ? MOD(t->moonset - SKY_T0, 1440) : 9999;
+    int in_r = pr <= 960, in_s = ps <= 960;
+    int any = 0;
+    for (int i = 0; i < SKY_SAMPLES; i++) any |= t->s[i] & SK_MOON;
+    if (in_r) fmt_hm(a, sizeof(a), t->moonrise);
+    if (in_s) fmt_hm(b, sizeof(b), t->moonset);
+    if (in_r && in_s)
+    {
+        if (pr < ps) snprintf(buf, len, "Luna: sorge %s, tramonta %s", a, b);
+        else snprintf(buf, len, "Luna: tramonta %s, risorge %s", b, a);
+    }
+    else if (in_r) snprintf(buf, len, "Luna: sorge alle %s, poi resta fino al mattino", a);
+    else if (in_s) snprintf(buf, len, "Luna: in cielo fino alle %s", b);
+    else snprintf(buf, len, any ? "Luna: in cielo tutta la notte" : "Luna: sotto l'orizzonte tutta la notte");
+}
+
+static void fmt_day(char *buf, int len, int day1970)
+{
+    static const char *const wd[] = { "dom", "lun", "mar", "mer", "gio", "ven", "sab" };
+    int z = day1970 + 719468, era = (z >= 0 ? z : z - 146096) / 146097;
+    int doe = z - era * 146097, yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+    int doy = doe - (365 * yoe + yoe / 4 - yoe / 100), mp = (5 * doy + 2) / 153;
+    int dd = doy - (153 * mp + 2) / 5 + 1, mm = mp + (mp < 10 ? 3 : -9);
+    snprintf(buf, len, "%s %d/%d", wd[weekday(day1970)], dd, mm);
+}
+
+/* striscia della notte dalle 16 alle 8: cielo (giorno -> crepuscoli -> notte), Luna in alto,
+   Via Lattea in basso. reveal: fin dove disegnare (entrata da sinistra) */
+static void draw_night_strip(const struct night *n, int x0, int y, int w, int h, int reveal)
+{
+    for (int i = 0; i < SKY_SAMPLES - 1; i++)
+    {
+        int xa = x0 + w * i / (SKY_SAMPLES - 1), xb = x0 + w * (i + 1) / (SKY_SAMPLES - 1);
+        if (xa >= reveal) break;
+        xb = MIN(xb, reveal);
+        int v = n->s[i];
+        fill(sky_color(v & SK_SUN), xa, y, xb - xa, h);
+        if (v & SK_MOON) fill(moon_color(n->moon_illum), xa, y, xb - xa, 3);
+        if ((v & SK_GC) && (v & SK_SUN) == SK_NIGHT && !(v & SK_MOON)) fill(C_OK, xa, y + h - 3, xb - xa, 3);
+    }
+    frame_rect(C_LINE, x0 - 1, y - 1, w + 2, h + 2, 1);
 }
 
 static void draw_sky()
 {
     fill(C_BG, 0, 46, SCR_W, 398);
     draw_header("Calendario del cielo");
+    int now = get_ms_clock();
     if (!sky_ready)
     {
-        txt_c(FONT_MED, C_DIM, 360, 200, "Calcolo di Sole, Luna e Via Lattea...");
-        draw_progress(160, 240, 400, 10, sky_progress * 1000 / SKY_NIGHTS);
+        draw_moon_icon(360, 160, 30, sky_progress * 1000 / SKY_NIGHTS, 1);
+        txt_c(FONT_MED, C_DIM, 360, 214, "Calcolo di Sole, Luna e Via Lattea...");
+        draw_progress(160, 252, 400, 6, sky_progress * 1000 / SKY_NIGHTS);
         draw_footer("MENU indietro");
         anim_keep();
         return;
     }
     char buf[96], a[8], b[8];
-    struct night *t = &nights[0];
-    draw_moon_icon(76, 112, 34, t->moon_illum, t->moon_waxing);
-    snprintf(buf, sizeof(buf), "%s  %d%%", moon_phase_name(t->moon_illum, t->moon_waxing), (t->moon_illum + 5) / 10);
-    txt(FONT_MED_LARGE, C_TEXT, 130, 70, buf);
+    const struct night *t = &nights[sky_sel];
+    int e0 = phase(now - sky_t0, 0, anim_ms(260), EZ_OUT), e1 = phase(now - sky_t0, anim_ms(60), anim_ms(260), EZ_OUT);
+    int e2 = phase(now - sky_t0, anim_ms(120), anim_ms(260), EZ_OUT), e3 = phase(now - sky_t0, anim_ms(180), anim_ms(260), EZ_OUT);
+    if (e3 < 1000) anim_keep();
+
+    /* ---- la notte scelta */
+    draw_moon_icon(66, 108, 38, glide(&sky_moon_g, t->moon_illum, 420), t->moon_waxing);
+    static const char *const when[3] = { "STANOTTE", "DOMANI", "DOPODOMANI" };
+    if (sky_sel < 3) snprintf(buf, sizeof(buf), "%s", when[sky_sel]); else snprintf(buf, sizeof(buf), "TRA %d NOTTI", sky_sel);
+    txt_in(FONT_SMALL, C_ACCENT, 124, 50, buf, e0, 0, 6);
+    if (sky_sel == sky_best)
+    {
+        star(560, 57, 3, C_ACCENT);
+        txt_in(FONT_SMALL, C_ACCENT, 572, 50, "NOTTE MIGLIORE", e0, 0, 6);
+    }
+    char day[16];
+    fmt_day(day, sizeof(day), t->day1970);
+    snprintf(buf, sizeof(buf), "%s   %s %d%%", day, moon_phase_name(t->moon_illum, t->moon_waxing), (t->moon_illum + 5) / 10);
+    txt_in(FONT_MED_LARGE, C_TEXT, 124, 60, buf, e0, 0, 8);
     if (t->dusk >= 0 && t->dawn >= 0)
     {
         fmt_hm(a, sizeof(a), t->dusk); fmt_hm(b, sizeof(b), t->dawn);
         snprintf(buf, sizeof(buf), "Buio %s - %s   senza Luna %dh%02d", a, b, t->moonless_min / 60, t->moonless_min % 60);
     }
-    else snprintf(buf, sizeof(buf), "Stanotte il cielo non diventa del tutto buio");
-    txt(FONT_MED, C_DIM, 130, 106, buf);
+    else snprintf(buf, sizeof(buf), "Il cielo non diventa del tutto buio");
+    txt_in(FONT_MED, C_TEXT, 124, 89, buf, e1, 0, 8);
+    int gc_dark = 0;
+    for (int i = 0; i < SKY_SAMPLES; i++)
+        if ((t->s[i] & SK_GC) && (t->s[i] & SK_SUN) == SK_NIGHT) gc_dark = 1;
+    moon_line(t, buf, sizeof(buf));
+    txt_in(FONT_MED, C_DIM, 124, 111, buf, e2, 0, 8);
     if (t->gc_start >= 0)
     {
         fmt_hm(a, sizeof(a), t->gc_start); fmt_hm(b, sizeof(b), t->gc_end);
         snprintf(buf, sizeof(buf), "Centro Via Lattea %s - %s, alto fino a %d gradi", a, b, t->gc_max_alt);
-        txt(FONT_MED, C_OK, 130, 134, buf);
+        txt_in(FONT_MED, C_OK, 124, 133, buf, e3, 0, 8);
     }
-    else txt(FONT_MED, C_DIM, 130, 134, "Centro Via Lattea: non visibile col buio senza Luna");
+    else txt_in(FONT_MED, C_DIM, 124, 133, gc_dark ? "Centro Via Lattea: col buio c'e' la Luna" : "Centro Via Lattea: non visibile col buio", e3, 0, 8);
 
-    /* tabella delle prossime notti */
-    int y = 176;
-    txt(FONT_SMALL, C_DIM, 30, y, "NOTTE");
-    txt(FONT_SMALL, C_DIM, 150, y, "LUNA");
-    txt(FONT_SMALL, C_DIM, 260, y, "BUIO SENZA LUNA");
-    txt(FONT_SMALL, C_DIM, 470, y, "VIA LATTEA (CENTRO)");
-    static const char *const wd[] = { "dom", "lun", "mar", "mer", "gio", "ven", "sab" };
+    /* ---- linea del tempo della notte scelta */
+    const int lx = 104, lw = 592, sy = 170, sh = 22;
+    int rev = lx + lw * phase(now - sky_t0, 0, anim_ms(520), EZ_IO) / 1000;
+    if (rev < lx + lw) anim_keep();
+    txt(FONT_SMALL, C_DIM, 24, sy + 5, "Cielo");
+    txt(FONT_SMALL, C_DIM, 24, sy + 27, "Luna");
+    txt(FONT_SMALL, C_DIM, 24, sy + 40, "Via Lattea");
+    int lane = night ? COLOR_BLACK : COLOR_GRAY(6);
+    fill(lane, lx, sy + 29, lw, 8);
+    fill(lane, lx, sy + 42, lw, 8);
+    if (night) { frame_rect(C_LINE, lx - 1, sy + 28, lw + 2, 10, 1); frame_rect(C_LINE, lx - 1, sy + 41, lw + 2, 10, 1); }
+    for (int i = 0; i < SKY_SAMPLES - 1; i++)
+    {
+        int xa = lx + lw * i / (SKY_SAMPLES - 1), xb = lx + lw * (i + 1) / (SKY_SAMPLES - 1);
+        if (xa >= rev) break;
+        xb = MIN(xb, rev);
+        int v = t->s[i], cls = v & SK_SUN;
+        fill(sky_color(cls), xa, sy, xb - xa, sh);
+        if (cls == SK_NIGHT && (i * 37) % 5 == 0) fill(night ? COLOR_DARK_RED : COLOR_GRAY(60), xa + (i * 13) % 5, sy + 3 + (i * 7) % (sh - 6), 1, 1);
+        if (cls == SK_NIGHT && !(v & SK_MOON)) fill(C_ACCENT, xa, sy + sh + 1, xb - xa, 3);      /* finestra buona */
+        if (v & SK_MOON) fill(moon_color(t->moon_illum), xa, sy + 29, xb - xa, 8);
+        if (v & SK_GC) fill(cls == SK_NIGHT && !(v & SK_MOON) ? C_OK : night ? COLOR_DARK_RED : COLOR_GRAY(30), xa, sy + 42, xb - xa, 8);
+    }
+    frame_rect(C_LINE, lx - 1, sy - 1, lw + 2, sh + 2, 1);
+    for (int h = 0; h <= 16; h++)                          /* ore: 16 ... 8 */
+    {
+        int x = lx + lw * h / 16;
+        fill(C_LINE, x, sy + 52, 1, h % 2 ? 2 : 4);
+        if (h % 2 == 0)
+        {
+            snprintf(buf, sizeof(buf), "%d", (16 + h) % 24);
+            txt_c(FONT_SMALL, C_DIM, x, sy + 57, buf);
+        }
+    }
+    if (sky_sel == 0)
+    {
+        /* adesso */
+        int d70, mins, off;
+        jt_now(&d70, &mins, &off);
+        int since = mins >= 720 ? mins - SKY_T0 : mins + 1440 - SKY_T0;
+        if (since >= 0 && since <= 960)
+        {
+            int x = lx + lw * since / 960;
+            fill(C_ACCENT, x - 1, sy - 4, 3, 56);
+            fill_tri(x - 4, sy - 8, x + 4, sy - 8, x, sy - 3, C_ACCENT);
+        }
+    }
+
+    /* ---- le 7 notti */
+    const int ty = 246, y0 = 262, rh = 26, mx = 214, mw = 280;
+    txt(FONT_SMALL, C_DIM, 32, ty, "NOTTE");
+    txt(FONT_SMALL, C_DIM, 140, ty, "LUNA");
+    txt(FONT_SMALL, C_DIM, mx, ty, "16");
+    txt_c(FONT_SMALL, C_DIM, mx + mw / 2, ty, "0");
+    txt_r(FONT_SMALL, C_DIM, mx + mw, ty, "8");
+    txt(FONT_SMALL, C_DIM, 512, ty, "SENZA LUNA");
+    txt(FONT_SMALL, C_DIM, 610, ty, "VIA LATTEA");
+    for (int i = 0; i < SKY_NIGHTS; i++) if (i % 2 == 0) fill(C_PANEL, 24, y0 + i * rh, SCR_W - 48, rh - 2);
+    hl_bar(24, SCR_W - 48, y0 + sky_sel * rh, rh - 2);
     for (int i = 0; i < SKY_NIGHTS; i++)
     {
-        struct night *n = &nights[i];
-        int ry = y + 22 + i * 34;
-        if (i % 2 == 0) fill(C_PANEL, 24, ry - 4, SCR_W - 48, 32);
-        int z = n->day1970 + 719468, era = (z >= 0 ? z : z - 146096) / 146097;
-        int doe = z - era * 146097, yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
-        int doy = doe - (365 * yoe + yoe / 4 - yoe / 100), mp = (5 * doy + 2) / 153;
-        int dd = doy - (153 * mp + 2) / 5 + 1, mm = mp + (mp < 10 ? 3 : -9);
-        snprintf(buf, sizeof(buf), "%s %d/%d", wd[weekday(n->day1970)], dd, mm);
-        txt(FONT_MED, i == 0 ? C_ACCENT : C_TEXT, 30, ry, buf);
-        draw_moon_icon(162, ry + 12, 10, n->moon_illum, n->moon_waxing);
+        const struct night *n = &nights[i];
+        int ry = y0 + i * rh;
+        int er = phase(now - sky_ready_t0, anim_ms(i * 45), anim_ms(300), EZ_OUT);
+        if (er < 1000) anim_keep();
+        if (er <= 0) continue;
+        int mine = i == sky_sel;
+        fmt_day(buf, sizeof(buf), n->day1970);
+        txt_in(FONT_MED, mine ? C_ACCENT : C_TEXT, 34, ry, buf, er, 24, 0);
+        draw_moon_icon(146, ry + 11, 8, n->moon_illum, n->moon_waxing);
         snprintf(buf, sizeof(buf), "%d%%", (n->moon_illum + 5) / 10);
-        txt(FONT_MED, C_DIM, 180, ry, buf);
-        int bar = n->moonless_min * 130 / 720;
-        fill(C_LINE, 260, ry + 8, 130, 10);
-        fill(C_ACCENT, 260, ry + 8, MIN(bar, 130), 10);
+        txt_in(FONT_MED, mine ? C_TEXT : C_DIM, 160, ry, buf, er, 24, 0);
+        draw_night_strip(n, mx, ry + 5, mw, 12, mx + mw * er / 1000);
         snprintf(buf, sizeof(buf), "%dh%02d", n->moonless_min / 60, n->moonless_min % 60);
-        txt(FONT_MED, C_TEXT, 398, ry, buf);
+        txt_in(FONT_MED, C_TEXT, 512, ry, buf, er, 24, 0);
+        if (i == sky_best && er >= 1000) star(512 + txt_w(FONT_MED, buf) + 10, ry + 11, 3, C_ACCENT);
         if (n->gc_start >= 0)
         {
             fmt_hm(a, sizeof(a), n->gc_start); fmt_hm(b, sizeof(b), n->gc_end);
             snprintf(buf, sizeof(buf), "%s-%s", a, b);
-            txt(FONT_MED, C_OK, 470, ry, buf);
+            txt_in(FONT_MED, C_OK, 590, ry, buf, er, 24, 0);
         }
-        else txt(FONT_MED, C_DIM, 470, ry, "-");
+        else txt_in(FONT_MED, mine ? C_TEXT : C_DIM, 610, ry, "-", er, 24, 0);
     }
-    draw_footer("Calcolato in macchina per il tuo luogo   MENU indietro");
+    draw_footer("^/v scegli la notte   MENU indietro   calcolato in macchina");
 }
 
 /* ------------------------------------------------------------------ menu Astro */

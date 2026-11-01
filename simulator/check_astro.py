@@ -57,3 +57,22 @@ for n in nights[:3]:
         errs.append(abs(d)); line.append("%s %02d:%02d vs %02d:%02d" % (k, n[k]//60, n[k]%60, ref[k]//60, ref[k]%60))
     print("notte", n['day1970'], " | ".join(line))
 print("errore massimo orari Sole: %d min (passo di calcolo in macchina: 10 min)" % max(errs))
+
+# Luna: sorgere e tramonto (bordo superiore con rifrazione, -0,833 gradi topocentrici) vs astropy
+merrs = []
+for n in nights[:7]:
+    day = Time('1970-01-01', scale='utc') + n['day1970']*u.day
+    off = 60
+    ts = day + (12*60 - off)*u.min + np.arange(0, 24*60, 1)*u.min
+    aa = AltAz(obstime=ts, location=loc)
+    m = get_body('moon', ts, loc).transform_to(aa).alt.deg
+    rise = next((local_minutes(ts[k], off) for k in range(1, len(m)) if m[k-1] < -0.833 <= m[k]), -1)
+    sett = next((local_minutes(ts[k], off) for k in range(1, len(m)) if m[k-1] >= -0.833 > m[k]), -1)
+    for name, c, r in (("sorge", n['moonrise'], rise), ("tramonta", n['moonset'], sett)):
+        if c < 0 or r < 0:
+            print("notte", n['day1970'], name, "C", c, "ref", r); continue
+        d = (c - r + 720) % 1440 - 720
+        merrs.append(abs(d))
+    print("notte", n['day1970'], "Luna sorge %02d:%02d vs %02d:%02d, tramonta %02d:%02d vs %02d:%02d" % (
+        n['moonrise']//60, n['moonrise']%60, rise//60, rise%60, n['moonset']//60, n['moonset']%60, sett//60, sett%60))
+print("errore massimo orari Luna: %d min" % max(merrs))
