@@ -64,7 +64,7 @@ git apply ../module/magiclantern.patch
 cd platform/6D.116 && make -j8      # -> build/magiclantern.zip
 ```
 
-La compilazione e i test girano anche in automatico con GitHub Actions a ogni modifica (`.github/workflows/build.yml`). Un tag `vX.Y` (es. `git tag v0.5 && git push origin v0.5`) crea da solo la **Release** con pacchetto SD, `iride.mo` e preset pellicola.
+La compilazione e i test girano anche in automatico con GitHub Actions a ogni modifica (`.github/workflows/build.yml`). Pubblicando una **Release** con tag `vX.Y` (dal sito: Releases → Draft a new release, oppure `git tag v0.5 && git push origin v0.5`) GitHub Actions ci aggiunge da solo pacchetto SD, `iride.mo` e preset pellicola, con le note prese dal CHANGELOG.
 
 ## Simulatore e test
 
