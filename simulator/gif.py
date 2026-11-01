@@ -13,6 +13,7 @@ from PIL import Image, ImageDraw
 
 Y0, Y1, W = 47, 444, 720
 ORANGE = (255, 140, 0)
+PANEL = (62, 62, 62)          # COLOR_GRAY(26), fondo del riquadro scelto
 
 
 def png(name):
@@ -35,20 +36,22 @@ def lerp(a, b, e):
 
 
 def zoom(a, b, tile, dur=260, step=40, back=False):
-    """Come tr_zoom: il rettangolo cresce dal riquadro (o ci rientra) col bordo arancione."""
+    """Come tr_zoom: il rettangolo cresce dal riquadro (o ci rientra) col bordo arancione;
+    dentro, la schermata intera rimpicciolita con le sue proporzioni su fondo grigio."""
     frames = []
     tx, ty, tw, th = tile
+    H = Y1 - Y0
+    inner = (a if back else b).crop((0, Y0, W, Y1))
     for t in range(step, dur + step, step):
         e = ease(t, dur)
         p = 1 - e if back else e
         x, y = lerp(tx, 0, p), lerp(ty, Y0, p)
-        w, h = lerp(tw, W, p), lerp(th, Y1 - Y0, p)
-        if back:
-            f = b.copy()                      # nuova schermata fuori dal rettangolo
-            f.paste(a.crop((x, y, x + w, y + h)), (x, y))
-        else:
-            f = a.copy()
-            f.paste(b.crop((x, y, x + w, y + h)), (x, y))
+        w, h = lerp(tw, W, p), lerp(th, H, p)
+        f = (b if back else a).copy()
+        k = min(w / W, h / H)
+        sw, sh = max(1, int(W * k)), max(1, int(H * k))
+        ImageDraw.Draw(f).rectangle([x, y, x + w - 1, y + h - 1], fill=PANEL)
+        f.paste(inner.resize((sw, sh), Image.NEAREST), (x + (w - sw) // 2, y + (h - sh) // 2))
         f.paste(b.crop((0, 0, W, Y0)), (0, 0))
         f.paste(b.crop((0, Y1, W, 480)), (0, Y1))
         d = ImageDraw.Draw(f)
@@ -91,8 +94,11 @@ def main():
     os.makedirs(out, exist_ok=True)
 
     # caricamento del rullino
-    fr = seq("anim_carica", 24) + [png("22_caricamento")]
-    save(os.path.join(out, "caricamento.gif"), fr, [118] * 24 + [1600])
+    end = png("22_caricamento")
+    shelf = png("g_scaffale_00")                 # lo scaffale col rullino appena caricato
+    out_fr = sheet(end, shelf, down=True)
+    fr = seq("anim_carica", 24) + [end] + out_fr
+    save(os.path.join(out, "caricamento.gif"), fr, [118] * 24 + [1400] + [40] * (len(out_fr) - 1) + [1500])
 
     # avvio, Home, scaffale, dialogo e ritorno
     frames, durs = [], []

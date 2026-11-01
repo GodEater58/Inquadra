@@ -267,23 +267,42 @@ static int tr_sheet(uint8_t *real, uint8_t *idle, int dir, int prev, int e)
     return off;
 }
 
-/* zoom: il rettangolo cresce dal riquadro (o ci rientra) con un bordo arancione */
-static void tr_zoom(uint8_t *real, uint8_t *idle, int dir, int e)
+/* zoom: il rettangolo cresce dal riquadro (o ci rientra) con un bordo arancione e dentro
+   c'e' la schermata intera rimpicciolita (proporzioni giuste, fondo come il riquadro).
+   src: l'area centrale della schermata che si vede dentro (pitch = SCR_W se copia, NULL = ritaglio) */
+static void tr_zoom(uint8_t *real, uint8_t *idle, const uint8_t *src, int pitch, int dir, int e)
 {
+    const int H = TR_Y1 - TR_Y0;
     int p = dir > 0 ? e : 1000 - e;              /* 0 = riquadro, 1000 = schermo intero */
     int x = lerp(zoom_x, 0, p), y = lerp(zoom_y, TR_Y0, p);
-    int w = lerp(zoom_w, SCR_W, p), h = lerp(zoom_h, TR_Y1 - TR_Y0, p);
+    int w = lerp(zoom_w, SCR_W, p), h = lerp(zoom_h, H, p);
     x = COERCE(x, 0, SCR_W - 1); y = COERCE(y, TR_Y0, TR_Y1 - 1);
     w = COERCE(w, 1, SCR_W - x); h = COERCE(h, 1, TR_Y1 - y);
-    if (dir > 0)
-        for (int yy = y; yy < y + h; yy++) memcpy(real + yy * BMPPITCH + x, idle + yy * BMPPITCH + x, w);
-    else
+    if (dir < 0)
         for (int yy = TR_Y0; yy < TR_Y1; yy++)
         {
             uint8_t *r = real + yy * BMPPITCH, *i = idle + yy * BMPPITCH;
             if (yy < y || yy >= y + h) memcpy(r, i, SCR_W);
             else { memcpy(r, i, x); memcpy(r + x + w, i + x + w, SCR_W - x - w); }
         }
+    if (src)
+    {
+        /* stessa scala in orizzontale e in verticale: niente schermata schiacciata */
+        int k = MIN(w * 1000 / SCR_W, h * 1000 / H);
+        int tw = COERCE(SCR_W * k / 1000, 1, w), th = COERCE(H * k / 1000, 1, h);
+        int ox = x + (w - tw) / 2, oy = y + (h - th) / 2;
+        if (tw < w || th < h) vram_fill(real, C_SEL, x, y, w, h);
+        static short xm[SCR_W];
+        for (int i = 0; i < tw; i++) xm[i] = i * SCR_W / tw;
+        for (int j = 0; j < th; j++)
+        {
+            const uint8_t *sr = src + (j * H / th) * pitch;
+            uint8_t *dr = real + (oy + j) * BMPPITCH + ox;
+            for (int i = 0; i < tw; i++) dr[i] = sr[xm[i]];
+        }
+    }
+    else if (dir > 0)
+        for (int yy = y; yy < y + h; yy++) memcpy(real + yy * BMPPITCH + x, idle + yy * BMPPITCH + x, w);
     const int t = 3;
     vram_fill(real, C_ACCENT, x, y, w, t);
     vram_fill(real, C_ACCENT, x, y + h - t, w, t);
@@ -307,6 +326,22 @@ static void frame_show(int dir)
     for (int y = 0; y < SCR_H; y++)
         if (y < TR_Y0 || y >= TR_Y1) memcpy(real + y * BMPPITCH, idle + y * BMPPITCH, SCR_W);
 
+    /* zoom: dentro il rettangolo la schermata intera rimpicciolita. In avanti e' la nuova
+       (gia' pronta nel buffer nascosto); indietro e' la vecchia, che va copiata da parte
+       perche' sullo schermo viene sovrascritta. Senza memoria: ritaglio. */
+    const uint8_t *zsrc = 0;
+    int zpitch = BMPPITCH;
+    uint8_t *zcopy = 0;
+    if (kind == 3)
+    {
+        if (dir > 0) zsrc = idle + TR_Y0 * BMPPITCH;
+        else if ((zcopy = tmp_malloc(SCR_W * (TR_Y1 - TR_Y0))) != 0)
+        {
+            for (int y = TR_Y0; y < TR_Y1; y++) memcpy(zcopy + (y - TR_Y0) * SCR_W, real + y * BMPPITCH, SCR_W);
+            zsrc = zcopy; zpitch = SCR_W;
+        }
+    }
+
     int t0 = get_ms_clock(), prev = 0;
     for (;;)
     {
@@ -315,10 +350,11 @@ static void frame_show(int dir)
         int e = ease(t, dur);
         if (kind == 1) prev = tr_push(real, idle, dir, prev, SCR_W * e / 1000);
         else if (kind == 2) prev = tr_sheet(real, idle, dir, prev, e);
-        else tr_zoom(real, idle, dir, e);
+        else tr_zoom(real, idle, zsrc, zpitch, dir, e);
         if (t >= dur) break;
         msleep(1);
     }
+    if (zcopy) free(zcopy);
     bmp_idle_copy(1, 0);
 }
 

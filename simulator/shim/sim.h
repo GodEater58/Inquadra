@@ -177,6 +177,7 @@ int FIO_WriteFile(FILE *f, const void *p, size_t n);
 void FIO_CloseFile(FILE *f);
 #define fio_malloc malloc
 #define fio_free free
+#define tmp_malloc malloc
 int my_fprintf(FILE *f, const char *fmt, ...);
 void NotifyBox(int t, const char *fmt, ...);
 void beep(void);

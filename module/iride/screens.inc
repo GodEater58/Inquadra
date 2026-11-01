@@ -428,7 +428,7 @@ static void conf_activate(int row)
         }
         roll_load(fi, load_exp, load_push);
         anim_load(&films[fi]);
-        go(SCR_SHELF, 0);
+        go(SCR_SHELF, -2);          /* la scena riscende e scopre lo scaffale */
         if (picq_raw_only()) say(C_WARN, "Caricato. " RAW_HINT);
         else say(C_OK, "Rullino caricato");
         return;
@@ -450,7 +450,7 @@ static void conf_activate(int row)
         const struct film *fm = cur_film();
         anim_rewind(fm, shots);
         roll_rewind();
-        go(SCR_SHELF, 0);
+        go(SCR_SHELF, -2);          /* la scena riscende e scopre lo scaffale */
         say(C_OK, "Rullino riavvolto, impostazioni ripristinate");
     }
 }

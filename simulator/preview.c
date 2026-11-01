@@ -378,8 +378,10 @@ int main(void)
         struct persist saved = P;   /* il test carica rullini di prova: poi tutto torna com'era */
         pic_quality = PICQ_RAW;
         conf_mode = CONF_LOAD; shelf_cat = 0; shelf_pos[0] = 1; load_exp = 36; load_push = 0;
-        conf_activate(2);
+        screen = SCR_CONFIRM; conf_activate(2);
         CHECK(strstr(msg, "RAW+L") != NULL && msg_color == C_WARN, "carico in solo RAW: avviso '%s'", msg);
+        CHECK(screen == SCR_SHELF && transition == -2, "fine del caricamento: la scena riscende e scopre lo scaffale");
+        transition = 0;
         CHECK(pic_quality == PICQ_RAW, "la qualita' non viene mai cambiata dal firmware");
         pic_quality = PICQ_RAW_JPG_LARGE_FINE;
         conf_mode = CONF_LOAD; conf_activate(2);
