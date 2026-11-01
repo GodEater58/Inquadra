@@ -1,0 +1,109 @@
+IRIDE FW 0.4 per Canon EOS 6D (firmware Canon 1.1.6)
+=====================================================
+
+Magic Lantern per 6D 1.1.6 (build ufficiale del 20/06/2025, commit ed3e7c0)
++ modulo Iride. Moduli gia' attivi: iride, autoexpo, deflick, dual_iso, ettr.
+
+ATTENZIONE
+- Sperimentale. Prime prove su una 6D vera: rullini e nomi dei file funzionano.
+  Il resto: 65 test superati sul simulatore, calcoli astronomici confrontati
+  con astropy, compilato contro il firmware 1.1.6.
+- Magic Lantern gira dalla scheda e non modifica la ROM: con una scheda senza
+  ML la macchina e' quella di sempre.
+- Se la macchina si blocca: togli e rimetti la batteria.
+
+
+INSTALLAZIONE (serve il firmware Canon 1.1.6: vedi builds.magiclantern.fm/6D.html)
+-----------------------------------------
+1. Formatta la scheda nella 6D.
+2. Copia TUTTO il contenuto di questo zip nella radice della scheda.
+3. Ghiera su M, Menu > chiave inglese > Versione firmware > aggiorna:
+   parte l'installatore di Magic Lantern. Segui le istruzioni e riavvia.
+
+
+APRIRE IRIDE
+------------
+- CESTINO dalla schermata di scatto: si apre Iride (Opzioni > Cestino apre
+  Iride; spento = il cestino apre il menu Magic Lantern come sempre).
+- Dentro Iride il CESTINO porta al menu di Magic Lantern, un altro cestino
+  lo chiude. Mezzo scatto chiude tutto.
+- Tasto LUCE del display superiore: attivo, ma la 6D potrebbe non inviarlo
+  durante lo scatto. Per verificarlo: Opzioni > Diagnostica tasti.
+- Dal menu Magic Lantern: scheda Shoot > Iride > SET.
+Joystick o ghiere per muoversi, SET conferma, MENU indietro.
+In basso c'e' sempre l'aiuto dei tasti.
+
+
+COSA C'E'
+---------
+HOME        Astro, Foto, Rullini, Torna alla 6D, Profili, Opzioni.
+            Il pallino arancione in alto = ci sono impostazioni da ripristinare.
+
+ASTRO       Via Lattea: regola NPF, SET applica tempo, diaframma, ISO, 3900 K.
+            Intervallometro: Via Lattea, Deep sky, Star trails, Timelapse,
+              Giorno-notte (Live View + M: usa autoexpo e deflicker di ML),
+              Dark, Flat, Bias. Cestino = stop.
+            Fuoco stelle: Live View, SET zoom x5/x10, sinistra/destra fuoco,
+              HFR piu' basso = piu' a fuoco.
+            Allineamento polare: posizione della Polare (INFO cambia vista
+              occhio nudo / cannocchiale capovolto).
+            Calendario: fase lunare, buio, Via Lattea per 7 notti.
+            Etichetta file: LGHT / DARK / FLAT / BIAS al posto di IMG_.
+
+FOTO        HDR, Focus stacking (Live View + AF), Dual ISO, ETTR,
+            Movimento e trappola di fuoco, Strumenti Live View,
+            Filtri ND (fino a 30 s imposta il tempo, oltre scatta in posa B).
+
+RULLINI     SET carica (pose 12/24/36, push/pull da -2 a +3 stop).
+            Q sul rullino caricato: Pausa (torna la 6D normale) / Riprendi /
+            Riavvolgi. Contatore pose anche nella barra del Live View.
+            Il "look" vale per il JPEG: il RAW resta neutro.
+            Se la macchina e' in solo RAW Iride lo segnala in rosso: metti
+            RAW+L (Menu Canon > Qualita' immagine) oppure usa i preset.
+
+PRESET PC   16 preset XMP (cartella presets del progetto), uno per
+            pellicola, per dare il look anche al RAW.
+            LightCraft: Presets > Import Presets.
+            Lightroom: Predefiniti > + > Importa predefiniti.
+            Le foto del rullino 11 si chiamano R011xxxx.CR2.
+
+PROFILI     5 posti: INFO salva, SET carica, Q cancella, sinistra/destra nome.
+
+TORNA ALLA 6D
+            Rimette tutto com'era prima di Iride: stile immagine e cursori,
+            ISO, tempo, diaframma, bianco, anteprima, impostazioni di Magic
+            Lantern cambiate da Iride, nomi dei file. Il rullino va in pausa.
+
+OPZIONI     Tema (normale / notte rossa / notte solo in Astro), animazioni
+            (complete / rapide / spente), schermata iniziale, cestino apre
+            Iride, tasto luce,
+            anteprima col rullino, avviso posa, luogo (di fabbrica Roma
+            41.90 N 12.50 E: imposta il tuo per polare e calendario), fuso orario,
+            diagnostica tasti (ultimi tasti ricevuti, anche in
+            ML/LOGS/IRIDEKEY.TXT).
+
+Registro di rullini e sessioni astro: ML/LOGS/IRIDE.CSV
+Stato di Iride: ML/SETTINGS/IRIDE.DAT (se lo cancelli, riparte da zero)
+
+
+PRIMA PROVA CONSIGLIATA (IN CASA)
+---------------------------------
+1. Cestino: si apre Iride con l'animazione. Cestino di nuovo = menu ML.
+2. Profili: INFO per salvare le impostazioni attuali nel posto 1.
+3. Rullini: carica Portra 400, scatta 2 foto, Q > Pausa, poi Riprendi.
+4. Foto > Strumenti Live View: accendi il peaking e guardalo in Live View.
+5. Astro > Calendario e Allineamento polare.
+6. Home > Torna alla 6D > SET: tutto deve tornare come all'inizio.
+Se qualcosa non va: togli la batteria e mandami ML/LOGS e una foto dello schermo.
+
+
+AGGIORNARE DA UNA VERSIONE PRECEDENTE
+-------------------------------------
+Basta sostituire il file ML/modules/iride.mo sulla scheda.
+Rullini, profili e impostazioni restano (ML/SETTINGS/IRIDE.DAT).
+
+
+DISINSTALLARE
+-------------
+Menu > Versione firmware > aggiorna dalla scheda con Magic Lantern e segui le
+istruzioni per togliere il bootflag. Oppure usa una scheda senza ML.

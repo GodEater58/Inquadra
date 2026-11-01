@@ -1,0 +1,520 @@
+/*
+ * Iride FW 0.2 - firmware personalizzato per Canon EOS 6D (fw 1.1.6), modulo Magic Lantern.
+ *
+ * Interfaccia propria a tutto schermo, animata e senza sfarfallio (doppio buffer):
+ *   ASTRO    Via Lattea (NPF), intervallometro (Via Lattea, Deep sky, Star trails, Timelapse,
+ *            Giorno-notte, Dark, Flat, Bias), fuoco stelle (HFR), allineamento polare,
+ *            calendario del cielo, etichetta dei file
+ *   FOTO     bracketing HDR, focus stacking, Dual ISO, ETTR, scatto su movimento,
+ *            trappola di fuoco, strumenti del Live View, filtri ND con posa B
+ *   RULLINI  pellicole con push/pull, pausa e ripresa, contatore nel Live View, registro
+ *   PROFILI  5 profili personali
+ *   TORNA ALLA 6D  rimette tutte le impostazioni com'erano prima di Iride
+ *
+ * Il codice e' diviso in parti incluse qui sotto (un'unica unita' di compilazione).
+ * Licenza: GPL (come Magic Lantern)
+ */
+
+#include <module.h>
+#include <dryos.h>
+#include <bmp.h>
+#include <menu.h>
+#include <config.h>
+#include <property.h>
+#include <propvalues.h>
+#include <lens.h>
+#include <shoot.h>
+#include <beep.h>
+#include <fileprefix.h>
+#include <fio-ml.h>
+#include <powersave.h>
+#include <vram.h>
+#include <notify_box.h>
+#include <focus.h>
+#include <picstyle.h>
+#include <lvinfo.h>
+#include <math.h>
+
+#define IRIDE_VERSION "0.4"
+
+/* ------------------------------------------------------------------ compatibilita' API */
+
+/* stile immagine: nomi diversi tra build ufficiale 6D (2025) e ramo di sviluppo 2026 */
+#ifdef IRIDE_PICSTYLE_2026
+extern void picstyle_set_current_contrast(int value);
+extern void picstyle_set_current_saturation(int value);
+extern void picstyle_set_current_color_tone(int value);
+#define ps_get_contrast   picstyle_get_current_contrast
+#define ps_get_saturation picstyle_get_current_saturation
+#define ps_get_tone       picstyle_get_current_color_tone
+#define ps_set_contrast   picstyle_set_current_contrast
+#define ps_set_saturation picstyle_set_current_saturation
+#define ps_set_tone       picstyle_set_current_color_tone
+#else
+#define ps_get_contrast   lens_get_contrast
+#define ps_get_saturation lens_get_saturation
+#define ps_get_tone       lens_get_color_tone
+#define ps_set_contrast   lens_set_contrast
+#define ps_set_saturation lens_set_saturation
+#define ps_set_tone       lens_set_color_tone
+#endif
+
+extern int val2raw_iso(int val);
+extern int val2raw_aperture(int val);
+extern int menu_redraw_blocked;
+extern int hdr_stepsize;                 /* esportata dal core (Advanced Bracket) */
+extern void focus_stack_run(int skip_frame);
+extern int is_play_mode();
+extern int is_camera(const char *model, const char *firmware);
+extern uint8_t *bmp_vram_real();
+extern uint8_t *bmp_vram_idle();
+extern void bmp_draw_to_idle(int value);
+extern void bmp_idle_copy(int direction, int fullsize);
+extern void gui_open_menu();
+extern void menu_redraw();
+extern void *memmove(void *dst, const void *src, size_t n);
+
+#ifndef INT_MIN
+#define INT_MIN (-2147483647 - 1)
+#endif
+#ifndef WB_KELVIN
+#define WB_KELVIN 9
+#endif
+#ifndef PROP_WB_MODE_LV
+#define PROP_WB_MODE_LV 0x80050018
+#endif
+#ifndef PROP_WB_MODE_PH
+#define PROP_WB_MODE_PH 0x8000000D
+#endif
+#ifndef GUISTATE_IDLE
+#define GUISTATE_IDLE 0          /* DryOS (gui-common.h); il 4 vale solo per la 5D classic */
+#endif
+extern int gui_state;
+#ifndef BMPPITCH
+#define BMPPITCH 960
+#endif
+
+#define SCR_W 720
+#define SCR_H 480
+#define BGMT_LIGHT_6D 0x20   /* tasto luce del display superiore (platform/6D.116/gui.h) */
+#define GMT_OLC_INFO_6D 0x69 /* aggiornamento interno del display: non e' un tasto */
+
+/* ------------------------------------------------------------------ opzioni (menu ML) */
+
+static CONFIG_INT("iride.review",   opt_review_off, 1);   /* spegni anteprima col rullino */
+static CONFIG_INT("iride.wind",     opt_wind, 1);         /* avviso posa dopo ogni scatto */
+static CONFIG_INT("iride.lightkey", opt_light_key, 1);    /* tasto luce LCD apre Iride */
+static CONFIG_INT("iride.trash",    opt_trash_open, 1);   /* cestino apre Iride (dentro Iride: menu ML) */
+static CONFIG_INT("iride.anim",     opt_anim, 0);         /* 0 complete, 1 rapide, 2 spente */
+static CONFIG_INT("iride.theme",    opt_theme, 2);        /* 0 normale, 1 notte, 2 notte in Astro */
+static CONFIG_INT("iride.splash",   opt_splash, 1);
+
+/* ------------------------------------------------------------------ stato salvato su scheda */
+
+#define NPROF 5
+#define NSTYLE 10
+#define NMLF 24
+
+struct profile
+{
+    int valid, name, mode, iso, shutter, aperture, wb, kelvin, style, c, s, t;
+};
+
+struct persist
+{
+    int magic, version, size;
+
+    /* rullino */
+    int roll_loaded, roll_paused, roll_film, roll_num, roll_shots, roll_exp, roll_push;
+    int roll_last_fn, roll_first_fn;
+
+    /* "Torna alla 6D": fotografia delle impostazioni prima di Iride */
+    int snap_valid, snap_mode, snap_iso, snap_shutter, snap_aperture, snap_wb, snap_kelvin;
+    int snap_style, snap_review;
+    int ps_touched;                       /* stili immagine modificati (bit per stile) */
+    int ps_c[NSTYLE], ps_s[NSTYLE], ps_t[NSTYLE];
+    int ml_touched;                       /* funzioni Magic Lantern modificate (bit) */
+    int ml_prev[NMLF];
+
+    /* astro */
+    int astro_tag, int_preset, int_count, int_bulb, int_pause, int_delay_idx, int_screen_off;
+    int npf_focal, npf_ap10;
+    int lat100, lon100, tz_mode, polar_view;
+
+    /* foto */
+    int hdr_frames, hdr_step, hdr_seq;
+    int fs_front, fs_behind, fs_step;
+    int dual_rec, ettr_mode, md_trigger, md_level, trap_mode;
+    int nd_idx, nd_base;
+
+    struct profile prof[NPROF];
+    int checksum;
+};
+
+static struct persist P;
+static volatile int persist_dirty = 0;
+
+#define PERSIST_MAGIC 0x45444952   /* "RIDE" */
+#define PERSIST_VERSION 2
+
+/* ------------------------------------------------------------------ stato dell'interfaccia */
+
+enum
+{
+    SCR_HOME, SCR_ASTRO, SCR_FOTO, SCR_NPF, SCR_INTERVAL, SCR_STARS, SCR_POLAR, SCR_SKY,
+    SCR_SHELF, SCR_CONFIRM, SCR_HDR, SCR_FSTACK, SCR_DUAL, SCR_ETTR, SCR_MOTION, SCR_LVTOOLS,
+    SCR_ND, SCR_PROFILES, SCR_OPTIONS, SCR_RESTORE, SCR_KEYS, SCR_COUNT
+};
+
+static volatile int app_running = 0;
+static volatile int screen = SCR_HOME;
+static volatile int dirty = 1;
+static int sel[SCR_COUNT];
+static int transition = 0;               /* +1 avanti (da destra), -1 indietro */
+
+static char msg[96] = "";
+static int msg_until = 0;
+static int msg_color = 0;
+
+/* coda dei tasti: il gestore li accoda, il task di Iride li esegue (puo' bloccare senza danni) */
+#define KQ 16
+static volatile int kq[KQ];
+static volatile int kq_head = 0, kq_tail = 0;
+
+static void kq_push(int k)
+{
+    int n = (kq_head + 1) % KQ;
+    if (n != kq_tail) { kq[kq_head] = k; kq_head = n; }
+}
+
+static int kq_pop()
+{
+    if (kq_tail == kq_head) return -1;
+    int k = kq[kq_tail];
+    kq_tail = (kq_tail + 1) % KQ;
+    return k;
+}
+
+static int key_pending() { return kq_tail != kq_head; }
+
+/* cestino dentro Iride: si passa al menu di Magic Lantern invece di chiudere tutto */
+static volatile int to_ml_menu = 0;
+
+/* diagnostica: ultimi eventi dei tasti visti da Iride, per capire cosa manda la 6D */
+#define KLOG_N 12
+struct klog_entry { int param, arg, gs, ms; char app, menu, play, opened; };
+static struct klog_entry klog[KLOG_N];
+static volatile int klog_count = 0;
+
+static void klog_add(int param, int arg, int opened)
+{
+    struct klog_entry *k = &klog[klog_count % KLOG_N];
+    k->param = param; k->arg = arg; k->gs = gui_state; k->ms = get_ms_clock();
+    k->app = app_running; k->menu = gui_menu_shown(); k->play = is_play_mode(); k->opened = opened;
+    klog_count++;
+}
+
+/* lavori lanciati a Iride chiusa (sequenze, focus stacking, posa B) */
+enum { JOB_NONE, JOB_SEQ, JOB_FSTACK, JOB_BULB };
+static volatile int job_request = JOB_NONE;
+static volatile int job_running = JOB_NONE;
+static volatile int job_abort = 0;
+
+static void say(int color, const char *text);
+static void go(int s, int dir);
+static int persist_touch_ms = 0;
+static void persist_touch() { persist_dirty = 1; persist_touch_ms = get_ms_clock(); }
+
+#include "ui.inc"
+#include "store.inc"
+#include "film.inc"
+#include "astro.inc"
+#include "photo.inc"
+#include "screens.inc"
+
+/* ------------------------------------------------------------------ ciclo dell'app */
+
+static void say(int color, const char *text)
+{
+    snprintf(msg, sizeof(msg), "%s", text);
+    msg_color = color;
+    msg_until = get_ms_clock() + 3500;
+    dirty = 1;
+}
+
+static void go(int s, int dir)
+{
+    if (s == screen) return;
+    if (screen == SCR_STARS) stars_leave();
+    screen = s;
+    transition = dir;
+    msg[0] = 0;
+    dirty = 1;
+    hl_reset();
+    if (screens[s].enter) screens[s].enter();
+}
+
+static void app_task(void *unused)
+{
+    app_running = 1;
+
+    /* aperto dal tasto luce: aspetta che il menu sia davvero aperto */
+    for (int i = 0; i < 30 && !gui_menu_shown(); i++) msleep(50);
+    if (!gui_menu_shown()) { menu_redraw_blocked = 0; app_running = 0; return; }
+
+    menu_redraw_blocked = 1;
+    to_ml_menu = 0;
+    kq_tail = kq_head;
+    theme_apply();
+    clrscr();
+    if (opt_splash && opt_anim != 2) splash();
+    dirty = 1;
+    transition = 0;
+    int last_tick = 0;
+
+    TASK_LOOP
+    {
+        if (!gui_menu_shown() || to_ml_menu) break;
+
+        int k = kq_pop();
+        if (k >= 0)
+        {
+            handle_key(k);
+            continue;
+        }
+
+        if (prefix_pending)
+        {
+            prefix_pending = 0;
+            prefix_refresh();
+            dirty = 1;
+        }
+
+        int now = get_ms_clock();
+        if (msg[0] && now >= msg_until) { msg[0] = 0; dirty = 1; }
+        if (screens[screen].tick && now - last_tick >= screens[screen].tick_ms)
+        {
+            last_tick = now;
+            if (screens[screen].tick()) dirty = 1;
+        }
+
+        if (dirty || anim_active())
+        {
+            dirty = 0;
+            theme_apply();
+            render(transition);
+            transition = 0;
+            msleep(1);
+        }
+        else msleep(25);
+    }
+
+    if (screen == SCR_STARS) stars_leave();
+    bmp_draw_to_idle(0);
+    clrscr();
+    menu_redraw_blocked = 0;
+    app_running = 0;
+    if (to_ml_menu)
+    {
+        /* il menu di Magic Lantern e' ancora aperto: lo ridisegniamo */
+        to_ml_menu = 0;
+        menu_redraw();
+    }
+    persist_save_if_dirty();
+
+    if (job_request != JOB_NONE && job_running == JOB_NONE)
+    {
+        job_running = job_request;
+        job_request = JOB_NONE;
+        task_create("iride_job", 0x1c, 0x2000, job_task, (void *)0);
+    }
+}
+
+static void iride_start()
+{
+    if (app_running) return;
+    if (job_running)
+    {
+        NotifyBox(3000, "Iride: lavoro in corso, cestino per fermarlo");
+        return;
+    }
+    task_create("iride_app", 0x1c, 0x3000, app_task, (void *)0);
+}
+
+/* ------------------------------------------------------------------ tasti */
+
+/* si apre solo dove Magic Lantern apre il suo menu col cestino (menu.c, handle_ml_menu_erase):
+   schermata di scatto a riposo, niente riproduzione, niente filmato, niente anteprima profondita' */
+static int can_open_from_shooting()
+{
+    return !app_running && !job_running && !gui_menu_shown() && gui_state == GUISTATE_IDLE &&
+        !is_play_mode() && !RECORDING && !dofpreview && is_camera("6D", "1.1.6");
+}
+
+static void open_from_shooting()
+{
+    menu_redraw_blocked = 1;          /* niente lampo del menu ML prima di Iride */
+    screen = SCR_HOME;
+    hl_reset();
+    gui_open_menu();
+    iride_start();
+}
+
+static unsigned int iride_keypress(unsigned int key)
+{
+    /* durante un lavoro (sequenza, stack, posa B) il cestino lo ferma */
+    if (job_running && !app_running)
+    {
+        if (key == MODULE_KEY_TRASH) { job_abort = 1; return 0; }
+        return 1;
+    }
+    if (!app_running)
+    {
+        if (key == MODULE_KEY_TRASH && opt_trash_open && can_open_from_shooting())
+        {
+            if (klog_count) klog[(klog_count - 1) % KLOG_N].opened = 1;
+            open_from_shooting();
+            return 0;
+        }
+        return 1;
+    }
+
+    switch (key)
+    {
+        /* cestino: da Iride al menu di Magic Lantern (un altro cestino lo chiude) */
+        case MODULE_KEY_TRASH:
+            to_ml_menu = 1;
+            return 0;
+        /* lasciamo passare: chiudono il menu e quindi Iride */
+        case MODULE_KEY_PRESS_HALFSHUTTER:
+        case MODULE_KEY_UNPRESS_HALFSHUTTER:
+        case MODULE_KEY_PRESS_FULLSHUTTER:
+        case MODULE_KEY_UNPRESS_FULLSHUTTER:
+            return 1;
+        /* rilasci e diagonali: non servono, ma non devono arrivare a Canon */
+        case MODULE_KEY_UNPRESS_SET:
+        case MODULE_KEY_UNPRESS_UDLR:
+        case MODULE_KEY_PRESS_UP_LEFT:
+        case MODULE_KEY_PRESS_UP_RIGHT:
+        case MODULE_KEY_PRESS_DOWN_LEFT:
+        case MODULE_KEY_PRESS_DOWN_RIGHT:
+        case MODULE_KEY_JOY_CENTER:
+            return 0;
+    }
+    kq_push(key);
+    return 0;
+}
+
+/* tasto luce del display superiore: apre Iride dalla schermata di scatto */
+static unsigned int iride_keypress_raw(unsigned int ctx)
+{
+    struct event *e = (struct event *)(uintptr_t)ctx;
+    if (!e || e->param < 0 || e->param == GMT_OLC_INFO_6D) return 1;
+    int open = opt_light_key && e->param == BGMT_LIGHT_6D && can_open_from_shooting();
+    klog_add(e->param, e->arg, open);
+    if (!open) return 1;
+    open_from_shooting();
+    return 0;
+}
+
+/* ------------------------------------------------------------------ menu di Magic Lantern */
+
+static MENU_SELECT_FUNC(iride_open)
+{
+    screen = SCR_HOME;
+    iride_start();
+}
+
+static MENU_UPDATE_FUNC(iride_open_upd)
+{
+    if (P.roll_loaded)
+        MENU_SET_RINFO("R%03d %d/%d%s", P.roll_num % 1000, P.roll_shots, P.roll_exp, P.roll_paused ? " pausa" : "");
+}
+
+static struct menu_entry iride_menu[] =
+{
+    {
+        .name    = "Iride",
+        .select  = iride_open,
+        .update  = iride_open_upd,
+        .help    = "Apri Iride: Astro, Foto, Rullini, Profili. Anche col cestino o il tasto luce.",
+        .help2   = "Q: opzioni rapide.",
+        .children = (struct menu_entry[])
+        {
+            {
+                .name    = "Cestino",
+                .priv    = &opt_trash_open,
+                .max     = 1,
+                .choices = CHOICES("menu ML", "apre Iride"),
+                .help    = "Il cestino apre Iride; dentro Iride il cestino porta al menu ML.",
+            },
+            {
+                .name    = "Tasto luce LCD",
+                .priv    = &opt_light_key,
+                .max     = 1,
+                .choices = CHOICES("normale", "apre Iride"),
+                .help    = "Il tasto della luce del display superiore apre Iride.",
+            },
+            {
+                .name    = "Animazioni",
+                .priv    = &opt_anim,
+                .max     = 2,
+                .choices = CHOICES("complete", "rapide", "spente"),
+            },
+            {
+                .name    = "Tema",
+                .priv    = &opt_theme,
+                .max     = 2,
+                .choices = CHOICES("normale", "notte (rosso)", "notte in Astro"),
+            },
+            MENU_EOL,
+        },
+    },
+};
+
+/* quando Magic Lantern salva le sue impostazioni (anche allo spegnimento) salviamo anche le nostre */
+static unsigned int iride_config_save(unsigned int ctx)
+{
+    persist_save_if_dirty();
+    return CBR_RET_CONTINUE;
+}
+
+static unsigned int iride_init()
+{
+    persist_load();
+    film_init();
+    menu_add("Shoot", iride_menu, COUNT(iride_menu));
+    lvinfo_add_items(roll_info_items, COUNT(roll_info_items));
+    prefix_pending = 1;
+    return 0;
+}
+
+static unsigned int iride_deinit()
+{
+    persist_save_if_dirty();
+    prefix_apply("");
+    return 0;
+}
+
+MODULE_INFO_START()
+    MODULE_INIT(iride_init)
+    MODULE_DEINIT(iride_deinit)
+MODULE_INFO_END()
+
+MODULE_CBRS_START()
+    /* prima il gestore grezzo: vede ogni evento (diagnostica) e passa quasi sempre oltre */
+    MODULE_CBR(CBR_KEYPRESS_RAW, iride_keypress_raw, 0)
+    MODULE_CBR(CBR_KEYPRESS, iride_keypress, 0)
+    MODULE_CBR(CBR_SECONDS_CLOCK, iride_clock, 0)
+    MODULE_CBR(CBR_CONFIG_SAVE, iride_config_save, 0)
+MODULE_CBRS_END()
+
+MODULE_CONFIGS_START()
+    MODULE_CONFIG(opt_review_off)
+    MODULE_CONFIG(opt_wind)
+    MODULE_CONFIG(opt_light_key)
+    MODULE_CONFIG(opt_trash_open)
+    MODULE_CONFIG(opt_anim)
+    MODULE_CONFIG(opt_theme)
+    MODULE_CONFIG(opt_splash)
+MODULE_CONFIGS_END()

@@ -1,0 +1,23 @@
+diff --git a/modules/Makefile b/modules/Makefile
+index ed47464..eecb48e 100644
+--- a/modules/Makefile
++++ b/modules/Makefile
+@@ -52,7 +52,8 @@ ML_MODULES = \
+     adv_int \
+     crop_rec \
+     dev_tools/edmac \
+-    yolo
++    yolo \
++    iride
+ 
+ .PHONY: clean $(BUILD_DIR)
+ 
+diff --git a/platform/6D.116/modules.included b/platform/6D.116/modules.included
+index eddc761..f6114c4 100644
+--- a/platform/6D.116/modules.included
++++ b/platform/6D.116/modules.included
+@@ -18,3 +18,4 @@ mlv_snd
+ pic_view
+ selftest
+ silent
++iride
