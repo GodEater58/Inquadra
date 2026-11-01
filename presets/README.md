@@ -12,7 +12,7 @@ Questi 16 preset (uno per pellicola, stessi nomi del firmware) danno il caratter
 | `make_presets.py` | genera gli XMP e lo zip: `python3 make_presets.py out` |
 | `preview.py` | anteprima **indicativa** (approssima i cursori, non è il motore di LightCraft) |
 
-![Anteprima](../docs/screenshots/preset_pellicole-v09.jpg)
+![Anteprima](../docs/screenshots/preset_pellicole-v10.jpg)
 
 ## Importare
 

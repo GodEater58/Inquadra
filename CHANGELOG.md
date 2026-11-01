@@ -1,5 +1,21 @@
 # Novità
 
+## 1.0 – 1 novembre 2026
+- **Descrizioni dei rullini riscritte e verificate** su schede tecniche e prove: due righe per pellicola, carattere e uso ideale. Corrette le imprecisioni: Delta 3200 (ISO reale 1000, a 3200 è già tirata), CineStill 800T (pellicola cinema al tungsteno, aloni rossi, di giorno vira al blu), Ektar (la grana più fine, calca i rossi sulla pelle), Superia (verdi intensi, palette fresca), Velvia (tolleranza minima, meglio in luce morbida), Ektachrome E100 (neutra con tendenza fredda) e le altre. Stesse descrizioni nei preset XMP
+- **Animazioni nuove in tutta l'interfaccia** (tutte a tempo, saltabili con un tasto, più corte con *rapide*, assenti con *spente*):
+  - avvio: un diaframma a 6 lamelle si apre ruotando, "IRIDE" sale lettera per lettera, poi linea e versione
+  - Home: i riquadri entrano uno dopo l'altro; la cornice di selezione è elastica; l'icona scelta si anima (stella cadente, diaframma dell'obiettivo che scatta, pellicola che rientra e riesce, freccia che fa un giro, cursori che corrono, ingranaggi che girano)
+  - zoom dal riquadro della Home alla schermata, e ritorno nel riquadro con MENU
+  - dialoghi dei rullini che salgono dal basso come un foglio e riscendono
+  - avanti/indietro con parallasse (la schermata vecchia scivola a metà velocità)
+  - barra di selezione elastica in tutte le liste; valori che entrano dal lato della freccia; interruttori ON/OFF con il pallino che corre
+  - scaffale: sottolineatura della categoria che scivola, rullini che spuntano dal piano cambiando categoria, piccolo urto alla fine dello scaffale, testi che entrano dal lato del rullino
+  - avvisi in basso che entrano con la loro tacca e si spengono piano
+  - caricamento: contapose a rullo (S → 0 → 1 che scorrono), passaggi che entrano, barra di avanzamento e spunta finale; riavvolgimento con barra e spunta
+  - Torna alla 6D: barra di ripristino, spunta, poi ritorno nella Home
+- Corretto: dopo "Torna alla 6D" l'avviso "Fatto" non compariva
+- Simulatore: 84 test (descrizioni che stanno nel dialogo, transizioni verificate sulla memoria video), fotogrammi di tutte le animazioni; `simulator/gif.py` crea le GIF del README
+
 ## 0.9 – 1 novembre 2026
 - Il progetto si chiama **Iride 6D**: nomi aggiornati in firmware, istruzioni, preset (gruppo *Iride 6D - Pellicole*) e file delle release (`Iride6D-<versione>-SD.zip`, `Iride6D-preset-pellicole.zip`)
 - Corretto: cambiando rullino si vedeva solo il riavvolgimento. Gli eventi interni di Canon (ISO, stile, bianco che cambiano) venivano presi per tasti e interrompevano il caricamento; ora passano a Canon come devono

@@ -1,4 +1,4 @@
-IRIDE 6D 0.9 per Canon EOS 6D (firmware Canon 1.1.6)
+IRIDE 6D 1.0 per Canon EOS 6D (firmware Canon 1.1.6)
 =====================================================
 
 Magic Lantern per 6D 1.1.6 (build ufficiale del 20/06/2025, commit ed3e7c0)
@@ -6,7 +6,7 @@ Magic Lantern per 6D 1.1.6 (build ufficiale del 20/06/2025, commit ed3e7c0)
 
 ATTENZIONE
 - Sperimentale. Prime prove su una 6D vera: rullini e nomi dei file funzionano.
-  Il resto: 81 test superati sul simulatore, calcoli astronomici confrontati
+  Il resto: 84 test superati sul simulatore, calcoli astronomici confrontati
   con astropy, compilato contro il firmware 1.1.6.
 - Magic Lantern gira dalla scheda e non modifica la ROM: con una scheda senza
   ML la macchina e' quella di sempre.
@@ -58,7 +58,8 @@ FOTO        HDR, Focus stacking (Live View + AF), Dual ISO, ETTR,
             Movimento e trappola di fuoco, Strumenti Live View,
             Filtri ND (fino a 30 s imposta il tempo, oltre scatta in posa B).
 
-RULLINI     SET carica (pose 12/24/36, push/pull da -2 a +3 stop).
+RULLINI     Ogni pellicola ha due righe: carattere e uso ideale.
+            SET carica (pose 12/24/36, push/pull da -2 a +3 stop).
             Q sul rullino caricato: Pausa (torna la 6D normale) / Riprendi /
             Riavvolgi. Contatore pose anche nella barra del Live View.
             Il "look" vale per il JPEG: il RAW resta neutro.
@@ -79,7 +80,8 @@ TORNA ALLA 6D
             Lantern cambiate da Iride, nomi dei file. Il rullino va in pausa.
 
 OPZIONI     Tema (normale / notte rossa / notte solo in Astro), animazioni
-            (complete / rapide / spente), schermata iniziale, apri all'accensione,
+            (complete / rapide / spente: un tasto qualsiasi salta sempre
+            l'animazione in corso), schermata iniziale, apri all'accensione,
             cestino apre
             Iride, tasto luce,
             anteprima col rullino, avviso posa, luogo (di fabbrica Roma

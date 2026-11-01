@@ -98,7 +98,7 @@ def xmp(f, idx):
     kids += alt("ShortName", "")
     kids += alt("SortName", f"{idx + 1:02d} {full_name(f)}")
     kids += alt("Group", GROUP)
-    kids += alt("Description", f"{f['desc']} (ISO {f['iso']})")
+    kids += alt("Description", f"{f['desc']}. {f['use']} (ISO {f['iso']})")
     kids += seq("ToneCurvePV2012", f["curve"])
     for ch in ("Red", "Green", "Blue"):
         kids += seq(f"ToneCurvePV2012{ch}", IDENT)

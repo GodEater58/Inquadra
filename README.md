@@ -5,13 +5,13 @@ Un'interfaccia a tutto schermo, animata, con menu dedicati ad **astrofotografia*
 
 *English: custom full-screen UI for the Canon EOS 6D (fw 1.1.6) running on Magic Lantern — astrophotography tools (NPF, intervalometer presets, HFR star focus, polar alignment, sky calendar), photo tools (HDR, focus stacking, Dual ISO, ETTR, ND), film-roll simulation and user profiles. UI in Italian.*
 
-> ⚠️ **Software sperimentale.** Prime prove su una 6D reale: rullini e nomi dei file funzionano. Il resto è verificato su un simulatore che esegue lo stesso codice (81 test) ed è compilato contro il firmware 6D 1.1.6. Usalo a tuo rischio. Non è affiliato né approvato da Canon.
+> ⚠️ **Software sperimentale.** Prime prove su una 6D reale: rullini e nomi dei file funzionano. Il resto è verificato su un simulatore che esegue lo stesso codice (84 test) ed è compilato contro il firmware 6D 1.1.6. Usalo a tuo rischio. Non è affiliato né approvato da Canon.
 
 | | | |
 |---|---|---|
-<p align="center"><img src="docs/screenshots/caricamento-v06.gif" width="540" alt="Caricamento di un rullino"></p>
+<p align="center"><img src="docs/screenshots/animazioni-v10.gif" width="540" alt="Avvio, Home, scaffale dei rullini e dialogo"></p>
 
-| ![Home](docs/screenshots/01_home-v06.png) | ![Astro](docs/screenshots/02_astro-v06.png) | ![Rullini](docs/screenshots/14_rullini-v06.png) |
+| ![Home](docs/screenshots/01_home-v06.png) | ![Astro](docs/screenshots/02_astro-v06.png) | ![Rullini](docs/screenshots/14_rullini-v10.png) |
 | ![Allineamento polare](docs/screenshots/06_polare-v06.png) | ![Calendario del cielo](docs/screenshots/07_cielo-v06.png) | ![Tema notte](docs/screenshots/21_cielo_notte-v06.png) |
 | ![Fuoco stelle](docs/screenshots/05_stelle-v08.png) | ![Foto](docs/screenshots/08_foto-v06.png) | ![Torna alla 6D](docs/screenshots/19_torna_6d-v06.png) |
 
@@ -24,7 +24,7 @@ Un'interfaccia a tutto schermo, animata, con menu dedicati ad **astrofotografia*
 | 🎞️ **Rullini** | 16 pellicole (colore, dia, B/N, cine) · push/pull · 12/24/36 pose · pausa e ripresa · contatore nella barra del Live View · registro su scheda · avviso se la macchina è in solo RAW · [preset per LightCraft e Lightroom](presets/) |
 | 💾 **Profili** | 5 posti per le impostazioni preferite |
 | 🔁 **Torna alla 6D** | Rimette tutto com'era prima di Iride: stile immagine e cursori, ISO, tempo, diaframma, bianco, anteprima, impostazioni di Magic Lantern, nomi dei file |
-| ✨ **Interfaccia** | Animazioni senza sfarfallio (doppio buffer), caricamento e riavvolgimento del rullino animati, tema notte rosso, compare all'accensione, si apre col cestino (o col tasto luce) · diagnostica dei tasti |
+| ✨ **Interfaccia** | Animazioni senza sfarfallio (doppio buffer): diaframma all'avvio, riquadri della Home che entrano e icone che si animano, zoom dal riquadro alla schermata, dialoghi che salgono come fogli, barra di selezione elastica, interruttori e valori che scorrono, avvisi che entrano e si spengono · caricamento e riavvolgimento del rullino con contapose a rullo · tema notte rosso, compare all'accensione, si apre col cestino (o col tasto luce) · diagnostica dei tasti |
 
 ### Tasto luce
 
@@ -35,6 +35,9 @@ La 6D riceve il tasto luce del display superiore come evento `0x20`, e Magic Lan
 <p align="center"><img src="docs/screenshots/rullini_tutti-v06.png" width="720" alt="I 16 rullini"></p>
 
 Ogni rullino è disegnato in macchina, con grafiche originali: perno, coperchi zigrinati, cilindro ombreggiato, fessura di velluto, codice DX e codice a barre.
+Sotto lo scaffale due righe per pellicola: il carattere e l'uso ideale (verificati su schede tecniche e prove: per esempio la Delta 3200 è una ISO 1000 reale esposta a 3200, la CineStill 800T è una pellicola cinema al tungsteno che di giorno vira al blu).
+
+<p align="center"><img src="docs/screenshots/caricamento-v10.gif" width="540" alt="Caricamento di un rullino"></p>
 
 ### Rullini e RAW
 
@@ -72,10 +75,11 @@ La compilazione e i test girano anche in automatico con GitHub Actions a ogni mo
 
 ```
 cd simulator && mkdir -p out
-gcc -std=gnu99 -Ishim -o preview preview.c -lm && ./preview   # 81 test
+gcc -std=gnu99 -Ishim -o preview preview.c -lm && ./preview   # 84 test
 pip install astropy pillow
 python3 check_astro.py   # confronto astronomico con astropy
 python3 render.py        # schermate in png/
+python3 gif.py ../docs/screenshots   # GIF del README (caricamento, animazioni)
 ```
 
 ## Struttura

@@ -96,7 +96,7 @@
    </crs:Group>
    <crs:Description>
     <rdf:Alt>
-     <rdf:li xml:lang="x-default">Bianco e nero notturno, grana forte, neri slavati (ISO 3200)</rdf:li>
+     <rdf:li xml:lang="x-default">B/N per il buio, grana marcata e atmosfera. ISO reale 1000: a 3200 e' gia' tirata (ISO 3200)</rdf:li>
     </rdf:Alt>
    </crs:Description>
    <crs:ToneCurvePV2012>

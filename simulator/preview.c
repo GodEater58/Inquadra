@@ -33,22 +33,34 @@ int bmp_printf(uint32_t fontspec, int x, int y, const char *fmt, ...)
     op("T\t%d\t%d\t%d\t%d\t%d\t%s\n", (fontspec >> 16) & 7, fontspec & 0xFF, (fontspec >> 8) & 0xFF, x, y, buf);
     return bmp_string_width(fontspec, buf);
 }
-void bmp_fill(uint8_t c, int x, int y, int w, int h) { op("F\t%d\t%d\t%d\t%d\t%d\n", c, x, y, w, h); }
+static uint8_t vram_a[960 * 540], vram_b[960 * 540];
+/* i riempimenti finiscono anche nella memoria video simulata: servono per vedere le transizioni */
+static void vram_raster(uint8_t c, int x, int y, int w, int h)
+{
+    uint8_t *buf = (to_idle ? vram_b : vram_a) + 30 * 960;
+    if (x < 0) { w += x; x = 0; }
+    if (y < 0) { h += y; y = 0; }
+    if (x + w > 720) w = 720 - x;
+    if (y + h > 480) h = 480 - y;
+    for (int yy = y; yy < y + h && w > 0; yy++) memset(buf + yy * 960 + x, c, w);
+}
+void bmp_fill(uint8_t c, int x, int y, int w, int h) { op("F\t%d\t%d\t%d\t%d\t%d\n", c, x, y, w, h); vram_raster(c, x, y, w, h); }
 void bmp_draw_rect(int c, int x, int y, int w, int h) { op("R\t%d\t%d\t%d\t%d\t%d\n", c, x, y, w, h); }
 void fill_circle(int x, int y, int r, int c) { op("C\t%d\t%d\t%d\t%d\t1\n", c, x, y, r); }
 void draw_circle(int x, int y, int r, int c) { op("C\t%d\t%d\t%d\t%d\t0\n", c, x, y, r); }
 void draw_line(int x1, int y1, int x2, int y2, int c) { op("L\t%d\t%d\t%d\t%d\t%d\n", c, x1, y1, x2, y2); }
-void clrscr(void) { if (to_idle) len_idle = 0; else len_real = 0; op("X\n"); }
+void clrscr(void) { if (to_idle) len_idle = 0; else len_real = 0; op("X\n"); vram_raster(0, 0, 0, 720, 480); }
 void bmp_draw_to_idle(int v) { to_idle = v; if (v) { len_idle = 0; } }
 static int frames_shown = 0;
 /* fotogrammi intermedi delle animazioni, salvati a tempi scelti */
 static void shot(const char *name);
-static int cap_on = 0, cap_t0 = 0, cap_i = 0, cap_n = 0, cap_times[24];
+static int cap_on = 0, cap_t0 = 0, cap_i = 0, cap_n = 0, cap_times[48];
 static char cap_name[32];
 static int clock_ms;
 static void capture(const char *name, const int *times, int n)
 {
     snprintf(cap_name, sizeof(cap_name), "%s", name);
+    if (n > (int)COUNT(cap_times)) n = COUNT(cap_times);
     memcpy(cap_times, times, n * sizeof(int)); cap_n = n; cap_i = 0; cap_t0 = clock_ms; cap_on = 1;
 }
 void bmp_idle_copy(int dir, int full)
@@ -56,13 +68,13 @@ void bmp_idle_copy(int dir, int full)
     (void)full;
     if (!dir) return;
     memcpy(ops_real, ops_idle, len_idle + 1); len_real = len_idle; frames_shown++;
+    memcpy(vram_a + 30 * 960, vram_b + 30 * 960, 480 * 960);
     while (cap_on && cap_i < cap_n && clock_ms - cap_t0 >= cap_times[cap_i])
     {
         char nm[64]; snprintf(nm, sizeof(nm), "%s_%02d", cap_name, cap_i); shot(nm); cap_i++;
     }
     if (cap_on && cap_i >= cap_n) cap_on = 0;
 }
-static uint8_t vram_a[960 * 540], vram_b[960 * 540];
 uint8_t *bmp_vram_real() { return vram_a + 30 * 960; }
 uint8_t *bmp_vram_idle() { return vram_b + 30 * 960; }
 
@@ -94,7 +106,47 @@ int menu_redraw_blocked, ml_shutdown_requested, shooting_mode = SHOOTMODE_M, lv 
 int hdr_stepsize = 16;
 struct lens_info lens_info;
 static int clock_ms = 1000;
-void msleep(int ms) { clock_ms += ms > 0 ? ms : 1; }
+/* fotogrammi della memoria video (solo riempimenti) salvati a tempi scelti: PPM a colori */
+static int vcap_on = 0, vcap_t0 = 0, vcap_i = 0, vcap_n = 0, vcap_times[16];
+static char vcap_name[32];
+static void vram_save(const char *name)
+{
+    char path[128];
+    snprintf(path, sizeof(path), "out/%s.ppm", name);
+    FILE *f = fopen(path, "wb");
+    fprintf(f, "P6 720 480 255\n");
+    for (int i = 0; i < 720 * 480; i++)
+    {
+        int c = vram_a[30 * 960 + (i / 720) * 960 + i % 720], r = 0, g = 0, b = 0;
+        if (c >= 38 && c <= 79) r = g = b = (c - 38) * 255 / 41;
+        else if (c == 1) r = g = b = 255;
+        else if (c == 0x13) { r = 255; g = 140; }
+        else if (c == 0x08) { r = 235; g = 50; b = 45; }
+        else if (c == 0x0C) { r = 150; g = 25; b = 25; }
+        else if (c == 0x06) { r = 60; g = 210; b = 90; }
+        else if (c == 0x07) { r = 120; g = 200; b = 120; }
+        else if (c == 0x09) { r = 110; g = 170; b = 255; }
+        else if (c == 0x0B) { r = 40; g = 80; b = 210; }
+        else if (c == 0x0F) { r = 250; g = 215; }
+        fputc(r, f); fputc(g, f); fputc(b, f);
+    }
+    fclose(f);
+}
+static void vcapture(const char *name, const int *times, int n)
+{
+    snprintf(vcap_name, sizeof(vcap_name), "%s", name);
+    if (n > (int)COUNT(vcap_times)) n = COUNT(vcap_times);
+    memcpy(vcap_times, times, n * sizeof(int)); vcap_n = n; vcap_i = 0; vcap_t0 = clock_ms; vcap_on = 1;
+}
+void msleep(int ms)
+{
+    clock_ms += ms > 0 ? ms : 1;
+    while (vcap_on && vcap_i < vcap_n && clock_ms - vcap_t0 >= vcap_times[vcap_i])
+    {
+        char nm[64]; snprintf(nm, sizeof(nm), "%s_%02d", vcap_name, vcap_i); vram_save(nm); vcap_i++;
+    }
+    if (vcap_on && vcap_i >= vcap_n) vcap_on = 0;
+}
 int get_ms_clock(void) { return clock_ms; }
 static int tasks_created = 0;
 void task_create(const char *n, int p, int s, void (*f)(void*), void *a) { (void)n; (void)p; (void)s; (void)f; (void)a; tasks_created++; }
@@ -240,8 +292,19 @@ static void camera_reset()
 }
 
 static void settle() { for (int i = 0; i < 6; i++) { clock_ms += 400; theme_apply(); render(0); } }
-static void screenshot(int s, const char *name) { screen = s; hl_reset(); hr_cur[0] = -1; settle(); shot(name); }
+static void screenshot(int s, const char *name) { screen = s; hl_reset(); hr_to[0] = -1; home_intro_t0 = 0; icon_i = -1; settle(); shot(name); }
 static void press(int k) { handle_key(k); }
+/* ridisegna la schermata attuale a tempi scelti (ms da adesso) e salva i fotogrammi */
+static void frames_at(const char *name, const int *times, int n)
+{
+    int t0 = clock_ms;
+    for (int i = 0; i < n; i++)
+    {
+        if (t0 + times[i] > clock_ms) clock_ms = t0 + times[i];
+        theme_apply(); render(0);
+        char nm[64]; snprintf(nm, sizeof(nm), "%s_%02d", name, i); shot(nm);
+    }
+}
 
 int main(void)
 {
@@ -559,15 +622,111 @@ int main(void)
     /* caricamento animato: un fotogramma a meta' */
     { screen = SCR_SHELF; theme_apply(); P.roll_push = 0; P.roll_film = 3;
       static int tl[24];
-      for (int i = 0; i < 24; i++) tl[i] = i * 92;   /* 24 fotogrammi per la GIF del README */
+      for (int i = 0; i < 24; i++) tl[i] = i * 118;  /* 24 fotogrammi per la GIF del README */
       capture("anim_carica", tl, COUNT(tl));
       anim_load(&films[3]); shot("22_caricamento");
-      static const int tr[] = { 80, 300, 600, 900, 1150, 1300, 1420, 1600, 1900 };
+      static const int tr[] = { 80, 300, 600, 900, 1150, 1300, 1420, 1600, 1750, 2000, 2440 };
       capture("anim_riavvolgi", tr, COUNT(tr));
       anim_rewind(&films[1], 24); cap_on = 0; }
 
     { int t0 = clock_ms; splash(); anim_rewind(&films[1], 12); frame_show(1); frame_show(-1);
-      CHECK(clock_ms - t0 < 5000, "splash, riavvolgimento e transizioni finiscono da soli (%d ms simulati)", clock_ms - t0); }
+      CHECK(clock_ms - t0 < 6000, "splash, riavvolgimento e transizioni finiscono da soli (%d ms simulati)", clock_ms - t0); }
+
+    /* ---------- descrizioni delle pellicole: due righe che stanno nel dialogo e nello scaffale */
+    {
+        int worst = 0; const char *wn = "";
+        for (int i = 0; i < NUM_FILMS; i++)
+        {
+            int w = MAX(txt_w(FONT_MED, films[i].desc), txt_w(FONT_MED, films[i].use));
+            if (w > worst) { worst = w; wn = films[i].name; }
+            if (!films[i].desc[0] || !films[i].use[0]) worst = 9999;
+        }
+        CHECK(worst <= SCR_W - 190 - 24, "descrizioni dei rullini: la riga piu' larga (%s) e' %d px, nel dialogo ce ne stanno %d", wn, worst, SCR_W - 214);
+    }
+
+    /* ---------- transizioni sulla memoria video: fotogrammi e risultato finale identico */
+    {
+        static const int ts[] = { 30, 70, 110, 160, 240 };
+        struct { int from, to, dir, tile; const char *name; } tr_list[] = {
+            { SCR_HOME, SCR_SHELF, 3, 2, "z_tr_zoom" }, { SCR_SHELF, SCR_HOME, -3, 2, "z_tr_zoom_indietro" },
+            { SCR_SHELF, SCR_CONFIRM, 2, 0, "z_tr_foglio" }, { SCR_CONFIRM, SCR_SHELF, -2, 0, "z_tr_foglio_giu" },
+            { SCR_ASTRO, SCR_NPF, 1, 0, "z_tr_avanti" }, { SCR_NPF, SCR_ASTRO, -1, 0, "z_tr_indietro" },
+        };
+        int same = 1;
+        for (unsigned k = 0; k < COUNT(tr_list); k++)
+        {
+            opt_theme = 0; conf_mode = CONF_LOAD;
+            screen = tr_list[k].from; hl_reset(); hr_to[0] = -1; theme_apply(); render(0);
+            screen = tr_list[k].to; hl_reset(); hr_to[0] = -1; zoom_from_tile(tr_list[k].tile); theme_apply();
+            vcapture(tr_list[k].name, ts, COUNT(ts));
+            render(tr_list[k].dir);
+            vcap_on = 0;
+            if (memcmp(vram_a + 30 * 960, vram_b + 30 * 960, 480 * 960)) same = 0;
+        }
+        CHECK(same, "transizioni (zoom, foglio, spinta): alla fine lo schermo e' esattamente la nuova schermata");
+    }
+
+    /* ---------- animazioni dentro le schermate: fotogrammi a tempi scelti */
+    {
+        opt_theme = 0; theme_apply();
+        static const int tsp[] = { 40, 140, 260, 400, 520, 640, 760, 880, 1000 };
+        capture("z_splash", tsp, COUNT(tsp)); splash(); cap_on = 0;
+        static const int ti[] = { 0, 90, 180, 280, 420, 560, 650, 760, 900, 1300 };
+        screen = SCR_HOME; sel[SCR_HOME] = 2; hl_reset(); hr_to[0] = -1;
+        home_intro_t0 = clock_ms; icon_i = 2; icon_t0 = clock_ms + 520;
+        frames_at("z_home_entrata", ti, COUNT(ti));
+        home_intro_t0 = 0;
+        static const int tic[] = { 120, 260, 420, 640 };
+        for (int i = 0; i < 6; i++)
+        {
+            char nm[32]; snprintf(nm, sizeof(nm), "z_icona%d", i);
+            sel[SCR_HOME] = i; hr_to[0] = -1; icon_i = i; icon_t0 = clock_ms;
+            frames_at(nm, tic, COUNT(tic));
+        }
+        icon_i = -1;
+        static const int tt[] = { 0, 60, 130, 300, 3290, 3400, 3480, 3560, 3700 };
+        screen = SCR_OPTIONS; sel[SCR_OPTIONS] = 0; hl_reset(); say(C_OK, "Rullino caricato");
+        frames_at("z_avviso", tt, COUNT(tt));
+        msg[0] = 0;
+        static const int tv[] = { 0, 50, 100, 160, 240 };
+        sel[SCR_OPTIONS] = 4; hl_reset(); render(0); handle_key(MODULE_KEY_PRESS_RIGHT);
+        frames_at("z_valore", tv, COUNT(tv));
+        static const int tb[] = { 0, 40, 80, 130, 230 };
+        screen = SCR_ASTRO; sel[SCR_ASTRO] = 0; hl_reset(); render(0); handle_key(MODULE_KEY_PRESS_DOWN); handle_key(MODULE_KEY_PRESS_DOWN);
+        frames_at("z_barra", tb, COUNT(tb));
+        static const int tsh[] = { 0, 50, 110, 180, 260, 400 };
+        screen = SCR_SHELF; shelf_enter(); render(0); handle_key(MODULE_KEY_PRESS_DOWN);
+        frames_at("z_scaffale_tipo", tsh, COUNT(tsh));
+        handle_key(MODULE_KEY_PRESS_RIGHT);
+        frames_at("z_scaffale_rullino", tsh, COUNT(tsh));
+        shelf_cat = CAT_COLOR; shelf_enter();
+        /* Torna alla 6D: barra, spunta, poi la Home con l'avviso */
+        struct persist saved = P;
+        snap_take(); screen = SCR_RESTORE; hl_reset(); render(0);
+        static const int trs[] = { 100, 300, 500, 700, 1000 };
+        capture("z_ripristino", trs, COUNT(trs));
+        handle_key(MODULE_KEY_PRESS_SET); cap_on = 0;
+        CHECK(screen == SCR_HOME && strstr(msg, "Fatto") != NULL && transition == -3,
+            "Torna alla 6D: ripristina, torna nella Home dal suo riquadro e mostra '%s'", msg);
+        transition = 0; msg[0] = 0; P = saved;
+    }
+
+    /* ---------- fotogrammi ogni 40 ms per le GIF del README (simulator/gif.py) */
+    {
+        opt_theme = 0; theme_apply();
+        static int g40[40];
+        for (int i = 0; i < 40; i++) g40[i] = i * 40;
+        capture("g_splash", g40, 26); splash(); cap_on = 0;
+        screen = SCR_HOME; sel[SCR_HOME] = 2; hl_reset(); hr_to[0] = -1;
+        home_intro_t0 = clock_ms; icon_i = 2; icon_t0 = clock_ms + 520;
+        frames_at("g_home", g40, 34);
+        home_intro_t0 = 0; icon_i = -1;
+        screen = SCR_SHELF; shelf_cat = CAT_COLOR; shelf_enter(); hl_reset(); frames_at("g_scaffale", g40, 1);
+        handle_key(MODULE_KEY_PRESS_RIGHT); frames_at("g_scaffale_dx", g40, 10);
+        handle_key(MODULE_KEY_PRESS_DOWN); frames_at("g_scaffale_giu", g40, 13);
+        conf_mode = CONF_LOAD; sel[SCR_CONFIRM] = 2; screen = SCR_CONFIRM; hl_reset(); frames_at("g_dialogo", g40, 1);
+        shelf_cat = CAT_COLOR; shelf_enter();
+    }
 
     /* ---------- tavola dei 16 rullini (due schermate da 8) */
     for (int page = 0; page < 2; page++)

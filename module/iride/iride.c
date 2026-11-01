@@ -35,7 +35,7 @@
 #include <lvinfo.h>
 #include <math.h>
 
-#define IRIDE_VERSION "0.9"
+#define IRIDE_VERSION "1.0"
 
 /* ------------------------------------------------------------------ compatibilita' API */
 
@@ -175,6 +175,7 @@ static int transition = 0;               /* +1 avanti (da destra), -1 indietro *
 
 static char msg[96] = "";
 static int msg_until = 0;
+static int msg_t0 = 0;                   /* quando e' comparso l'avviso (animazione) */
 static int msg_color = 0;
 
 /* coda dei tasti: il gestore li accoda, il task di Iride li esegue (puo' bloccare senza danni) */
@@ -252,7 +253,8 @@ static void say(int color, const char *text)
 {
     snprintf(msg, sizeof(msg), "%s", text);
     msg_color = color;
-    msg_until = get_ms_clock() + 3500;
+    msg_t0 = get_ms_clock();
+    msg_until = msg_t0 + 3500;
     dirty = 1;
 }
 
@@ -260,9 +262,17 @@ static void go(int s, int dir)
 {
     if (s == screen) return;
     if (screen == SCR_STARS) stars_leave();
+    /* indietro: il dialogo riscende; verso la Home la schermata rientra nel suo riquadro */
+    if (dir < 0 && screen == SCR_CONFIRM) dir = -2;
+    if (dir < 0 && s == SCR_HOME)
+    {
+        int i = home_tile_of(screen);
+        if (i >= 0) { sel[SCR_HOME] = i; zoom_from_tile(i); dir = -3; }
+    }
     screen = s;
     transition = dir;
     msg[0] = 0;
+    msg_until = 0;
     dirty = 1;
     hl_reset();
     if (screens[s].enter) screens[s].enter();
@@ -288,6 +298,13 @@ static void app_task(void *unused)
     theme_apply();
     clrscr();
     if (opt_splash && opt_anim != 2 && !skip_splash) splash();
+    if (screen == SCR_HOME && opt_anim != 2 && !skip_splash)
+    {
+        /* i riquadri della Home entrano uno dopo l'altro, poi l'icona scelta si anima */
+        home_intro_t0 = get_ms_clock() | 1;
+        icon_i = sel[SCR_HOME];
+        icon_t0 = home_intro_t0 + anim_ms(520);
+    }
     skip_splash = 0;
     dirty = 1;
     transition = 0;
@@ -313,6 +330,7 @@ static void app_task(void *unused)
 
         int now = get_ms_clock();
         if (msg[0] && now >= msg_until) { msg[0] = 0; dirty = 1; }
+        if (msg[0] && msg_until - now <= anim_ms(240)) dirty = 1;     /* l'avviso si spegne piano */
         if (screens[screen].tick && now - last_tick >= screens[screen].tick_ms)
         {
             last_tick = now;

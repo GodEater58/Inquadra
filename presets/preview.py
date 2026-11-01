@@ -138,7 +138,7 @@ def main():
     for i, f in enumerate(FILMS):
         da = Image.fromarray(develop(A, f, 10 + i))
         db = Image.fromarray(develop(B, f, 50 + i))
-        tiles.append(tile([da, db], f"{i + 1:02d}  {full_name(f)}", f["desc"], font, small))
+        tiles.append(tile([da, db], f"{i + 1:02d}  {full_name(f)}", f"{f['desc']}. {f['use']}", font, small))
     cols = 4
     tw, th = tiles[0].size
     rows = (len(tiles) + cols - 1) // cols

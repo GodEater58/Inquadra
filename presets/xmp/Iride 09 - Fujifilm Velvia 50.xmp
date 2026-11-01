@@ -88,7 +88,7 @@
    </crs:Group>
    <crs:Description>
     <rdf:Alt>
-     <rdf:li xml:lang="x-default">Diapositiva satura, verdi e blu profondi, paesaggi (ISO 50)</rdf:li>
+     <rdf:li xml:lang="x-default">Dia ipersatura, contrasto alto, nitidissima. Paesaggi in luce morbida: tolleranza minima (ISO 50)</rdf:li>
     </rdf:Alt>
    </crs:Description>
    <crs:ToneCurvePV2012>

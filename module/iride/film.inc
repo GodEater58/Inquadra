@@ -6,7 +6,7 @@ static const char *const cat_names[CAT_COUNT] = { "COLORE", "DIA", "B/N", "CINE"
 
 struct film
 {
-    const char *brand, *name, *desc;
+    const char *brand, *name, *desc, *use;   /* carattere e uso ideale (due righe) */
     int cat, iso;
     const char *process;
     int style, contrast, saturation, tone, kelvin;
@@ -15,22 +15,54 @@ struct film
 
 /* approssimazione del carattere della pellicola sul JPEG: il RAW resta neutro */
 static const struct film films[] = {
-    { "KODAK",    "Portra 160",      "Pelle morbida, colori tenui",       CAT_COLOR, 160,  "C-41", PS_PORTRAIT,  -1, -1,  0, 5200, COLOR_ALMOST_WHITE, COLOR_ORANGE,   COLOR_BLACK },
-    { "KODAK",    "Portra 400",      "Toni caldi, alte luci delicate",    CAT_COLOR, 400,  "C-41", PS_PORTRAIT,  -1,  0,  1, 5300, COLOR_ALMOST_WHITE, COLOR_ORANGE,   COLOR_BLACK },
-    { "KODAK",    "Portra 800",      "Poca luce, grana calda",            CAT_COLOR, 800,  "C-41", PS_PORTRAIT,   0,  1,  1, 5300, COLOR_ALMOST_WHITE, COLOR_DARK_RED, COLOR_WHITE },
-    { "KODAK",    "Ektar 100",       "Colori saturi, grana finissima",    CAT_COLOR, 100,  "C-41", PS_LANDSCAPE,  1,  2,  0, 5200, COLOR_ORANGE,       COLOR_RED,      COLOR_WHITE },
-    { "KODAK",    "Gold 200",        "Giallo estivo, sapore nostalgico",  CAT_COLOR, 200,  "C-41", PS_STD,        0,  1,  2, 6000, COLOR_YELLOW,       COLOR_ORANGE,   COLOR_BLACK },
-    { "KODAK",    "UltraMax 400",    "Tuttofare, contrasto vivace",       CAT_COLOR, 400,  "C-41", PS_STD,        1,  1,  1, 5600, COLOR_YELLOW,       COLOR_BLUE,     COLOR_WHITE },
-    { "FUJIFILM", "Superia 400",     "Ombre verdi, uso quotidiano",       CAT_COLOR, 400,  "C-41", PS_STD,        1,  1, -1, 4900, COLOR_GREEN2,       COLOR_ALMOST_WHITE, COLOR_BLACK },
-    { "FUJIFILM", "C200",            "Economica, toni freschi",           CAT_COLOR, 200,  "C-41", PS_STD,        0,  0, -1, 5000, COLOR_GREEN1,       COLOR_ALMOST_WHITE, COLOR_BLACK },
-    { "FUJIFILM", "Velvia 50",       "Dia satura, paesaggi",              CAT_SLIDE, 50,   "E-6",  PS_LANDSCAPE,  3,  4,  0, 5200, COLOR_DARK_RED,     COLOR_ALMOST_WHITE, COLOR_BLACK },
-    { "FUJIFILM", "Provia 100F",     "Dia neutra e fedele",               CAT_SLIDE, 100,  "E-6",  PS_STD,        2,  1,  0, 5200, COLOR_BLUE,         COLOR_ALMOST_WHITE, COLOR_BLACK },
-    { "KODAK",    "Ektachrome E100", "Dia pulita, blu freddi",            CAT_SLIDE, 100,  "E-6",  PS_STD,        2,  1, -1, 5000, COLOR_LIGHT_BLUE,   COLOR_YELLOW,   COLOR_BLACK },
-    { "ILFORD",   "HP5 Plus",        "B/N morbido, grana classica",       CAT_BW,    400,  "B/N",  PS_MONO,       1,  0,  0, 5200, COLOR_GRAY(80),     COLOR_BLACK,    COLOR_WHITE },
-    { "KODAK",    "Tri-X 400",       "B/N contrastato da reportage",      CAT_BW,    400,  "B/N",  PS_MONO,       3,  0,  0, 5200, COLOR_YELLOW,       COLOR_BLACK,    COLOR_WHITE },
-    { "ILFORD",   "Delta 3200",      "B/N notturno, grana forte",         CAT_BW,    3200, "B/N",  PS_MONO,       2,  0,  0, 5200, COLOR_GRAY(70),     COLOR_DARK_RED, COLOR_WHITE },
-    { "CINESTILL","800T",            "Tungsteno, aloni rossi in citta'",  CAT_CINE,  800,  "C-41", PS_STD,        0,  1,  0, 3200, COLOR_DARK_RED,     COLOR_GRAY(20), COLOR_WHITE },
-    { "CINESTILL","50D",             "Luce diurna, cinema",               CAT_CINE,  50,   "C-41", PS_STD,        1,  1,  0, 5500, COLOR_LIGHT_BLUE,   COLOR_GRAY(20), COLOR_WHITE },
+    { "KODAK",    "Portra 160",
+        "Grana finissima, colori tenui, pelle naturale", "Ritratti e moda con tanta luce o col flash",
+        CAT_COLOR, 160,  "C-41", PS_PORTRAIT,  -1, -1,  0, 5200, COLOR_ALMOST_WHITE, COLOR_ORANGE,   COLOR_BLACK },
+    { "KODAK",    "Portra 400",
+        "Colori naturali, contrasto basso, pelle fedele", "La piu' versatile; sovraesposta va sul pastello",
+        CAT_COLOR, 400,  "C-41", PS_PORTRAIT,  -1,  0,  1, 5300, COLOR_ALMOST_WHITE, COLOR_ORANGE,   COLOR_BLACK },
+    { "KODAK",    "Portra 800",
+        "Colori vividi, contrasto basso, grana visibile", "Per la poca luce: interni, sera, concerti",
+        CAT_COLOR, 800,  "C-41", PS_PORTRAIT,   0,  1,  1, 5300, COLOR_ALMOST_WHITE, COLOR_DARK_RED, COLOR_WHITE },
+    { "KODAK",    "Ektar 100",
+        "Grana finissima, colori saturi e nitidi", "Paesaggi e viaggi; sulla pelle calca i rossi",
+        CAT_COLOR, 100,  "C-41", PS_LANDSCAPE,  1,  2,  0, 5200, COLOR_ORANGE,       COLOR_RED,      COLOR_WHITE },
+    { "KODAK",    "Gold 200",
+        "Toni caldi e dorati, grana ben visibile", "Giornate di sole, vacanze, sapore nostalgico",
+        CAT_COLOR, 200,  "C-41", PS_STD,        0,  1,  2, 6000, COLOR_YELLOW,       COLOR_ORANGE,   COLOR_BLACK },
+    { "KODAK",    "UltraMax 400",
+        "Colori brillanti ed equilibrati, un po' caldi", "Tuttofare economica: sole, nuvole, interni",
+        CAT_COLOR, 400,  "C-41", PS_STD,        1,  1,  1, 5600, COLOR_YELLOW,       COLOR_BLUE,     COLOR_WHITE },
+    { "FUJIFILM", "Superia 400",
+        "Palette fresca, verdi intensi, grana visibile", "Tutti i giorni; rende bene col cielo grigio",
+        CAT_COLOR, 400,  "C-41", PS_STD,        1,  1, -1, 4900, COLOR_GREEN2,       COLOR_ALMOST_WHITE, COLOR_BLACK },
+    { "FUJIFILM", "C200",
+        "Toni freschi e neutri, blu e verdi puliti", "Economica, rende al meglio in piena luce",
+        CAT_COLOR, 200,  "C-41", PS_STD,        0,  0, -1, 5000, COLOR_GREEN1,       COLOR_ALMOST_WHITE, COLOR_BLACK },
+    { "FUJIFILM", "Velvia 50",
+        "Dia ipersatura, contrasto alto, nitidissima", "Paesaggi in luce morbida: tolleranza minima",
+        CAT_SLIDE, 50,   "E-6",  PS_LANDSCAPE,  3,  4,  0, 5200, COLOR_DARK_RED,     COLOR_ALMOST_WHITE, COLOR_BLACK },
+    { "FUJIFILM", "Provia 100F",
+        "Dia neutra e precisa, colori pieni, grana fine", "Tuttofare in dia, regge anche la luce dura",
+        CAT_SLIDE, 100,  "E-6",  PS_STD,        2,  1,  0, 5200, COLOR_BLUE,         COLOR_ALMOST_WHITE, COLOR_BLACK },
+    { "KODAK",    "Ektachrome E100",
+        "Dia pulita e neutra, con tendenza fredda", "Viaggi e citta'; vuole un'esposizione precisa",
+        CAT_SLIDE, 100,  "E-6",  PS_STD,        2,  1, -1, 5000, COLOR_LIGHT_BLUE,   COLOR_YELLOW,   COLOR_BLACK },
+    { "ILFORD",   "HP5 Plus",
+        "B/N morbido, ombre ricche, grana classica", "Si tira bene fino a 3200: strada e interni",
+        CAT_BW,    400,  "B/N",  PS_MONO,       1,  0,  0, 5200, COLOR_GRAY(80),     COLOR_BLACK,    COLOR_WHITE },
+    { "KODAK",    "Tri-X 400",
+        "B/N contrastato, neri pieni, grana grintosa", "Il classico del reportage e della strada",
+        CAT_BW,    400,  "B/N",  PS_MONO,       3,  0,  0, 5200, COLOR_YELLOW,       COLOR_BLACK,    COLOR_WHITE },
+    { "ILFORD",   "Delta 3200",
+        "B/N per il buio, grana marcata e atmosfera", "ISO reale 1000: a 3200 e' gia' tirata",
+        CAT_BW,    3200, "B/N",  PS_MONO,       2,  0,  0, 5200, COLOR_GRAY(70),     COLOR_DARK_RED, COLOR_WHITE },
+    { "CINESTILL","800T",
+        "Cinema al tungsteno, aloni rossi sulle luci", "Notte, neon e interni; di giorno vira al blu",
+        CAT_CINE,  800,  "C-41", PS_STD,        0,  1,  0, 3200, COLOR_DARK_RED,     COLOR_GRAY(20), COLOR_WHITE },
+    { "CINESTILL","50D",
+        "Cinema diurna, grana finissima, colori puliti", "Sole e paesaggi; lievi aloni sulle luci forti",
+        CAT_CINE,  50,   "C-41", PS_STD,        1,  1,  0, 5500, COLOR_LIGHT_BLUE,   COLOR_GRAY(20), COLOR_WHITE },
 };
 #define NUM_FILMS ((int)COUNT(films))
 
@@ -460,8 +492,9 @@ static void draw_canister(const struct film *fm, int cx, int top, int scale, int
 }
 
 /* icona Rullini della Home: il rullino attuale con la pellicola che esce e tre fotogrammi
-   con mini-foto (paesaggio, tramonto, cielo stellato). Area 200 x 100 da (x, y). */
-static void icon_rolls(const struct film *fm, int x, int y)
+   con mini-foto (paesaggio, tramonto, cielo stellato). Area 200 x 100 da (x, y).
+   t >= 0: la pellicola rientra di scatto nel rullino e riesce, come quando la si carica */
+static void icon_rolls(const struct film *fm, int x, int y, int t)
 {
     const int scale = 62;
     int cx = x + 50, top = y + 4;
@@ -471,37 +504,47 @@ static void icon_rolls(const struct film *fm, int x, int y)
     int sx0 = cx + 76 * scale / 100 / 2 - 1, sx1 = x + 198;
     int base = cc(COLOR_GRAY(22)), hole = cc(COLOR_GRAY(72));
 
-    /* striscia con taglio finale a mezza altezza */
-    fill(base, sx0, sy, sx1 - sx0 - 16, sh);
-    fill(base, sx1 - 16, sy, 16, sh / 2 + 1);
-    for (int px = sx0 + 3; px < sx1 - 3; px += 6)
+    /* fine della striscia: rientra (0..260 ms) e riesce con un piccolo rimbalzo */
+    int ex = sx1;
+    if (t >= 0 && t < 820)
     {
-        fill(hole, px, sy + 2, 3, 3);
-        if (px < sx1 - 18) fill(hole, px, sy + sh - 5, 3, 3);
+        int k = t < 260 ? ease_k(t, 260, EZ_IN) : 1000 - ease_k(t - 300, 520, EZ_BACK);
+        ex = sx1 - (sx1 - sx0 - 18) * COERCE(k, -40, 1000) / 1000;
     }
-    /* fotogrammi con le mini-foto */
-    int fy = sy + 7, fh = sh - 14, fw = fh * 3 / 2;
-    for (int k = 0; k < 3; k++)
+    if (ex > sx0 + 18)
     {
-        int fx = sx0 + 10 + k * (fw + 6);
-        if (fx + fw > sx1 - 18) break;
-        if (k == 0)
+        /* striscia con taglio finale a mezza altezza */
+        fill(base, sx0, sy, ex - sx0 - 16, sh);
+        fill(base, ex - 16, sy, 16, sh / 2 + 1);
+        for (int px = sx0 + 3; px < ex - 3; px += 6)
         {
-            fill(cc(COLOR_LIGHT_BLUE), fx, fy, fw, fh / 2);
-            fill(cc(COLOR_GREEN1), fx, fy + fh / 2, fw, fh - fh / 2);
-            fill(cc(COLOR_GREEN2), fx + fw / 3, fy + fh / 2 - 3, fw / 3, 3);
+            fill(hole, px, sy + 2, 3, 3);
+            if (px < ex - 18) fill(hole, px, sy + sh - 5, 3, 3);
         }
-        else if (k == 1)
+        /* fotogrammi con le mini-foto (solo quelli gia' fuori) */
+        int fy = sy + 7, fh = sh - 14, fw = fh * 3 / 2;
+        for (int k = 0; k < 3; k++)
         {
-            fill(cc(COLOR_ORANGE), fx, fy, fw, fh * 6 / 10);
-            fill(cc(COLOR_DARK_RED), fx, fy + fh * 6 / 10, fw, fh - fh * 6 / 10);
-            fill_circle(fx + fw / 2, fy + fh * 6 / 10, 4, cc(COLOR_YELLOW));
-            fill(cc(COLOR_DARK_RED), fx, fy + fh * 6 / 10 + 1, fw, fh - fh * 6 / 10 - 1);
-        }
-        else
-        {
-            fill(COLOR_BLACK, fx, fy, fw, fh);
-            for (int i = 0; i < 9; i++) fill(cc(COLOR_WHITE), fx + 2 + (i * 7) % (fw - 3), fy + 1 + (i * 5) % (fh - 2), 1, 1);
+            int fx = sx0 + 10 + k * (fw + 6);
+            if (fx + fw > ex - 18) break;
+            if (k == 0)
+            {
+                fill(cc(COLOR_LIGHT_BLUE), fx, fy, fw, fh / 2);
+                fill(cc(COLOR_GREEN1), fx, fy + fh / 2, fw, fh - fh / 2);
+                fill(cc(COLOR_GREEN2), fx + fw / 3, fy + fh / 2 - 3, fw / 3, 3);
+            }
+            else if (k == 1)
+            {
+                fill(cc(COLOR_ORANGE), fx, fy, fw, fh * 6 / 10);
+                fill(cc(COLOR_DARK_RED), fx, fy + fh * 6 / 10, fw, fh - fh * 6 / 10);
+                fill_circle(fx + fw / 2, fy + fh * 6 / 10, 4, cc(COLOR_YELLOW));
+                fill(cc(COLOR_DARK_RED), fx, fy + fh * 6 / 10 + 1, fw, fh - fh * 6 / 10 - 1);
+            }
+            else
+            {
+                fill(COLOR_BLACK, fx, fy, fw, fh);
+                for (int i = 0; i < 9; i++) fill(cc(COLOR_WHITE), fx + 2 + (i * 7) % (fw - 3), fy + 1 + (i * 5) % (fh - 2), 1, 1);
+            }
         }
     }
     draw_canister(fm, cx, top, scale, 0);
@@ -632,16 +675,18 @@ static void draw_crank(int top, int turn_milli)
     fill_circle(px, py, 3, tc(COLOR_GRAY(70)));
 }
 
-/* sportello che si chiude (da destra) con finestrella promemoria e contapose */
-static void draw_door(const struct film *fm, int dx, const char *counter, int nudge)
+/* sportello che si chiude (da destra) con finestrella promemoria e contapose.
+   Il contapose e' un rullo: labels[k] sta al centro quando pos = k * 1000 */
+static void draw_door(const struct film *fm, int dx, const char *const *labels, int nlab, int pos)
 {
     if (dx >= SC_X1) return;
-    fill(tc(COLOR_GRAY(20)), dx, SC_Y0, SC_X1 - dx, SC_Y1 - SC_Y0);
-    for (int y = SC_Y0 + 14; y < SC_Y1 - 6; y += 16) fill(tc(COLOR_GRAY(24)), dx + 8, y, SC_X1 - dx - 16, 2);
+    int door = tc(COLOR_GRAY(20)), stripe = tc(COLOR_GRAY(24));
+    fill(door, dx, SC_Y0, SC_X1 - dx, SC_Y1 - SC_Y0);
+    for (int y = SC_Y0 + 14; y < SC_Y1 - 6; y += 16) fill(stripe, dx + 8, y, SC_X1 - dx - 16, 2);
     fill(tc(COLOR_GRAY(34)), dx, SC_Y0, 3, SC_Y1 - SC_Y0);
     /* finestrella promemoria: si vede l'etichetta del rullino */
     int mx = dx + 96, my = 112, mw = 116, mh = 62;
-    if (mx < SC_X1)
+    if (mx + mw + 4 <= SC_X1)
     {
         fill(tc(COLOR_GRAY(40)), mx - 4, my - 4, mw + 8, mh + 8);
         fill(tc(fm->body), mx, my, mw, mh);
@@ -651,13 +696,25 @@ static void draw_door(const struct film *fm, int dx, const char *counter, int nu
         int ink = tc(fm->ink) == tc(fm->label) ? C_TEXT : tc(fm->ink);
         txt_c(FONT_MED, ink, mx + mw / 2, my + mh / 2 - 12, iso);
     }
-    /* contapose */
+    /* contapose: le cifre scorrono in verticale dentro la finestrella */
     int cx = dx + 470, cy = 108;
-    if (cx < SC_X1 && counter)
+    if (cx + 84 <= SC_X1 && labels)
     {
         fill(tc(COLOR_GRAY(40)), cx - 4, cy - 4, 88, 66);
         fill(COLOR_BLACK, cx, cy, 80, 58);
-        txt_c(FONT_LARGE, C_ACCENT, cx + 40, cy + 12 + nudge, counter);
+        for (int k = 0; k < nlab; k++)
+        {
+            int y = cy + 12 + (k * 1000 - pos) * 44 / 1000;
+            if (y > cy - 34 && y < cy + 58) txt_c(FONT_LARGE, C_ACCENT, cx + 40, y, labels[k]);
+        }
+        /* maschere sopra e sotto la finestrella (le cifre che escono spariscono dietro lo sportello) */
+        fill(door, cx - 4, cy - 40, 88, 36);
+        fill(door, cx - 4, cy + 62, 88, 34);
+        for (int y = SC_Y0 + 14; y < SC_Y1 - 6; y += 16)
+            if ((y >= cy - 40 && y < cy - 4) || (y >= cy + 62 && y < cy + 96)) fill(stripe, cx - 4, y, 88, 2);
+        fill(tc(COLOR_GRAY(40)), cx - 4, cy - 4, 88, 4);
+        fill(tc(COLOR_GRAY(40)), cx - 4, cy + 58, 88, 4);
+        fill(tc(COLOR_GRAY(30)), cx, cy + 27, 3, 4);                 /* indice */
         txt_c(FONT_SMALL, tc(COLOR_GRAY(60)), cx + 40, cy + 74, "POSE");
     }
 }
@@ -669,22 +726,45 @@ static void scene_text(const char *big, const char *line2, const char *line3, in
     if (line3) txt_c(FONT_MED, C_DIM, 360, 376, line3);
 }
 
+/* finale delle scene: spunta che si disegna e testo che sale */
+static void scene_done(int t, const char *big, const char *line2, const char *line3)
+{
+    int w = txt_w(FONT_LARGE, big);
+    draw_check(360 - w / 2 - 12, 316, 17, t);
+    txt_in(FONT_LARGE, C_TEXT, 360 - w / 2 + 28, 300, big, ease_k(t, 220, EZ_OUT), 14, 0);
+    if (line2) txt_c_in(FONT_MED, C_DIM, 360, 344, line2, ease_k(t - 90, 240, EZ_OUT), 0, 10);
+    if (line3) txt_c_in(FONT_MED, C_DIM, 360, 376, line3, ease_k(t - 170, 240, EZ_OUT), 0, 10);
+}
+
+/* barra di avanzamento sottile sotto la scena */
+static void scene_progress(int permille)
+{
+    fill(C_LINE, 210, 420, 300, 3);
+    fill(C_ACCENT, 210, 420, 300 * COERCE(permille, 0, 1000) / 1000, 3);
+}
+
 /* caricamento: il rullino scende nel vano, la linguetta corre fino alla bobina e si aggancia,
-   la pellicola avanza, lo sportello si chiude e il contapose fa S -> 0 -> 1 */
+   la pellicola avanza, lo sportello si chiude e il contapose scorre S -> 0 -> 1 */
 #define LOAD_FULL 2150
+#define LOAD_END  (LOAD_FULL + 600)        /* piu' la spunta e il testo finale */
 static void anim_load(const struct film *fm)
 {
-    int dur = anim_ms(LOAD_FULL);
+    int dur = anim_ms(LOAD_END);
     int t0 = get_ms_clock();
-    int done = 0;
+    int done = 0, skipped = 0;
     char info[96];
     snprintf(info, sizeof(info), "%s %s - %d pose%s", fm->brand, fm->name, P.roll_exp,
         P.roll_push ? (P.roll_push > 0 ? " - push" : " - pull") : "");
+    static const char *const counter[3] = { "S", "0", "1" };
+    static const short step_at[5] = { 0, 320, 950, 1350, 1700 };
+    static const char *const steps[5] = { "Inserisco il rullino", "Aggancio la linguetta alla bobina",
+        "Avanzamento della pellicola", "Chiudo lo sportello", "Avanzo al primo fotogramma" };
     while (!done)
     {
         int t = get_ms_clock() - t0;
-        if (t >= dur || anim_skip()) { t = dur; done = 1; }
-        int tv = dur ? t * LOAD_FULL / dur : LOAD_FULL;
+        if (t >= dur) { t = dur; done = 1; }
+        if (anim_skip()) { t = dur; done = 1; skipped = 1; }
+        int tv = dur ? t * LOAD_END / dur : LOAD_END;
 
         int e_drop = phase(tv, 0, 320, EZ_BACK);
         int e_pull = phase(tv, 320, 630, EZ_IO);
@@ -701,51 +781,49 @@ static void anim_load(const struct film *fm)
         draw_drum(e_wind * 16 / 10, e_wind * 4 / 1000);
         draw_canister(fm, SC_CAN_X, top, 100, 0);
 
-        const char *cnt = tv < 1700 ? "S" : tv < 1850 ? "0" : "1";
-        int nudge = 0;
-        if (tv >= 1700)
-        {
-            int since = tv < 1850 ? tv - 1700 : tv - 1850;
-            nudge = since < 90 ? (90 - since) / 15 : 0;
-        }
-        draw_door(fm, lerp(SC_X1, SC_X0, e_door), cnt, nudge);
+        int pos = phase(tv, 1700, 170, EZ_BACK) + phase(tv, 1860, 170, EZ_BACK);
+        draw_door(fm, lerp(SC_X1, SC_X0, e_door), counter, 3, pos);
         draw_header("Rullini");
 
         if (tv < LOAD_FULL)
         {
-            const char *step = tv < 320 ? "Inserisco il rullino" : tv < 950 ? "Aggancio la linguetta alla bobina"
-                : tv < 1350 ? "Avanzamento della pellicola" : tv < 1700 ? "Chiudo lo sportello" : "Avanzo al primo fotogramma";
-            scene_text("Caricamento...", step, 0, C_TEXT);
+            int k = 0;
+            while (k < 4 && tv >= step_at[k + 1]) k++;
+            scene_text("Caricamento...", 0, 0, C_TEXT);
+            txt_c_in(FONT_MED, C_DIM, 360, 344, steps[k], phase(tv, step_at[k], 220, EZ_OUT), 22, 0);
+            scene_progress(tv * 1000 / LOAD_FULL);
         }
         else
         {
             char big[32];
             snprintf(big, sizeof(big), "Rullino %03d pronto", P.roll_num % 1000);
-            scene_text(big, info, opt_review_off ? "Anteprima spenta: vedrai le foto dopo, come con la pellicola" : 0, C_TEXT);
+            scene_done(tv - LOAD_FULL, big, info, opt_review_off ? "Anteprima spenta: vedrai le foto dopo, come con la pellicola" : 0);
         }
         draw_footer("");
         frame_show(0);
         msleep(10);
     }
-    for (int i = 0; i < 65 && !anim_skip(); i++) msleep(20);
+    if (!skipped) for (int i = 0; i < 35 && !anim_skip(); i++) msleep(20);
 }
 
 /* riavvolgimento: la manovella gira, la pellicola torna indietro e la bobina si svuota,
    la coda corre dentro il rullino, che poi esce dal vano */
 #define REW_FULL 1850
+#define REW_END  (REW_FULL + 600)
 static void anim_rewind(const struct film *fm, int shots)
 {
-    int dur = anim_ms(REW_FULL);
+    int dur = anim_ms(REW_END);
     int t0 = get_ms_clock();
-    int done = 0;
+    int done = 0, skipped = 0;
     int wound0 = 3 + COERCE(shots, 0, 36) * 12 / 36;
     char info[96];
     snprintf(info, sizeof(info), "%s %s - %d pose su %d", fm->brand, fm->name, shots, P.roll_exp);
     while (!done)
     {
         int t = get_ms_clock() - t0;
-        if (t >= dur || anim_skip()) { t = dur; done = 1; }
-        int tv = dur ? t * REW_FULL / dur : REW_FULL;
+        if (t >= dur) { t = dur; done = 1; }
+        if (anim_skip()) { t = dur; done = 1; skipped = 1; }
+        int tv = dur ? t * REW_END / dur : REW_END;
 
         int e_in = phase(tv, 0, 150, EZ_OUT);
         int e_rew = phase(tv, 150, 1100, EZ_IO);
@@ -765,22 +843,24 @@ static void anim_rewind(const struct film *fm, int shots)
         if (e_in < 1000) fill(C_BG, 0, 46 + 398 * e_in / 1000, SCR_W, 398 - 398 * e_in / 1000);
         draw_header("Rullini");
 
-        char big[32];
-        int left = shots - shots * e_rew / 1000;
         if (tv < 1550)
         {
+            char big[16];
+            int left = shots - shots * e_rew / 1000;
             snprintf(big, sizeof(big), "%d", left);
             scene_text("Riavvolgimento...", 0, 0, C_TEXT);
             txt_c(FONT_LARGE, C_ACCENT, 360, 340, big);
+            scene_progress(tv * 1000 / 1550);
         }
         else
         {
+            char big[32];
             snprintf(big, sizeof(big), "Rullino %03d riavvolto", P.roll_num % 1000);
-            scene_text(big, info, "Pronto per lo sviluppo", C_TEXT);
+            scene_done(tv - 1550, big, info, "Pronto per lo sviluppo");
         }
         draw_footer("");
         frame_show(0);
         msleep(10);
     }
-    for (int i = 0; i < 60 && !anim_skip(); i++) msleep(20);
+    if (!skipped) for (int i = 0; i < 35 && !anim_skip(); i++) msleep(20);
 }

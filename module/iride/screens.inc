@@ -17,44 +17,89 @@ static int key_dy(int key)
 
 static int key_big(int key) { return key == MODULE_KEY_WHEEL_LEFT || key == MODULE_KEY_WHEEL_RIGHT; }
 
-/* ------------------------------------------------------------------ cornice di selezione animata */
+/* ------------------------------------------------------------------ cornice di selezione elastica */
 
-static int hr_cur[4] = { -1 }, hr_from[4], hr_to[4], hr_t0;
+/* come la barra delle liste: il lato che guida arriva prima, l'altro lo segue */
+static int hr_to[4] = { -1 }, hr_lead[4], hr_tail[4], hr_fl[4], hr_ft[4], hr_t0;
 
 static void hr_frame(int x, int y, int w, int h)
 {
-    int to[4] = { x, y, w, h };
-    int now = get_ms_clock(), dur = anim_ms(150);
-    if (hr_cur[0] < 0 || dur == 0) { for (int i = 0; i < 4; i++) hr_cur[i] = hr_from[i] = hr_to[i] = to[i]; }
+    int to[4] = { x, y, x + w, y + h };
+    int now = get_ms_clock(), d1 = anim_ms(120), d2 = anim_ms(250);
+    if (hr_to[0] < 0 || !d1)
+    {
+        for (int i = 0; i < 4; i++) hr_to[i] = hr_lead[i] = hr_tail[i] = hr_fl[i] = hr_ft[i] = to[i];
+        hr_t0 = now - 100000;
+    }
     else if (memcmp(to, hr_to, sizeof(to)))
     {
-        for (int i = 0; i < 4; i++) { hr_from[i] = hr_cur[i]; hr_to[i] = to[i]; }
+        for (int i = 0; i < 4; i++) { hr_fl[i] = hr_lead[i]; hr_ft[i] = hr_tail[i]; hr_to[i] = to[i]; }
         hr_t0 = now;
     }
-    int e = ease(now - hr_t0, dur);
-    for (int i = 0; i < 4; i++) hr_cur[i] = hr_from[i] + (hr_to[i] - hr_from[i]) * e / 1000;
-    if (e < 1000) anim_keep();
-    frame_rect(C_ACCENT, hr_cur[0] - 3, hr_cur[1] - 3, hr_cur[2] + 6, hr_cur[3] + 6, 3);
+    int t = now - hr_t0, e1 = ease(t, d1), e2 = ease(t, d2);
+    for (int i = 0; i < 4; i++) { hr_lead[i] = lerp(hr_fl[i], hr_to[i], e1); hr_tail[i] = lerp(hr_ft[i], hr_to[i], e2); }
+    if (t < d2) anim_keep();
+    int x0 = MIN(hr_lead[0], hr_tail[0]), y0 = MIN(hr_lead[1], hr_tail[1]);
+    int x1 = MAX(hr_lead[2], hr_tail[2]), y1 = MAX(hr_lead[3], hr_tail[3]);
+    frame_rect(C_ACCENT, x0 - 3, y0 - 3, x1 - x0 + 6, y1 - y0 + 6, 3);
 }
 
 /* ------------------------------------------------------------------ Home */
+
+/* riquadri: 3 grandi sopra, 3 piccoli sotto */
+static void home_tile(int i, int *x, int *y, int *w, int *h)
+{
+    *x = 24 + (i % 3) * 230; *y = i < 3 ? 62 : 272; *w = 212; *h = i < 3 ? 196 : 84;
+}
+
+static int home_intro_t0 = 0;            /* apertura dell'app: i riquadri salgono uno dopo l'altro */
+static int icon_t0 = -100000, icon_i = -1;   /* animazione dell'icona appena scelta */
+
+/* spostamento verticale del riquadro i durante l'entrata (HIDDEN = non ancora visibile) */
+#define HIDDEN 9999
+static int home_intro_dy(int i)
+{
+    if (!home_intro_t0) return 0;
+    static const short delay[6] = { 0, 60, 120, 150, 200, 250 };
+    int dur = anim_ms(360), t = get_ms_clock() - home_intro_t0 - anim_ms(delay[i]);
+    if (t < 0) { anim_keep(); return HIDDEN; }
+    if (t >= dur) return 0;
+    anim_keep();
+    return (1000 - ease_k(t, dur, EZ_BACK)) * 40 / 1000;
+}
+
+static int icon_time(int i)
+{
+    if (i != icon_i || opt_anim == 2) return -1;
+    int t = get_ms_clock() - icon_t0;
+    if (t < 0) { anim_keep(); return -1; }
+    if (t > 950) return -1;
+    anim_keep();
+    return opt_anim == 1 ? t * 10 / 6 : t;
+}
 
 static void draw_home()
 {
     fill(C_BG, 0, 46, SCR_W, 398);
     draw_header("6D");
     int s = sel[SCR_HOME];
+    int intro = 0;
+    if (home_intro_t0 && get_ms_clock() - home_intro_t0 > anim_ms(250) + anim_ms(360) + 450) home_intro_t0 = 0;
 
     const char *big[3] = { "ASTRO", "FOTO", "RULLINI" };
     const char *sub[3] = { "NPF, polare, cielo", "HDR, stack, ND", "" };
     for (int i = 0; i < 3; i++)
     {
-        int x = 24 + i * 230, y = 62;
+        int dy = home_intro_dy(i);
+        if (dy == HIDDEN) { intro = 1; continue; }
+        if (dy) intro = 1;
+        int x = 24 + i * 230, y = 62 + dy;
         int bg = i == s ? C_SEL : C_PANEL;
         fill(bg, x, y, 212, 196);
-        if (i == 0) icon_sky(x + 11, y + 8, bg);
-        else if (i == 1) icon_dslr(x + 31, y + 6, bg);
-        else icon_rolls(P.roll_loaded ? cur_film() : &films[1], x + 6, y + 6);
+        int t = icon_time(i);
+        if (i == 0) icon_sky(x + 11, y + 8, bg, t);
+        else if (i == 1) icon_dslr(x + 31, y + 6, bg, t);
+        else icon_rolls(P.roll_loaded ? cur_film() : &films[1], x + 6, y + 6, t);
         txt(FONT_LARGE, C_TEXT, x + 16, y + 118, big[i]);
         char line[48];
         if (i == 2)
@@ -64,17 +109,22 @@ static void draw_home()
             txt(FONT_MED, C_DIM, x + 16, y + 158, line);
         }
         else txt(FONT_MED, C_DIM, x + 16, y + 158, sub[i]);
+        if (dy && i == s) frame_rect(C_ACCENT, x - 3, y - 3, 218, 202, 3);
     }
 
     const char *small[3] = { "Torna alla 6D", "Profili", "Opzioni" };
     for (int i = 0; i < 3; i++)
     {
-        int x = 24 + i * 230, y = 272;
+        int dy = home_intro_dy(i + 3);
+        if (dy == HIDDEN) { intro = 1; continue; }
+        if (dy) intro = 1;
+        int x = 24 + i * 230, y = 272 + dy;
         int bg = i + 3 == s ? C_SEL : C_PANEL;
         fill(bg, x, y, 212, 84);
-        if (i == 0) icon_undo(x + 34, y + 42);
-        else if (i == 1) icon_faders(x + 34, y + 42);
-        else icon_gears(x + 32, y + 46, bg);
+        int t = icon_time(i + 3);
+        if (i == 0) icon_undo(x + 34, y + 42, t);
+        else if (i == 1) icon_faders(x + 34, y + 42, t);
+        else icon_gears(x + 32, y + 46, bg, t);
         txt(FONT_MED, C_TEXT, x + 66, y + 14, small[i]);
         char line[40];
         if (i == 0)
@@ -91,11 +141,17 @@ static void draw_home()
             txt(FONT_SMALL, C_DIM, x + 66, y + 50, line);
         }
         else txt(FONT_SMALL, C_DIM, x + 66, y + 50, night ? "tema notte" : "tema, tasti, luogo");
+        if (dy && i + 3 == s) frame_rect(C_ACCENT, x - 3, y - 3, 218, 90, 3);
     }
 
-    int tx = 24 + (s % 3) * 230, ty = s < 3 ? 62 : 272;
-    hr_frame(tx, ty, 212, s < 3 ? 196 : 84);
+    int tx, ty, tw, th;
+    home_tile(s, &tx, &ty, &tw, &th);
+    if (!intro) hr_frame(tx, ty, tw, th);
+    else hr_to[0] = -1;
 
+    /* righe dell'obiettivo: si accendono dopo i riquadri */
+    int ei = home_intro_t0 ? phase(get_ms_clock() - home_intro_t0, anim_ms(300), anim_ms(260), EZ_OUT) : 1000;
+    if (ei < 1000) anim_keep();
     char buf[96], ap[8];
     if (lens_info.lens_exists && lens_info.name[0])
     {
@@ -103,25 +159,40 @@ static void draw_home()
         snprintf(buf, sizeof(buf), "%s   %dmm f/%s", lens_info.name, (int)lens_info.focal_len, ap);
     }
     else snprintf(buf, sizeof(buf), "Obiettivo manuale o non rilevato");
-    txt(FONT_MED, C_TEXT, 26, 372, buf);
+    txt_in(FONT_MED, C_TEXT, 26, 372, buf, ei, 0, 8);
     snprintf(buf, sizeof(buf), "Ghiera %s   ISO %s   %s   File %s", get_shootmode_name_short(shooting_mode),
         lens_format_iso(lens_info.raw_iso), style_name(lens_info.raw_picstyle), prefix_cur[0] ? prefix_cur : "IMG_");
-    txt(FONT_MED, C_DIM, 26, 404, buf);
+    txt_in(FONT_MED, C_DIM, 26, 404, buf, ei, 0, 8);
     draw_footer("joystick scegli   SET apri   MENU esci   cestino = menu ML");
 }
 
+/* da/verso la Home: lo zoom parte dal riquadro (cornice compresa) */
+static void zoom_from_tile(int i)
+{
+    int x, y, w, h;
+    home_tile(i, &x, &y, &w, &h);
+    zoom_x = x - 3; zoom_y = y - 3; zoom_w = w + 6; zoom_h = h + 6;
+}
+
 static const int home_target[6] = { SCR_ASTRO, SCR_FOTO, SCR_SHELF, SCR_RESTORE, SCR_PROFILES, SCR_OPTIONS };
+
+static int home_tile_of(int scr)
+{
+    for (int i = 0; i < 6; i++) if (home_target[i] == scr) return i;
+    return -1;
+}
 
 static void home_key(int key, int dx, int dy)
 {
     int s = sel[SCR_HOME];
     if (dx) s = (s / 3) * 3 + MOD(s % 3 + dx, 3);
     else if (dy) s = MOD(s + 3 * dy, 6);
-    else if (key == MODULE_KEY_PRESS_SET) { go(home_target[s], 1); return; }
+    else if (key == MODULE_KEY_PRESS_SET) { zoom_from_tile(s); go(home_target[s], 3); return; }
+    if (s != sel[SCR_HOME]) { icon_t0 = get_ms_clock() + 60; icon_i = s; }
     sel[SCR_HOME] = s;
 }
 
-static void home_enter() { hr_cur[0] = -1; }
+static void home_enter() { hr_to[0] = -1; icon_i = -1; }
 
 /* ------------------------------------------------------------------ menu Astro e Foto */
 
@@ -168,7 +239,12 @@ static void foto_key(int key, int dx, int dy)
 
 static int shelf_cat = CAT_COLOR;
 static int shelf_pos[CAT_COUNT] = { 1, 0, 0, 0 };
-static int shelf_vis = -1, shelf_from = 0, shelf_t0 = 0;   /* posizione mostrata x1000, animata */
+/* valore animato x1000 che insegue il suo obiettivo (carosello, sottolineatura) */
+struct glider { int vis, from, to, t0; };
+static struct glider shelf_g = { -1, 0, 0, 0 }, tab_g = { -1, 0, 0, 0 };
+static int pop_t0 = -100000;                                /* cambio categoria: i rullini spuntano */
+static int bump_t0 = -100000, bump_dir = 0;                 /* fine dello scaffale: piccolo urto */
+static int info_t0 = -100000, info_dir = 0;                 /* testi della pellicola che entrano */
 static int cat_films[NUM_FILMS];
 
 static int cat_list(int cat)
@@ -185,27 +261,37 @@ static int shelf_film()
     return cat_films[shelf_pos[shelf_cat]];
 }
 
+static int glide(struct glider *g, int target, int full)
+{
+    int now = get_ms_clock(), dur = anim_ms(full);
+    if (g->vis < 0 || dur == 0) { g->vis = g->from = g->to = target; return target; }
+    if (target != g->to) { g->from = g->vis; g->to = target; g->t0 = now; }
+    int e = ease(now - g->t0, dur);
+    g->vis = lerp(g->from, g->to, e);
+    if (e < 1000) anim_keep();
+    return g->vis;
+}
+
 static void draw_shelf()
 {
     fill(C_BG, 0, 46, SCR_W, 398);
     draw_header("Rullini");
+    int now = get_ms_clock();
     for (int c = 0; c < CAT_COUNT; c++)
-    {
-        int cx = 120 + c * 160;
-        txt_c(FONT_MED, c == shelf_cat ? C_TEXT : C_DIM, cx, 52, cat_names[c]);
-        if (c == shelf_cat) fill(C_ACCENT, cx - 34, 80, 68, 3);
-    }
+        txt_c(FONT_MED, c == shelf_cat ? C_TEXT : C_DIM, 120 + c * 160, 52, cat_names[c]);
+    int tv = glide(&tab_g, shelf_cat * 1000, 220);
+    fill(C_ACCENT, 120 + tv * 160 / 1000 - 34, 80, 68, 3);
 
     int n = cat_list(shelf_cat);
     int pos = COERCE(shelf_pos[shelf_cat], 0, MAX(n - 1, 0));
-    int target = pos * 1000, now = get_ms_clock(), dur = anim_ms(170);
-    if (shelf_vis < 0 || dur == 0) shelf_vis = target;
-    else if (shelf_vis != target)
+    int vis = glide(&shelf_g, pos * 1000, 260);
+
+    /* urto alla fine dello scaffale: oscillazione smorzata */
+    int bump = 0, tb = now - bump_t0, db = anim_ms(300);
+    if (tb >= 0 && tb < db)
     {
-        if (now - shelf_t0 > dur * 2) { shelf_from = shelf_vis; shelf_t0 = now; }
-        int e = ease(now - shelf_t0, dur);
-        shelf_vis = shelf_from + (target - shelf_from) * e / 1000;
-        if (e >= 1000) shelf_vis = target; else anim_keep();
+        bump = (int)((float)(bump_dir * 12) * sinf((float)tb * 6.2832f / (float)db) * (float)(db - tb) / (float)db);
+        anim_keep();
     }
 
     /* posizione continua: ogni rullino scala e si sposta in base alla distanza dal centro */
@@ -213,7 +299,7 @@ static void draw_shelf()
     for (int far = 3; far >= 0; far--)
         for (int j = 0; j < n; j++)
         {
-            int d = ABS(j * 1000 - shelf_vis);
+            int d = ABS(j * 1000 - vis);
             if (d >= far * 1000 && d < (far + 1) * 1000) order[cnt++] = j;
         }
     /* mensola: tutti i rullini ci appoggiano sopra, piu' piccoli man mano che si allontanano */
@@ -224,32 +310,45 @@ static void draw_shelf()
     for (int k = 0; k < cnt; k++)
     {
         int j = order[k];
-        int d = j * 1000 - shelf_vis;
+        int d = j * 1000 - vis;
         int ad = ABS(d);
         if (ad > 2600) continue;
+        /* cambio categoria: spuntano dal piano, prima quello al centro */
+        int ep = phase(now - pop_t0, anim_ms(ABS(j - pos) * 55), anim_ms(340), EZ_BACK);
+        if (ep < 1000) anim_keep();
+        if (ep <= 0) continue;
         int scale = 100 - MIN(ad, 2000) * 25 / 1000;          /* 100 al centro, 50 a due posti */
-        int cx = 360 + d * 140 / 1000 - (d > 0 ? 1 : -1) * MAX(ad - 1000, 0) * 20 / 1000;
+        scale = scale * lerp(25, 100, ep) / 100;
+        int cx = 360 + d * 140 / 1000 - (d > 0 ? 1 : -1) * MAX(ad - 1000, 0) * 20 / 1000 + bump;
         int lift = MAX(0, 700 - ad) * 8 / 700;               /* quello scelto si solleva un poco */
         int top = shelf_y - canister_height(scale) - lift;
-        int leader = MAX(0, 600 - ad) * 44 / 600;            /* la linguetta esce piano */
+        int leader = ep >= 1000 ? MAX(0, 600 - ad) * 44 / 600 : 0;   /* la linguetta esce piano */
         int sw = 76 * scale / 100 + 10 - lift;                /* ombra sul piano */
         fill(cc(COLOR_GRAY(6)), cx - sw / 2 + 3, shelf_y - 3, sw, 6);
         draw_canister(&films[cat_films[j]], cx, top, scale, leader);
     }
 
+    /* testi: entrano dal lato da cui arriva il rullino, uno dopo l'altro */
     const struct film *fm = &films[cat_films[pos]];
-    txt_c(FONT_MED, C_DIM, 360, 268, fm->brand);
-    txt_c(FONT_LARGE, C_TEXT, 360, 292, fm->name);
-    txt_c(FONT_MED, C_DIM, 360, 332, fm->desc);
+    int ddx = info_dir * 28, ddy = info_dir ? 0 : 10;
+    int e0 = phase(now - info_t0, 0, anim_ms(240), EZ_OUT), e1 = phase(now - info_t0, anim_ms(50), anim_ms(240), EZ_OUT);
+    int e2 = phase(now - info_t0, anim_ms(100), anim_ms(240), EZ_OUT), e3 = phase(now - info_t0, anim_ms(150), anim_ms(240), EZ_OUT);
+    if (e3 < 1000) anim_keep();
+    int bw = txt_w(FONT_MED, fm->brand), nw = txt_w(FONT_LARGE, fm->name);
+    int gx = 360 - (bw + 12 + nw) / 2;
+    txt_in(FONT_MED, C_DIM, gx, 278, fm->brand, e0, ddx, ddy);
+    txt_in(FONT_LARGE, C_TEXT, gx + bw + 12, 270, fm->name, e0, ddx, ddy);
+    txt_c_in(FONT_MED, C_TEXT, 360, 314, fm->desc, e1, ddx, ddy);
+    txt_c_in(FONT_MED, C_DIM, 360, 340, fm->use, e2, ddx, ddy);
     char buf[96];
     snprintf(buf, sizeof(buf), "ISO %d   %s   stile %s   %dK", fm->iso, fm->process, style_name(fm->style), fm->kelvin);
-    txt_c(FONT_MED, C_ACCENT, 360, 366, buf);
+    txt_c_in(FONT_MED, C_ACCENT, 360, 376, buf, e3, ddx, ddy);
     int raw_warn = P.roll_loaded && !P.roll_paused && picq_raw_only();
     if (P.roll_loaded)
         snprintf(buf, sizeof(buf), "Caricato: R%03d %s, %d/%d%s", P.roll_num % 1000, cur_film()->name, P.roll_shots, P.roll_exp,
             P.roll_paused ? " - in pausa" : raw_warn ? " - solo RAW" : "");
     else snprintf(buf, sizeof(buf), "Nessun rullino caricato");
-    txt_c(FONT_MED, raw_warn ? C_WARN : C_DIM, 360, 404, buf);
+    txt_c(FONT_MED, raw_warn ? C_WARN : C_DIM, 360, 410, buf);
     draw_footer(P.roll_loaded ? "</> pellicola  ^/v tipo  SET carica  Q rullino attuale" : "</> pellicola  ^/v tipo  SET carica");
 }
 
@@ -261,10 +360,16 @@ static int load_exp = 36, load_push = 0;
 static void shelf_key(int key, int dx, int dy)
 {
     int n = cat_list(shelf_cat);
-    if (dx) shelf_pos[shelf_cat] = COERCE(shelf_pos[shelf_cat] + dx, 0, MAX(n - 1, 0));
-    else if (dy) { shelf_cat = MOD(shelf_cat + dy, CAT_COUNT); shelf_vis = -1; }
-    else if (key == MODULE_KEY_PRESS_SET) { conf_mode = CONF_LOAD; sel[SCR_CONFIRM] = 2; go(SCR_CONFIRM, 1); }
-    else if (key == MODULE_KEY_Q && P.roll_loaded) { conf_mode = CONF_ROLL; sel[SCR_CONFIRM] = 1; go(SCR_CONFIRM, 1); }
+    int now = get_ms_clock();
+    if (dx)
+    {
+        int np = COERCE(shelf_pos[shelf_cat] + dx, 0, MAX(n - 1, 0));
+        if (np == shelf_pos[shelf_cat]) { bump_t0 = now; bump_dir = -dx; }
+        else { shelf_pos[shelf_cat] = np; info_t0 = now; info_dir = dx; }
+    }
+    else if (dy) { shelf_cat = MOD(shelf_cat + dy, CAT_COUNT); shelf_g.vis = -1; pop_t0 = now; info_t0 = now; info_dir = 0; }
+    else if (key == MODULE_KEY_PRESS_SET) { conf_mode = CONF_LOAD; sel[SCR_CONFIRM] = 2; go(SCR_CONFIRM, 2); }
+    else if (key == MODULE_KEY_Q && P.roll_loaded) { conf_mode = CONF_ROLL; sel[SCR_CONFIRM] = 1; go(SCR_CONFIRM, 2); }
 }
 
 static void shelf_enter()
@@ -275,7 +380,8 @@ static void shelf_enter()
         int n = cat_list(shelf_cat);
         for (int i = 0; i < n; i++) if (cat_films[i] == P.roll_film) shelf_pos[shelf_cat] = i;
     }
-    shelf_vis = -1;
+    shelf_g.vis = -1;
+    tab_g.vis = -1;
 }
 
 static const char *const load_labels[] = { "Pose", "Push / pull", "Carica il rullino" };
@@ -363,14 +469,15 @@ static void draw_confirm()
         const struct film *fm = &films[shelf_film()];
         draw_canister(fm, 110, 60, 80, 0);
         snprintf(buf, sizeof(buf), "%s %s", fm->brand, fm->name);
-        txt(FONT_LARGE, C_TEXT, 190, 76, buf);
-        txt(FONT_MED, C_DIM, 190, 120, fm->desc);
+        txt(FONT_LARGE, C_TEXT, 190, 68, buf);
+        txt(FONT_MED, C_TEXT, 190, 110, fm->desc);
+        txt(FONT_MED, C_DIM, 190, 136, fm->use);
         if (P.roll_loaded)
         {
             snprintf(buf, sizeof(buf), "Il rullino %03d (%d/%d) verra' riavvolto prima", P.roll_num % 1000, P.roll_shots, P.roll_exp);
-            txt(FONT_MED, C_WARN, 190, 152, buf);
+            txt(FONT_MED, C_WARN, 190, 166, buf);
         }
-        else if (picq_raw_only()) txt(FONT_MED, C_WARN, 190, 152, "Solo RAW: il look va solo nei JPEG");
+        else if (picq_raw_only()) txt(FONT_MED, C_WARN, 190, 166, "Solo RAW: il look va solo nei JPEG");
         for (int i = 0; i < 3; i++) labels[i] = load_labels[i];
     }
     else
@@ -378,14 +485,15 @@ static void draw_confirm()
         const struct film *fm = cur_film();
         draw_canister(fm, 110, 60, 80, 26);
         snprintf(buf, sizeof(buf), "Rullino %03d  %s", P.roll_num % 1000, fm->name);
-        txt(FONT_LARGE, C_TEXT, 190, 76, buf);
+        txt(FONT_LARGE, C_TEXT, 190, 68, buf);
         snprintf(buf, sizeof(buf), "%d pose su %d%s", P.roll_shots, P.roll_exp,
             P.roll_push ? (P.roll_push > 0 ? ", tirata" : ", tirata indietro") : "");
-        txt(FONT_MED, C_DIM, 190, 120, buf);
+        txt(FONT_MED, C_TEXT, 190, 110, buf);
+        txt(FONT_MED, C_DIM, 190, 136, fm->desc);
         if (P.roll_shots < P.roll_exp)
         {
             snprintf(buf, sizeof(buf), "Riavvolgendo, le %d pose rimaste vanno perse", P.roll_exp - P.roll_shots);
-            txt(FONT_MED, C_DIM, 190, 152, buf);
+            txt(FONT_MED, C_DIM, 190, 166, buf);
         }
         labels[0] = roll_labels[0];
         labels[1] = P.roll_paused ? "Riprendi il rullino" : "Pausa: torna alla 6D normale";
@@ -421,10 +529,8 @@ static void draw_profiles()
     draw_header("Profili");
     int s = sel[SCR_PROFILES];
     int y0 = 58, rh = 64;
-    int yh = hl_y(y0 + s * rh);
     for (int i = 0; i < NPROF; i++) fill(C_PANEL, 24, y0 + i * rh, SCR_W - 48, rh - 8);
-    fill(C_SEL, 24, yh, SCR_W - 48, rh - 8);
-    fill(C_ACCENT, 24, yh, 6, rh - 8);
+    hl_bar(24, SCR_W - 48, y0 + s * rh, rh - 8);
     for (int i = 0; i < NPROF; i++)
     {
         struct profile *p = &P.prof[i];
@@ -652,21 +758,41 @@ static void draw_restore()
     draw_footer("SET conferma   MENU annulla");
 }
 
-static void restore_key(int key, int dx, int dy)
+static void restore_frame(int p, int ok_t, const char *text)
 {
-    if (key != MODULE_KEY_PRESS_SET || !restore_pending_count()) return;
-    /* barra di avanzamento mentre Canon applica le proprieta' */
     frame_begin();
     fill(C_BG, 0, 46, SCR_W, 398);
     draw_header("Torna alla 6D");
-    txt_c(FONT_MED, C_DIM, 360, 200, "Ripristino in corso...");
-    draw_progress(160, 240, 400, 10, 300);
+    draw_check(360, 168, 32, ok_t);
+    txt_c(FONT_MED, ok_t > 0 ? C_TEXT : C_DIM, 360, 222, text);
+    draw_progress(160, 262, 400, 10, p);
     draw_footer("");
     frame_show(0);
+}
+
+static void restore_key(int key, int dx, int dy)
+{
+    if (key != MODULE_KEY_PRESS_SET || !restore_pending_count()) return;
+    /* la barra corre mentre Canon applica le proprieta', poi compare la spunta */
+    int dur = anim_ms(260), t0 = get_ms_clock();
+    for (int t = 0; ; t = get_ms_clock() - t0)
+    {
+        restore_frame(600 * ease(t, dur) / 1000, 0, "Ripristino in corso...");
+        if (t >= dur || key_pending()) break;
+        msleep(10);
+    }
     restore_all();
     persist_save();
-    say(C_OK, "Fatto: la 6D e' com'era prima di Iride");
+    dur = anim_ms(800); t0 = get_ms_clock();
+    for (int t = 0; ; t = get_ms_clock() - t0)
+    {
+        int tv = dur ? t * 800 / dur : 800;
+        restore_frame(600 + 400 * ease(tv, 200) / 1000, tv, "Fatto: la 6D e' com'era prima di Iride");
+        if (t >= dur || anim_skip()) break;
+        msleep(10);
+    }
     go(SCR_HOME, -1);
+    say(C_OK, "Fatto: la 6D e' com'era prima di Iride");
 }
 
 /* ------------------------------------------------------------------ tabella delle schermate */
@@ -727,6 +853,7 @@ static void handle_key(int key)
 {
     const struct screen_def *sd = &screens[screen];
     int dx = key_dx(key), dy = key_dy(key);
+    if (dx || key == MODULE_KEY_PRESS_SET) val_kick(dx);
     if (key == MODULE_KEY_MENU)
     {
         if (screen == SCR_HOME) gui_stop_menu();

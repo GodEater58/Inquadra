@@ -88,7 +88,7 @@
    </crs:Group>
    <crs:Description>
     <rdf:Alt>
-     <rdf:li xml:lang="x-default">Poca luce, piu' colore e contrasto, grana calda (ISO 800)</rdf:li>
+     <rdf:li xml:lang="x-default">Colori vividi, contrasto basso, grana visibile. Per la poca luce: interni, sera, concerti (ISO 800)</rdf:li>
     </rdf:Alt>
    </crs:Description>
    <crs:ToneCurvePV2012>
