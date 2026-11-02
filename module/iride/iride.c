@@ -242,6 +242,7 @@ static int persist_touch_ms = 0;
 static void persist_touch() { persist_dirty = 1; persist_touch_ms = get_ms_clock(); }
 
 #include "ui.inc"
+#include "moon.inc"
 #include "icons.inc"
 #include "store.inc"
 #include "film.inc"

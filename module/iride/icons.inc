@@ -114,13 +114,7 @@ static void ic_calendar(int cx, int cy, int s, int t)
     int mr = K(22), mx = cx - K(22), my = cy + K(12);
     int ill = t >= 0 ? ip(t, 0, 900, EZ_IO) * 7 / 10 : 700;
     fill_circle(mx, my, mr + 2, C_BG);
-    fill_circle(mx, my, mr, tc(COLOR_GRAY(20)));
-    for (int yy = -mr; yy <= mr; yy++)
-    {
-        int half = (int)sqrtf((float)(mr * mr - yy * yy));
-        int term = half * (1000 - 2 * ill) / 1000;
-        if (half > term) fill(tc(COLOR_GRAY(85)), mx + term, my + yy, half - term, 1);
-    }
+    draw_moon(mx, my, mr, ill, 1, mr >= 12 ? 0 : -1);
 }
 
 /* Etichetta file: un foglio con l'angolo piegato e la targhetta che entra */

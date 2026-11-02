@@ -1001,18 +1001,8 @@ static const char *moon_phase_name(int illum, int waxing)
 
 static void draw_moon_icon(int cx, int cy, int r, int illum, int waxing)
 {
-    fill_circle(cx, cy, r, tc(COLOR_GRAY(20)));
-    /* parte illuminata: cerchio pieno meno un'ellisse d'ombra disegnata a linee */
-    int lit = tc(COLOR_GRAY(85));
-    for (int yy = -r; yy <= r; yy++)
-    {
-        int half = (int)sqrtf((float)(r * r - yy * yy));
-        int term = half * (1000 - 2 * illum) / 1000;    /* bordo del terminatore */
-        int x0 = waxing ? cx + term : cx - half;
-        int x1 = waxing ? cx + half : cx - term;
-        if (x1 > x0) draw_line(x0, cy + yy, x1, cy + yy, lit);
-    }
-    if (r >= 20) draw_circle(cx, cy, r, tc(COLOR_GRAY(34)));
+    /* su sfondo nero il bordo sfuma; nelle righe (sfondo che cambia) resta netto */
+    draw_moon(cx, cy, r, illum, waxing, r >= 12 ? 0 : -1);
 }
 
 /* colore del cielo per lo stato del Sole */
@@ -1085,7 +1075,7 @@ static void draw_sky()
     int now = get_ms_clock();
     if (!sky_ready)
     {
-        draw_moon_icon(360, 160, 30, sky_progress * 1000 / SKY_NIGHTS, 1);
+        draw_moon_icon(360, 154, 40, sky_progress * 1000 / SKY_NIGHTS, 1);
         txt_c(FONT_MED, C_DIM, 360, 214, "Calcolo di Sole, Luna e Via Lattea...");
         draw_progress(160, 252, 400, 6, sky_progress * 1000 / SKY_NIGHTS);
         draw_footer("MENU indietro");
@@ -1099,7 +1089,7 @@ static void draw_sky()
     if (e3 < 1000) anim_keep();
 
     /* ---- la notte scelta */
-    draw_moon_icon(66, 108, 38, glide(&sky_moon_g, t->moon_illum, 420), t->moon_waxing);
+    draw_moon_icon(66, 106, 44, glide(&sky_moon_g, t->moon_illum, 420), t->moon_waxing);
     static const char *const when[3] = { "STANOTTE", "DOMANI", "DOPODOMANI" };
     if (sky_sel < 3) snprintf(buf, sizeof(buf), "%s", when[sky_sel]); else snprintf(buf, sizeof(buf), "TRA %d NOTTI", sky_sel);
     txt_in(FONT_SMALL, C_ACCENT, 124, 50, buf, e0, 0, 6);

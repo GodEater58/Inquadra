@@ -618,6 +618,7 @@ int main(void)
     sel[SCR_HOME] = 0; screenshot(SCR_HOME, "01_home");
     { int th = opt_theme; opt_theme = 1; screenshot(SCR_HOME, "01b_home_notte"); opt_theme = th; }
     sel[SCR_ASTRO] = 1; screenshot(SCR_ASTRO, "02_astro");
+    sel[SCR_ASTRO] = 4; screenshot(SCR_ASTRO, "02c_astro_calendario"); sel[SCR_ASTRO] = 1;
     P.npf_focal = 24; P.npf_ap10 = 28; sel[SCR_NPF] = 2; msg[0] = 0; screenshot(SCR_NPF, "03_npf");
     preset_select(PRESET_HG); sel[SCR_INTERVAL] = 0; screenshot(SCR_INTERVAL, "04_intervallometro");
     lv = 1; lv_dispsize = 10; stars_reset();
@@ -627,6 +628,71 @@ int main(void)
     { FILE *g = fopen("out/05_lv.pgm", "wb"); fprintf(g, "P5 720 480 255\n"); for (int y = 0; y < 480; y++) for (int x = 0; x < 720; x++) fputc(lvbuf[y * 1440 + x * 2 + 1], g); fclose(g); }
     screenshot(SCR_POLAR, "06_polare");
     sky_enter(); while (!sky_ready) sky_tick(); screenshot(SCR_SKY, "07_cielo");
+
+    /* Luna dettagliata: fasi a confronto e controlli sulla luce */
+    {
+        static const int ph[6] = { 80, 280, 500, 760, 1000, 600 }, wx[6] = { 1, 1, 1, 1, 1, 0 };
+        bmp_draw_to_idle(0); clrscr();
+        fill(C_BG, 0, 0, SCR_W, SCR_H);
+        for (int i = 0; i < 6; i++)
+        {
+            draw_moon(62 + i * 119, 92, 56, ph[i], wx[i], 0);
+            draw_moon(62 + i * 119, 250, 44, ph[i], wx[i], 0);
+            fill(C_PANEL, 30 + i * 119, 340, 64, 26);
+            draw_moon(62 + i * 119, 353, 8, ph[i], wx[i], -1);
+            draw_moon(62 + i * 119, 420, 22, ph[i], wx[i], 0);
+        }
+        shot("23_luna_fasi");
+        bmp_draw_to_idle(0); clrscr(); fill(C_BG, 0, 0, SCR_W, SCR_H);
+        draw_moon(120, 120, 110, 1000, 1, 0); draw_moon(360, 120, 110, 430, 1, 0); draw_moon(600, 120, 110, 220, 0, 0);
+        draw_moon(120, 360, 110, 870, 1, 0); draw_moon(360, 360, 110, 620, 0, 0);
+        { int on = night; night = 1; draw_moon(600, 360, 110, 430, 1, 0); night = on; }
+        shot("23b_luna_grande");
+        sky_ready = 0; sky_progress = SKY_NIGHTS / 2; bmp_draw_to_idle(0); clrscr(); draw_sky(); shot("23c_luna_calcolo");
+        sky_enter(); while (!sky_ready) sky_tick();
+        uint8_t *vr = vram_a + 30 * 960;
+        #define VP(x, y) vr[(y) * 960 + (x)]
+        /* piena: tutto il disco acceso; nuova: tutto spento */
+        bmp_draw_to_idle(0); clrscr();
+        draw_moon(100, 100, 44, 1000, 1, 0); draw_moon(300, 100, 44, 0, 1, 0);
+        draw_moon(100, 300, 44, 500, 1, 0); draw_moon(300, 300, 44, 500, 0, 0);
+        int lit = 0, tot = 0, dark_ok = 1;
+        for (int y = -40; y <= 40; y++) for (int x = -40; x <= 40; x++)
+        {
+            if (x * x + y * y > 40 * 40) continue;
+            tot++; lit += VP(100 + x, 100 + y) >= COLOR_GRAY(38);
+            if (VP(300 + x, 100 + y) > COLOR_GRAY(24)) dark_ok = 0;
+        }
+        CHECK(lit * 100 >= tot * 97, "Luna piena: disco acceso (%d/%d)", lit, tot);
+        CHECK(dark_ok, "Luna nuova: solo luce cinerea");
+        /* primo quarto: destra accesa e sinistra spenta; ultimo quarto il contrario */
+        int r1 = 0, l1 = 0, r2 = 0, l2 = 0;
+        for (int y = -30; y <= 30; y++) for (int x = 8; x <= 36; x++)
+        {
+            r1 += VP(100 + x, 300 + y); l1 += VP(100 - x, 300 + y);
+            r2 += VP(300 + x, 300 + y); l2 += VP(300 - x, 300 + y);
+        }
+        CHECK(r1 > l1 * 13 / 10 && l2 > r2 * 13 / 10, "quarti: crescente a destra, calante a sinistra");
+        /* mari piu' scuri degli altipiani: Crisium contro gli altipiani a sud */
+        int cri = 0, hig = 0;
+        for (int y = -2; y <= 2; y++) for (int x = -2; x <= 2; x++)
+        {
+            cri += VP(100 + 36 + x, 100 - 13 + y);     /* Mare Crisium, 17N 59E */
+            hig += VP(100 + 22 + x, 100 + 28 + y);     /* altipiani tra Janssen e Piccolomini */
+        }
+        CHECK(cri + 25 * 3 < hig, "Luna piena: Mare Crisium piu' scuro degli altipiani (%d < %d)", cri / 25, hig / 25);
+        /* bordo sfumato: sul contorno esistono grigi intermedi */
+        int mid = 0;
+        for (int a = 0; a < 44; a++) { int c = VP(100 + 44, 100 - 22 + a); if (c > COLOR_GRAY(4) && c < COLOR_GRAY(50)) mid++; }
+        int edge = VP(100 + 44, 100), inner = VP(100 + 40, 100);
+        CHECK(edge < inner, "bordo della Luna sfumato verso il nero");
+        #undef VP
+        /* cache: lo stesso disegno due volte produce le stesse operazioni */
+        bmp_draw_to_idle(0); clrscr(); draw_moon(100, 100, 44, 730, 1, 0); int l_a = len_real;
+        clrscr(); draw_moon(100, 100, 44, 730, 1, 0);
+        CHECK(len_real == l_a, "Luna dalla cache identica (%d operazioni)", l_a);
+        (void)mid;
+    }
     sel[SCR_FOTO] = 0; screenshot(SCR_FOTO, "08_foto");
     sel[SCR_HDR] = 1; screenshot(SCR_HDR, "09_hdr");
     sel[SCR_FSTACK] = 3; screenshot(SCR_FSTACK, "10_focus_stack");

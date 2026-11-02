@@ -9,6 +9,11 @@
   - Opzioni divise in sezioni (Aspetto, Apertura di Iride, Scatto, Luogo e ora, Strumenti) con scorrimento morbido e barra laterale
   - Profili come schede: modo di scatto nel tondo, tempo, diaframma, ISO e stile come etichette
   - Torna alla 6D: riepilogo, un'icona per ogni tipo di modifica e un pulsante grande
+- **Luna disegnata dal vero** nel Calendario del cielo (e più grande), nel calcolo iniziale e nell'icona del menu Astro:
+  - mari e crateri nelle loro posizioni selenografiche, come si vedono dall'Italia (nord in alto, Mare Crisium a destra): Imbrium, Serenitatis, Tranquillitatis, Procellarum, Frigoris e gli altri, Tycho, Copernico, Platone, Clavius e altri 45 crateri con nome, più un centinaio di crateri minori sugli altipiani del sud
+  - luce come sulla Luna vera: la Luna piena è piatta, il bordo di una falce è brillante e la luce cala verso il terminatore; vicino al terminatore si vedono il rilievo dei crateri e il bordo frastagliato
+  - raggi di Tycho e Copernico verso la Luna piena, luce cinerea sulla parte in ombra, bordo sfumato
+  - conti tutti interi e disegno in memoria finché la fase non cambia: niente rallentamenti sulla 6D
 - **Corretto lo sfarfallio** dello zoom tra la Home e le schermate: il rettangolo veniva prima riempito di grigio sullo schermo visibile e poi ridisegnato. Ora ogni riga viene composta a parte e scritta una volta sola
 - Animazioni più regolari: un fotogramma più lento del solito non le ferma più a metà
 - Nelle impostazioni la barra di selezione, mentre scorre da una riga all'altra, non copre più i titoli di sezione
