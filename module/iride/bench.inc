@@ -50,8 +50,9 @@ static void bench_save()
     LoadCalendarFromRTC(&now);
     my_fprintf(f, "Iride 6D %s - prova del %04d-%02d-%02d %02d:%02d\n", IRIDE_VERSION,
                now.tm_year + 1900, now.tm_mon + 1, now.tm_mday, now.tm_hour, now.tm_min);
-    my_fprintf(f, "batteria %d%%, autonomia %d s, temperatura %d gradi, scheda %d MB liberi, live view %d\n",
-               cam_battery(), cam_battery_left_s(), cam_temp_c(), cam_free_mb(), lv);
+    /* niente "%%" prima di altri valori: il vsnprintf della 6D per "%%" consuma un argomento e sposta tutti i seguenti */
+    my_fprintf(f, "batteria %d%s, autonomia %d s, temperatura %d gradi, scheda %d MB liberi, live view %d\n",
+               cam_battery(), "%", cam_battery_left_s(), cam_temp_c(), cam_free_mb(), lv);
     for (int i = 0; i < BT_N; i++)
         my_fprintf(f, "%s;%d.%d ms\n", bench_names[i], bench_us[i] / 1000, bench_us[i] % 1000 / 100);
     FIO_CloseFile(f);
@@ -120,7 +121,7 @@ static void draw_bench()
     info_card(24, 52, SCR_W - 48, 76, "LA MACCHINA ADESSO");
     int b = cam_battery(), left = cam_battery_left_s(), mb = cam_free_mb();
     if (b < 0) snprintf(v, sizeof(v), "-");
-    else if (left > 0) snprintf(v, sizeof(v), "%d%%  ~%dh%02d", b, left / 3600, left % 3600 / 60);
+    else if (left > 0) snprintf(v, sizeof(v), "%d%s  ~%dh%02d", b, "%", left / 3600, left % 3600 / 60);
     else snprintf(v, sizeof(v), "%d%%", b);
     txt(FONT_SMALL, C_DIM, 44, 80, "BATTERIA");
     txt(FONT_MED, C_TEXT, 44, 96, v);

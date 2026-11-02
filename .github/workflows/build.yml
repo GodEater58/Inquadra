@@ -21,6 +21,8 @@ jobs:
           ./preview
       - name: Fusi orari a confronto col database IANA
         run: cd simulator && python3 check_tz.py
+      - name: Formati di printf compatibili con la 6D
+        run: python3 simulator/check_formats.py
       - name: Lettore delle sessioni per AstroStack
         run: python3 tools/astrostack/test_iride_session.py
 

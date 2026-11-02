@@ -1,5 +1,9 @@
 # Novità
 
+## 1.2.1 – 2 novembre 2026
+- **Corretta la riga della macchina nella Prova della 6D** (`IRIDEBEN.TXT`): sulla 6D il simbolo "%" dopo la batteria spostava tutti i valori seguenti di un posto, così la temperatura mostrava i MB liberi (30387) e la scheda risultava vuota. Stesso difetto, e stessa correzione, per l'autonomia della batteria nella Prova e nell'intervallometro (ore e minuti sbagliati)
+- Nuovo controllo automatico (`check_formats.py`) che blocca questo tipo di formato prima della compilazione
+
 ## 1.2 – 2 novembre 2026
 - **Fuoco automatico sulle stelle**: in *Fuoco sulle stelle* il tasto **Q** gira il fuoco da solo. Misura l'HFR dopo ogni passo (media di 3), disegna la curva a V, trova il minimo con una parabola sui quadrati dell'HFR e ci torna arrivando sempre dallo stesso verso, così il gioco degli ingranaggi non sposta il risultato. Se all'inizio peggiora prova dall'altra parte; si ferma con un tasto, se perde la stella o dopo 40 passi. Obiettivo su AF
 - **Intervallometro da campo**

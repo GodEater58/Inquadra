@@ -340,7 +340,7 @@ static void int_extra()
     txt(FONT_SMALL, C_DIM, ix, 216, "IN CAMPO");
     int b = cam_battery(), left = cam_battery_left_s();
     if (b < 0) snprintf(v, sizeof(v), "-");
-    else if (left > 0) snprintf(v, sizeof(v), "%d%%  ~%dh%02d", b, left / 3600, left % 3600 / 60);
+    else if (left > 0) snprintf(v, sizeof(v), "%d%s  ~%dh%02d", b, "%", left / 3600, left % 3600 / 60);
     else snprintf(v, sizeof(v), "%d%%", b);
     kv_line(ix, 234, iw, "BATTERIA", v, b >= 0 && b <= 15 ? C_WARN : C_TEXT);
     int sl = cam_shots_left(opt_silent);
