@@ -859,6 +859,17 @@ static void info_card(int x, int y, int w, int h, const char *title)
     if (title) txt(FONT_SMALL, C_DIM, x + 16, y + 9, title);
 }
 
+/* testo che deve stare in w pixel: medio, poi piccolo, poi tagliato con i puntini */
+static void txt_fit(int c, int x, int y, int w, const char *s)
+{
+    if (txt_w(FONT_MED, s) <= w) { txt(FONT_MED, c, x, y, s); return; }
+    char b[96];
+    snprintf(b, sizeof(b), "%s", s);
+    int n = (int)strlen(b);
+    while (n > 3 && txt_w(FONT_SMALL, b) > w) { n--; b[n] = 0; b[n - 1] = b[n - 2] = '.'; }
+    txt(FONT_SMALL, c, x, y + 6, b);
+}
+
 /* testo a capo per parole dentro w pixel; restituisce la y dopo l'ultima riga */
 static int txt_wrap(int font, int c, int x, int y, int w, const char *s, int lh)
 {

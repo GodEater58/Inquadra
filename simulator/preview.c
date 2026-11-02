@@ -1,7 +1,9 @@
 /* Esegue il codice reale di Iride 0.2 su PC: test di logica, calcoli astronomici e schermate */
 #include <math.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
 #include "../module/iride/iride.c"
+int sim_batt = 64, sim_batt_left = 7800, sim_free32k = 32 * 30000, sim_silent_shots = 0;
 static void sky_full(void) { while (!sky_ready) sky_tick(); while (sky_tick()) ; }   /* notti e ricerca della Via Lattea */
 #include "widths.h"
 
@@ -10,10 +12,12 @@ static void sky_full(void) { while (!sky_ready) sky_tick(); while (sky_tick()) ;
 static char *ops_idle, *ops_real;
 static int len_idle = 0, len_real = 0, to_idle = 0;
 
+static long sim_ops = 0;               /* operazioni di disegno: fanno da "tempo" per la prova della 6D */
 static void op(const char *fmt, ...)
 {
     char line[512];
     va_list ap; va_start(ap, fmt); int n = vsnprintf(line, sizeof(line), fmt, ap); va_end(ap);
+    sim_ops++;
     char *buf = to_idle ? ops_idle : ops_real;
     int *len = to_idle ? &len_idle : &len_real;
     if (*len + n + 1 < OPS_MAX) { memcpy(buf + *len, line, n); *len += n; buf[*len] = 0; }
@@ -193,6 +197,7 @@ static struct mlitem mli[] = {
     { "Overlay", "Global Draw", 0, 0, 3, 1 }, { "Overlay", "Zebras", 0, 0, 1, 1 }, { "Overlay", "Focus Peak", 0, 0, 1, 1 }, { "Overlay", "Magic Zoom", 0, 0, 1, 1 },
     { "Overlay", "Histogram", 0, 0, 1, 1 }, { "Overlay", "False color", 0, 0, 1, 1 }, { "Overlay", "Spotmeter", 0, 0, 1, 1 },
     { "Expo", "Auto exposure", 0, 0, 1, 1 }, { "Shoot", "Post Deflicker", 0, 0, 1, 1 },
+    { "Display", "LV display gain", 0, 0, 6, 1 }, { "Shoot", "Silent Picture", 0, 0, 1, 1 }, { "Silent Picture", "Silent Mode", 0, 0, 6, 1 },
 };
 static struct mlitem *mlfind(const char *m, const char *e)
 {
@@ -247,15 +252,57 @@ const char *get_shootmode_name_short(int m) { return m == SHOOTMODE_M ? "M" : m 
 static int shots_taken = 0, bulb_ms_total = 0, last_bulb_ms = 0;
 static struct card_info card = { 1234 };
 int lens_take_picture(int w, int af) { (void)w; (void)af; shots_taken++; card.file_number++; return 0; }
+int take_a_pic(int af)
+{
+    /* con lo scatto silenzioso acceso il modulo silent non tocca il contatore Canon */
+    if (menu_get_value_from_script("Shoot", "Silent Picture") == 1) { sim_silent_shots++; return 0; }
+    return lens_take_picture(64, af);
+}
 int bulb_take_pic(int ms) { bulb_ms_total += ms; last_bulb_ms = ms; shots_taken++; card.file_number++; return 0; }
-int lens_focus(int n, int s, int w, int e) { (void)n; (void)s; (void)w; (void)e; return 1; }
+/* obiettivo finto per il fuoco automatico: il motore muove la ghiera con un po' di gioco (sim_fbl) */
+static int sim_af = 0, sim_fmot = 0, sim_fpos = 0, sim_fbest = 0, sim_fbl = 1, sim_fcalls = 0;
+static void make_sky(float sigma, float amp, int sx, int sy);
+static void sim_focus_sky()
+{
+    float d = 0.6f * (float)(sim_fpos - sim_fbest);
+    float sg = sqrtf(1.8f * 1.8f + d * d);
+    make_sky(sg, 40.0f + 160.0f * 1.8f / sg, 352, 222);
+}
+int lens_focus(int n, int s, int w, int e)
+{
+    (void)w; (void)e;
+    if (!sim_af) return 1;
+    if (n < 0) { n = -n; s = -s; }
+    s = s < -3 ? -3 : s > 3 ? 3 : s;
+    for (int i = 0; i < n; i++)
+    {
+        sim_fmot += s;
+        if (sim_fmot > sim_fpos + sim_fbl) sim_fpos = sim_fmot - sim_fbl;
+        if (sim_fmot < sim_fpos - sim_fbl) sim_fpos = sim_fmot + sim_fbl;
+    }
+    sim_fcalls++;
+    sim_focus_sky();
+    return 1;
+}
 int is_manual_focus(void) { return 0; }
 void set_lv_zoom(int z) { lv_dispsize = z; }
 struct card_info *get_shooting_card(void) { return &card; }
 char *get_config_dir(void) { return "out/"; }
 int FIO_CreateDirectory(const char *d) { (void)d; return 0; }
 static char sim_path(char *dst, const char *n) { (void)dst; (void)n; return 0; }
-FILE *FIO_CreateFileOrAppend(const char *n) { (void)n; return fopen("out/IRIDE.CSV", "a"); }
+FILE *FIO_CreateFileOrAppend(const char *n)
+{
+    /* ML/LOGS/x -> out/x; le altre (DCIM della scheda) gia' sotto out/ */
+    const char *b = strrchr(n, '/');
+    if (strncmp(n, "ML/", 3) == 0 && b) { char p[160]; snprintf(p, sizeof(p), "out/%s", b + 1); return fopen(p, "a"); }
+    return fopen(n, "a");
+}
+int efic_temp = 155;                                   /* 155 * 0,8 - 93 = 31 gradi */
+int GetBatteryLevel(void) { return sim_batt; }
+int GetBatteryTimeRemaining(void) { return sim_batt_left; }
+int get_free_space_32k(const struct card_info *c) { (void)c; return sim_free32k; }
+const char *get_dcim_dir(void) { return "out/DCIM/100CANON/"; }
+int get_us_clock(void) { return clock_ms * 1000 + (int)(sim_ops * 3); }
 FILE *FIO_CreateFile(const char *n)
 {
     /* ML/LOGS/... della scheda -> out/ */
@@ -328,6 +375,7 @@ static void frames_at(const char *name, const int *times, int n)
 
 int main(void)
 {
+    mkdir("out", 0755); mkdir("out/DCIM", 0755); mkdir("out/DCIM/100CANON", 0755);   /* la "scheda" del simulatore */
     ops_idle = malloc(OPS_MAX); ops_real = malloc(OPS_MAX); ops_idle[0] = ops_real[0] = 0;
     set_time(2026, 11, 1, 22, 47);
     persist_defaults();
@@ -338,6 +386,22 @@ int main(void)
 
     /* ---------- calcoli di base */
     CHECK(npf_tenths(24, 28) == 122, "NPF 24mm f/2.8 = 12.2 s");
+    CHECK(npf_tenths_dec(24, 28, 60) == 244 && npf_tenths_dec(24, 28, 0) == 122, "NPF a 60 gradi di declinazione: il doppio (24.4 s)");
+    {
+        float al, az, ra, dec;
+        alt_az(100.0f, 0.0f, 100.0f, 45.0f, &al, &az);
+        CHECK(fabsf(al - 45.0f) < 0.01f && fabsf(az - 180.0f) < 0.01f, "al meridiano: a sud, alto 90 - latitudine");
+        alt_az(100.0f, 0.0f, 10.0f, 45.0f, &al, &az);
+        CHECK(fabsf(al) < 0.01f && fabsf(az - 90.0f) < 0.01f, "6 ore prima: sorge a est");
+        gal_to_eq(0.0f, &ra, &dec);
+        CHECK(fabsf(ra - GC_RA) < 0.05f && fabsf(dec - GC_DEC) < 0.05f, "piano galattico: l = 0 e' il centro della Via Lattea");
+        mn.illum = 1000; mn.alt = 60.0f; opt_moon_iso = 0; opt_moon_ap = 110; opt_moon_es = 0;
+        float sp, sa, t = moon_exposure(&sp, &sa);
+        CHECK(fabsf(t - 0.01f) < 0.0005f, "Looney 11: Luna piena alta, f/11 e ISO 100 = 1/100 s (%.4f)", (double)t);
+        CHECK(fabsf(moon_phase_stops(500) - 2.0f) < 0.01f && fabsf(moon_phase_stops(250) - 3.0f) < 0.01f && moon_alt_stops(15.0f) > 0.5f,
+              "Luna: +2 stop al quarto, +3 alla falce larga, piu' luce bassa sull'orizzonte");
+        opt_moon_ap = 110;
+    }
     CHECK(npf_shutter_code(30.0f) == 16, "NPF 30 s -> codice 30\"");
     CHECK(npf_shutter_code(12.2f) == 27, "NPF 12.2 s -> 13\"");
     CHECK(step_in(bulb_steps, COUNT(bulb_steps), 100, -1) == 90 && step_in(bulb_steps, COUNT(bulb_steps), 100, 1) == 120, "scala posa B tra due gradini");
@@ -388,8 +452,26 @@ int main(void)
     CHECK(P.roll_num == 7 && P.lat100 == 4400 && P.prof[2].valid == 1 && P.prof[2].iso == 96, "salvataggio IRIDE.DAT e rilettura");
     { FILE *f = fopen("out/IRIDE.DAT", "r+b"); fseek(f, 40, SEEK_SET); fputc(0x55, f); fclose(f); }
     persist_load();
-    CHECK(P.roll_num == 0 && P.lat100 == 4190, "file rovinato: valori di fabbrica (nessun crash)");
+    CHECK(P.roll_num == 0 && P.lat100 == 4189, "file rovinato: valori di fabbrica (nessun crash)");
     persist_defaults();
+    /* file della 1.1 (struttura v2): rullino, luogo e profili non si perdono passando alla 1.2 */
+    {
+        persist_defaults();
+        P.roll_num = 42; P.roll_loaded = 1; P.lat100 = 4510; P.prof[1].valid = 1; P.prof[1].iso = 72; P.ml_prev[23] = 5;
+        int words = PERSIST_V2_WORDS;
+        int *img = calloc(words, sizeof(int));
+        memcpy(img, &P, (words - 1) * sizeof(int));
+        img[0] = PERSIST_MAGIC; img[1] = 2; img[2] = words * (int)sizeof(int);
+        img[words - 1] = persist_sum_n(img, words - 1);
+        FILE *f = fopen("out/IRIDE.DAT", "wb"); fwrite(img, sizeof(int), words, f); fclose(f); free(img);
+        persist_defaults();
+        persist_load();
+        CHECK(P.roll_num == 42 && P.roll_loaded == 1 && P.lat100 == 4510 && P.prof[1].iso == 72 && P.ml_prev[23] == 5 &&
+              P.version == PERSIST_VERSION && P.ml_prev2[0] == 0, "salvataggio della 1.1 riletto dalla 1.2 senza perdere il rullino");
+        persist_save(); persist_defaults(); persist_load();
+        CHECK(P.roll_num == 42 && P.version == PERSIST_VERSION, "dopo il passaggio si salva nel formato nuovo");
+        persist_defaults();
+    }
 
     /* ---------- rullino + Torna alla 6D */
     camera_reset();
@@ -486,6 +568,85 @@ int main(void)
     lv = 1; P.int_count = 2; P.int_pause = 0;
     job_running = JOB_SEQ; job_task(NULL);
     CHECK(mlv("Expo", "Auto exposure") == 0 && mlv("Shoot", "Post Deflicker") == 0 && shots_taken == 5, "giorno-notte: autoexpo e deflicker spenti di nuovo a fine sequenza");
+
+    /* ---------- intervallometro da campo: sessione, scatto silenzioso, dithering, batteria */
+    {
+        char path[128];
+        struct tm now; LoadCalendarFromRTC(&now);
+        snprintf(path, sizeof(path), "out/DCIM/100CANON/IS%02d%02d%02d.CSV", now.tm_mon + 1, now.tm_mday, now.tm_hour);
+        remove(path);
+        preset_select(0); P.int_count = 3; P.int_pause = 2; P.int_delay_idx = 0; P.int_bulb = 0;
+        shooting_mode = SHOOTMODE_M; lens_info.raw_shutter = 56; lens_info.iso = 3200; opt_session = 1; opt_silent = 0;
+        int fnb = card.file_number;
+        job_running = JOB_SEQ; job_task(NULL);
+        FILE *f = fopen(path, "r"); int rows = 0, head = 0; char ln[256], last[256] = "";
+        while (f && fgets(ln, sizeof(ln), f)) { if (ln[0] == '#') head++; else if (strncmp(ln, "numero", 6)) { rows++; snprintf(last, sizeof(last), "%s", ln); } }
+        if (f) fclose(f);
+        char want[32]; snprintf(want, sizeof(want), "LGHT%04d.CR2", fnb + 3);
+        CHECK(rows == 3 && head == 3 && strstr(last, want) && strstr(last, ",3200,"), "sessione per AstroStack: 3 righe, ultima %s con ISO 3200", want);
+        /* silenzioso: niente otturatore, modulo silent rimesso com'era */
+        opt_silent = 1; sim_silent_shots = 0; shots_taken = 0;
+        CHECK(interval_check(), "silenzioso accettato con ghiera su M e 1 s");
+        job_running = JOB_SEQ; job_task(NULL);
+        CHECK(sim_silent_shots == 3 && shots_taken == 0 && mlv("Shoot", "Silent Picture") == 0 && mlv("Silent Picture", "Silent Mode") == 0,
+              "silenzioso: 3 scatti senza otturatore, modulo silent rimesso com'era");
+        lens_info.raw_shutter = 104;   /* 1/60 */
+        CHECK(!interval_check() && strstr(msg, "0,3"), "silenzioso con 1/60: rifiutato");
+        lens_info.raw_shutter = 56; opt_silent = 0;
+        /* dithering: pause piu' lunghe ogni n scatti */
+        opt_dither_n = 2; opt_dither_s = 20; P.int_count = 5; P.int_pause = 5;
+        CHECK((int)int_duration(1.0f) == 5 + 4 * 5 + 2 * 15, "dithering ogni 2 scatti, 20 s: durata %d s", (int)int_duration(1.0f));
+        int t0 = clock_ms; shots_taken = 0;
+        job_running = JOB_SEQ; job_task(NULL);
+        CHECK(shots_taken == 5 && clock_ms - t0 >= (2 * 20 + 2 * 5) * 1000, "dithering: due pause da 20 s nella sequenza");
+        opt_dither_n = 0;
+        /* batteria quasi scarica: ci si ferma puliti */
+        sim_batt = 4; shots_taken = 0; P.int_count = 10;
+        CHECK(!interval_check(), "batteria al 4%%: non parte");
+        sim_batt = 30; job_running = JOB_SEQ;
+        { int k = 0; (void)k; }
+        sim_batt = 4; job_task(NULL);
+        CHECK(shots_taken == 0 && strstr(last_notify, "batteria"), "batteria finita durante la sequenza: si ferma e lo dice (%s)", last_notify);
+        sim_batt = 64;
+        /* scatti dal cavo con l'etichetta LGHT: finiscono nel registro */
+        P.astro_tag = 1; job_running = JOB_NONE; lens_info.job_state = 0;
+        iride_clock(0);
+        card.file_number += 2;
+        iride_clock(0);
+        f = fopen(path, "r"); int cavo = 0;
+        while (f && fgets(ln, sizeof(ln), f)) if (strstr(ln, ",cavo")) cavo++;
+        if (f) fclose(f);
+        CHECK(cavo == 2, "scatti dal cavo (montatura) nel registro della sessione: %d", cavo);
+        P.astro_tag = 0;
+        /* scheda piena */
+        int fr = sim_free32k; sim_free32k = 10;
+        CHECK(!interval_check() && strstr(msg, "piena"), "scheda piena: non parte");
+        sim_free32k = fr;
+    }
+
+    /* ---------- prova della 6D e registro degli avvisi */
+    {
+        remove("out/IRIDEBEN.TXT");
+        screen = SCR_BENCH; bench_step = -1; bench_enter();
+        bench_key(MODULE_KEY_PRESS_SET, 0, 0);
+        int guard = 0;
+        while (bench_tick() && guard++ < 50) ;
+        FILE *f = fopen("out/IRIDEBEN.TXT", "r"); int n = 0; char ln[200];
+        while (f && fgets(ln, sizeof(ln), f)) if (strstr(ln, " ms")) n++;
+        if (f) fclose(f);
+        CHECK(bench_step == BT_N && n == BT_N, "prova della 6D: %d tempi salvati in IRIDEBEN.TXT", n);
+        say(C_WARN, "Avviso di prova per il registro");
+        f = fopen("out/IRIDE.CSV", "r"); int av = 0;
+        while (f && fgets(ln, sizeof(ln), f)) if (strstr(ln, "AVVISO,Avviso di prova")) av++;
+        if (f) fclose(f);
+        say(C_WARN, "Avviso di prova per il registro");
+        f = fopen("out/IRIDE.CSV", "r"); int av2 = 0;
+        while (f && fgets(ln, sizeof(ln), f)) if (strstr(ln, "AVVISO,Avviso di prova")) av2++;
+        if (f) fclose(f);
+        CHECK(av >= 1 && av2 == av, "avvisi nel registro su scheda, senza ripetizioni ravvicinate");
+        msg[0] = 0;
+        screen = SCR_HOME;
+    }
 
     /* ---------- tasti e navigazione */
     app_running = 1; screen = SCR_HOME; sel[SCR_HOME] = 0;
@@ -615,9 +776,10 @@ int main(void)
         sun_pos(j, &ra, &dec, 0); float sun = altitude(ra, dec, lst, lat_deg());
         moon_pos(j, &ra, &dec, 0); float moon = altitude(ra, dec, lst, lat_deg());
         int wax; int ill = moon_illum(j, &wax);
-        float gc = altitude(GC_RA, GC_DEC, lst, lat_deg());
-        fprintf(jf, " {\"local\":\"%04d-%02d-%02d %02d:%02d\",\"utc_offset\":%d,\"polar_ha\":%.4f,\"sun_alt\":%.3f,\"moon_alt\":%.3f,\"moon_illum\":%.4f,\"gc_alt\":%.3f}%s\n",
-            c[0], c[1], c[2], c[3], c[4], off, (double)polar_ha_hours(j), (double)sun, (double)moon, ill / 1000.0, (double)gc, i + 1 < COUNT(cases) ? "," : "");
+        float gc = altitude(GC_RA, GC_DEC, lst, lat_deg()), gca, gcz;
+        alt_az(GC_RA, GC_DEC, lst, lat_deg(), &gca, &gcz);
+        fprintf(jf, " {\"local\":\"%04d-%02d-%02d %02d:%02d\",\"utc_offset\":%d,\"polar_ha\":%.4f,\"sun_alt\":%.3f,\"moon_alt\":%.3f,\"moon_illum\":%.4f,\"gc_alt\":%.3f,\"gc_az\":%.3f}%s\n",
+            c[0], c[1], c[2], c[3], c[4], off, (double)polar_ha_hours(j), (double)sun, (double)moon, ill / 1000.0, (double)gc, (double)gcz, i + 1 < COUNT(cases) ? "," : "");
     }
     fprintf(jf, "]\n"); fclose(jf);
     sky_enter(); sky_full();
@@ -674,6 +836,36 @@ int main(void)
     float seq[] = { 6.5f, 5.0f, 3.6f, 2.6f, 2.0f, 1.75f, 1.8f, 2.2f, 1.9f, 1.75f };
     for (unsigned i = 0; i < COUNT(seq); i++) { make_sky(seq[i] * 1.6f, 170.0f, 352, 222); stars_tick(); }
     screenshot(SCR_STARS, "05_stelle");
+
+    /* fuoco automatico: parte sfocato da una parte o dall'altra, o gia' a fuoco, con il gioco degli ingranaggi */
+    {
+        int bests[] = { 11, -9, 0, 25 };
+        int saved_screen = screen; screen = SCR_STARS; focus_step = 1;
+        for (unsigned i = 0; i < COUNT(bests); i++)
+        {
+            sim_af = 1; sim_fmot = sim_fpos = 0; sim_fbest = bests[i]; sim_fcalls = 0; sim_focus_sky();
+            af_start();
+            int k = 0;
+            while (af_state == AF_RUN && k++ < 300) af_step();
+            CHECK(af_state == AF_DONE && ABS(sim_fpos - sim_fbest) <= 1 && af_hend > 0 && af_hend * 100 <= MAX(af_h0, af_ph[af_min]) * 110,
+                  "fuoco automatico verso %+d: finisce a %+d (%d spostamenti), %s", bests[i], sim_fpos, sim_fcalls, af_msg);
+            if (i == 0)
+            {
+                screenshot(SCR_STARS, "05b_fuoco_auto");
+                FILE *g = fopen("out/05b_fuoco_auto_lv.pgm", "wb"); fprintf(g, "P5 720 480 255\n");
+                for (int y = 0; y < 480; y++) for (int x = 0; x < 720; x++) fputc(lvbuf[y * 1440 + x * 2 + 1], g);
+                fclose(g);
+            }
+        }
+        /* senza stelle si ferma subito, con un messaggio */
+        sim_af = 0; make_sky(2.0f, 0.0f, 352, 222); af_start(); af_step(); sim_af = 1;
+        CHECK(af_state == AF_FAIL && strstr(af_msg, "nessuna stella"), "fuoco automatico senza stelle: %s", af_msg);
+        /* troppo lontano: si arrende dopo 40 passi */
+        sim_fmot = sim_fpos = 0; sim_fbest = 90; sim_focus_sky(); af_start();
+        { int k = 0; while (af_state == AF_RUN && k++ < 300) af_step(); }
+        CHECK(af_state == AF_FAIL, "fuoco automatico lontanissimo: %s", af_msg);
+        sim_af = 0; af_state = AF_IDLE; screen = saved_screen;
+    }
     { FILE *g = fopen("out/05_lv.pgm", "wb"); fprintf(g, "P5 720 480 255\n"); for (int y = 0; y < 480; y++) for (int x = 0; x < 720; x++) fputc(lvbuf[y * 1440 + x * 2 + 1], g); fclose(g); }
     screenshot(SCR_POLAR, "06_polare");
     sky_enter(); sky_full(); screenshot(SCR_SKY, "07_cielo");
@@ -757,6 +949,11 @@ int main(void)
     sel[SCR_DUAL] = 1; screenshot(SCR_DUAL, "10b_dual_iso");
     sel[SCR_ETTR] = 0; screenshot(SCR_ETTR, "10c_ettr");
     sel[SCR_LVTOOLS] = 0; ml_set(MLF_PEAK, 1); ml_set(MLF_HIST, 1); screenshot(SCR_LVTOOLS, "11_strumenti_lv");
+    screen = SCR_LVTOOLS; sel[SCR_LVTOOLS] = LV_GAIN_ROW; handle_key(MODULE_KEY_PRESS_RIGHT); handle_key(MODULE_KEY_PRESS_RIGHT); handle_key(MODULE_KEY_PRESS_RIGHT);
+    CHECK(ml_get(MLF_DISPGAIN) == 3, "Live View al buio: +3 stop col guadagno del display di ML");
+    msg[0] = 0; screenshot(SCR_LVTOOLS, "11b_lv_al_buio");
+    sel[SCR_LVTOOLS] = LV_GAIN_ROW + 1; lv_activate(LV_GAIN_ROW + 1);
+    CHECK(ml_get(MLF_DISPGAIN) == 0 && ml_get(MLF_PEAK) == 0, "Spegni tutto spegne anche il Live View al buio"); sel[SCR_LVTOOLS] = 0;
     P.nd_base = 80; P.nd_idx = 7; sel[SCR_ND] = 3; screenshot(SCR_ND, "12_filtri_nd");
     sel[SCR_MOTION] = 0; screenshot(SCR_MOTION, "13_movimento");
     shelf_enter(); screenshot(SCR_SHELF, "14_rullini");
@@ -767,6 +964,7 @@ int main(void)
     conf_mode = CONF_ROLL; sel[SCR_CONFIRM] = 1; screenshot(SCR_CONFIRM, "16_rullino");
     sel[SCR_PROFILES] = 1; screenshot(SCR_PROFILES, "17_profili");
     sel[SCR_OPTIONS] = 0; screenshot(SCR_OPTIONS, "18_opzioni");
+    screenshot(SCR_BENCH, "24_prova");
     snap_take(); screenshot(SCR_RESTORE, "19_torna_6d");
     { int th = opt_theme; opt_theme = 1; screenshot(SCR_ASTRO, "02b_astro_notte"); screenshot(SCR_HDR, "09b_hdr_notte");
       screenshot(SCR_OPTIONS, "18b_opzioni_notte"); screenshot(SCR_PROFILES, "17b_profili_notte"); opt_theme = th; }
@@ -776,8 +974,71 @@ int main(void)
     /* estate: Via Lattea e Luna nella stessa notte; Opzioni col cielo del luogo */
     set_time(2027, 7, 12, 22, 30); sky_enter(); sky_full(); sky_sel = 0; screenshot(SCR_SKY, "21b_cielo_estate");
     sky_sel = 4; screenshot(SCR_SKY, "21c_cielo_estate_luna");
+    mw_back_sky = 1; mw_night = 0; mwplan_enter(); screenshot(SCR_MWPLAN, "26_dove_puntare");
+    mw_slot = 22; render(0); shot("26b_dove_puntare_tardi");
+    mw_back_sky = 1; mw_night = 4; mwplan_enter(); screenshot(SCR_MWPLAN, "26c_dove_puntare_luna_piena"); mw_back_sky = 0;
+    moonshot_enter(); screenshot(SCR_MOON, "25_luna_foto");
+    set_time(2026, 11, 1, 22, 47); mw_back_sky = 0; mwplan_enter(); while (mwplan_tick()) ; screenshot(SCR_MWPLAN, "26d_dove_puntare_novembre");
+    set_time(2027, 7, 12, 22, 30); sky_enter(); sky_full();
+    opt_moon_es = 1; sel[SCR_MOON] = 0; screenshot(SCR_MOON, "25b_luna_cinerea"); opt_moon_es = 0;
     set_time(2026, 11, 1, 22, 47); sky_enter(); sky_full(); sky_sel = 0;
-    sel[SCR_OPTIONS] = 11; screenshot(SCR_OPTIONS, "18c_opzioni_cielo"); sel[SCR_OPTIONS] = 0;
+    sel[SCR_OPTIONS] = 12; screenshot(SCR_OPTIONS, "18c_opzioni_cielo"); sel[SCR_OPTIONS] = 0;
+
+    /* ---------- luogo: citta' pronte e fusi orari di tutto il mondo */
+    {
+        int la = P.lat100, lo = P.lon100, tz = P.tz_mode, ok = 1;
+        for (int i = 0; i < NUM_CITIES; i++) { city_set(i); if (city_find() != i) ok = 0; }
+        CHECK(ok, "%d citta': ognuna si ritrova dalle sue coordinate", NUM_CITIES);
+        P.lat100 = 4512; P.lon100 = 1170; P.tz_mode = 0;
+        CHECK(city_find() < 0 && streq(cities[city_nearest()].name, "Rovigo"), "luogo personalizzato vicino a %s", cities[city_nearest()].name);
+        screen = SCR_OPTIONS; sel[SCR_OPTIONS] = 8; handle_key(MODULE_KEY_PRESS_RIGHT);
+        CHECK(city_find() >= 0 && streq(cities[city_find()].name, "Rovigo"), "</> su un luogo personalizzato porta alla citta' piu' vicina");
+        handle_key(MODULE_KEY_PRESS_RIGHT);
+        CHECK(city_find() >= 0 && !streq(cities[city_find()].name, "Rovigo"), "poi alla successiva: %s", cities[city_find()].name);
+        int code = 0, n = 0;
+        do { code = tz_next(code, 1); n++; } while (code != 0 && n < 500);
+        CHECK(n == (int)COUNT(tzdefs) + 105, "fusi in giro con </>: %d voci (zone con ora legale + quarti d'ora da UTC-12 a UTC+14)", n);
+        CHECK(tz_next(4, 1) == TZ_FIXED(180) + 1 && tz_std_min(4) == 180, "vecchio fuso UTC+3 della 1.1: stesso scarto, poi si prosegue");
+        { char b[32]; tz_name(TZ_FIXED(345), b, sizeof(b)); CHECK(streq(b, "UTC+5:45 fisso"), "fuso fisso a quarti d'ora: %s", b); }
+        { char b[32]; tz_name(TZ_FIXED(-210), b, sizeof(b)); CHECK(streq(b, "UTC-3:30 fisso"), "fuso fisso negativo: %s", b); }
+        /* tabella per check_tz.py, che la confronta col database IANA */
+        FILE *f = fopen("out/tz.csv", "w");
+        static const int hours[] = { 0, 4, 12, 23 };
+        for (int i = 0; i < NUM_CITIES; i++)
+        {
+            P.tz_mode = cities[i].tz;
+            for (int y = 2026; y <= 2028; y++)
+                for (int m = 1; m <= 12; m++)
+                    for (int d = 1; d <= days_in_month(y, m); d++)
+                        for (unsigned k = 0; k < COUNT(hours); k++)
+                            fprintf(f, "%s,%d,%d,%d,%d,%d\n", cities[i].name, y, m, d, hours[k], utc_offset_min(y, m, d, hours[k]));
+        }
+        fclose(f);
+        P.lat100 = 4507; P.lon100 = 1179; P.tz_mode = 0;
+        sel[SCR_OPTIONS] = 8; screenshot(SCR_OPTIONS, "18d_opzioni_luogo");
+        P.lat100 = -3387; P.lon100 = 15121; P.tz_mode = 16; screenshot(SCR_OPTIONS, "18e_opzioni_sydney");
+        sel[SCR_OPTIONS] = 0; P.lat100 = la; P.lon100 = lo; P.tz_mode = tz;
+    }
+
+    /* ---------- aiuto col tasto INFO */
+    {
+        int missing = 0, tall = 0;
+        for (int s = 0; s < SCR_COUNT; s++)
+        {
+            if (s == SCR_CONFIRM || s == SCR_PROFILES || s == SCR_KEYS) continue;
+            if (!help_text(s)) { missing++; printf("  senza aiuto: %s\n", screens[s].title); }
+        }
+        CHECK(missing == 0, "ogni schermata ha il suo aiuto (tranne conferma, profili e diagnostica tasti)");
+        screen = SCR_STARS; help_scr = -1; handle_key(MODULE_KEY_INFO);
+        CHECK(help_scr == SCR_STARS, "INFO apre l'aiuto");
+        screenshot(SCR_STARS, "05c_aiuto");
+        int s0 = sel[SCR_STARS]; handle_key(MODULE_KEY_PRESS_SET);
+        CHECK(help_scr < 0 && screen == SCR_STARS, "un tasto chiude l'aiuto senza fare altro");
+        screen = SCR_PROFILES; handle_key(MODULE_KEY_INFO);
+        CHECK(help_scr < 0, "nei profili INFO resta 'salva'");
+        screen = SCR_INTERVAL; help_scr = SCR_INTERVAL; screenshot(SCR_INTERVAL, "04c_aiuto_intervallometro"); help_scr = -1;
+        (void)s0; (void)tall;
+    }
     /* caricamento animato: un fotogramma a meta' */
     { screen = SCR_SHELF; theme_apply(); P.roll_push = 0; P.roll_film = 3;
       static int tl[24];
@@ -863,7 +1124,7 @@ int main(void)
         static const int tp[] = { 0, 120, 260, 420, 600, 800, 1500 };
         screen = SCR_POLAR; P.polar_view = 0; polar_enter(); frames_at("z_polare", tp, COUNT(tp));
         static const int tq[] = { 0, 100, 220, 420 };
-        handle_key(MODULE_KEY_INFO); frames_at("z_polare_vista", tq, COUNT(tq));
+        handle_key(MODULE_KEY_PRESS_SET); frames_at("z_polare_vista", tq, COUNT(tq));
         P.polar_view = 0;
         static const int tk[] = { 0, 80, 180, 300, 450, 700 };
         screen = SCR_SKY; sky_enter(); sky_full(); frames_at("z_cielo", tk, COUNT(tk));
@@ -930,7 +1191,7 @@ int main(void)
         /* allineamento polare: entrata, impulso, cambio di vista */
         screen = SCR_POLAR; P.polar_view = 0; hl_reset(); polar_enter(); frames_at("g_pol_a", g40, 24);
         polar_tick(); frames_at("g_pol_b", g40, 18);
-        handle_key(MODULE_KEY_INFO); frames_at("g_pol_c", g40, 14);
+        handle_key(MODULE_KEY_PRESS_SET); frames_at("g_pol_c", g40, 14);
         P.polar_view = 0;
         /* calendario: entrata e scelta delle notti */
         screen = SCR_SKY; sky_enter(); sky_full(); hl_reset(); sky_ready_t0 = sky_t0 = clock_ms;
@@ -972,6 +1233,7 @@ int main(void)
             screen = s;
             for (unsigned k = 0; k < COUNT(keys); k++) { handle_key(keys[k]); if (screen != s) screen = s; render(0); }
         }
+    af_state = AF_IDLE; help_scr = -1;
     CHECK(crashes == 0, "tutte le %d schermate x 2 temi x %d tasti disegnate senza errori", SCR_COUNT, (int)COUNT(keys));
 
     /* ---------- casi estremi: date (ora legale, capodanno, bisestile), luoghi (sud, equatore,

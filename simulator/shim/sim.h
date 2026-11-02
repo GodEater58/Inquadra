@@ -120,7 +120,7 @@ void LoadCalendarFromRTC(struct tm *t);
 
 /* ---- obiettivo, esposizione, proprieta' */
 struct lens_info {
-    char name[32]; unsigned job_state; unsigned focal_len; unsigned aperture; unsigned picstyle; unsigned wb_mode; unsigned kelvin;
+    char name[32]; unsigned job_state; unsigned focal_len; unsigned aperture; unsigned picstyle; unsigned wb_mode; unsigned kelvin; unsigned iso;
     uint8_t raw_aperture; uint8_t raw_shutter; uint8_t raw_iso; uint8_t raw_picstyle; uint8_t raw_aperture_min; uint8_t lens_exists;
 };
 extern struct lens_info lens_info;
@@ -167,6 +167,13 @@ void lens_set_contrast(int); void lens_set_saturation(int); void lens_set_color_
 #define O_SYNC 010000
 struct card_info { int file_number; };
 struct card_info *get_shooting_card(void);
+int get_free_space_32k(const struct card_info *c);
+const char *get_dcim_dir(void);
+int GetBatteryLevel(void);
+int GetBatteryTimeRemaining(void);
+extern int efic_temp;
+int take_a_pic(int should_af);
+int get_us_clock(void);
 char *get_config_dir(void);
 int FIO_CreateDirectory(const char *d);
 FILE *FIO_CreateFileOrAppend(const char *n);

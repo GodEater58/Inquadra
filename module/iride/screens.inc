@@ -106,7 +106,7 @@ static void draw_home()
         {
             if (P.roll_loaded) snprintf(line, sizeof(line), "%s %d/%d%s", cur_film()->name, P.roll_shots, P.roll_exp, P.roll_paused ? " II" : "");
             else snprintf(line, sizeof(line), "Nessun rullino");
-            txt(FONT_MED, C_DIM, x + 16, y + 158, line);
+            txt_fit(C_DIM, x + 16, y + 158, 212 - 24, line);
         }
         else txt(FONT_MED, C_DIM, x + 16, y + 158, sub[i]);
         if (dy && i == s) frame_rect(C_ACCENT, x - 3, y - 3, 218, 202, 3);
@@ -163,7 +163,7 @@ static void draw_home()
     snprintf(buf, sizeof(buf), "Ghiera %s   ISO %s   %s   File %s", get_shootmode_name_short(shooting_mode),
         lens_format_iso(lens_info.raw_iso), style_name(lens_info.raw_picstyle), prefix_cur[0] ? prefix_cur : "IMG_");
     txt_in(FONT_MED, C_DIM, 26, 404, buf, ei, 0, 8);
-    draw_footer("joystick scegli   SET apri   MENU esci   cestino = menu ML");
+    draw_footer("joystick scegli  SET apri  INFO aiuto  MENU esci  cestino = menu ML");
 }
 
 /* da/verso la Home: lo zoom parte dal riquadro (cornice compresa) */
@@ -206,6 +206,8 @@ static const struct md_item astro_md[] = {
     { ic_starfocus, "Misura la nitidezza di una stella (HFR) in Live View mentre giri il fuoco: piu' basso il numero, piu' e' a fuoco." },
     { ic_polar,     "Dove mettere la Polare nel cannocchiale polare, con la mappa del cielo a nord per trovarla a occhio." },
     { ic_calendar,  "Luna, buio e Via Lattea per le prossime 7 notti, ora per ora, con la notte migliore della settimana." },
+    { ic_mwplan,    "Dove sara' il centro della Via Lattea ora per ora: direzione, altezza e inclinazione dell'arco sull'orizzonte." },
+    { ic_moonshot,  "Fase, direzione e altezza della Luna adesso, e il tempo di scatto giusto per la superficie o la luce cinerea." },
     { ic_tag,       "Nomi dei file LGHT, DARK, FLAT o BIAS al posto di IMG_, per ritrovarli nello stacking." },
 };
 static const struct md_item foto_md[] = {
@@ -227,32 +229,59 @@ static void astro_status(int i, char *buf, int len, int *on)
 {
     char a[12];
     *on = 0;
-    if (i == 0)
+    int d70, mins, off, wax;
+    switch (astro_rows[i].target)
     {
-        fmt_tenths(a, sizeof(a), npf_tenths(P.npf_focal, P.npf_ap10));
-        char b[12];
-        fmt_tenths(b, sizeof(b), P.npf_ap10);
-        snprintf(buf, len, "%s s con %d mm f/%s", a, P.npf_focal, b);
-    }
-    else if (i == 1) snprintf(buf, len, "%s, %d scatti", presets[COERCE(P.int_preset, 0, NUM_PRESETS - 1)].name, P.int_count);
-    else if (i == 2) { *on = lv; snprintf(buf, len, lv ? "Live View acceso: pronta" : "START/STOP accende il Live View"); }
-    else if (i == 3)
-    {
-        int h, m;
-        polar_clock(&h, &m);
-        snprintf(buf, len, "Polare alle ore %d:%02d", h, m);
-    }
-    else if (i == 4)
-    {
-        int d70, mins, off, wax;
-        struct jtime j = jt_now(&d70, &mins, &off);
-        int ill = moon_illum(j, &wax);
-        snprintf(buf, len, "%s, %d%%", moon_phase_name(ill, wax), (ill + 5) / 10);
-    }
-    else
-    {
-        *on = P.astro_tag != 0;
-        snprintf(buf, len, P.astro_tag ? "Nomi dei file: %s_" : "Nomi dei file normali (IMG_)", tag_names[COERCE(P.astro_tag, 0, NUM_TAGS - 1)]);
+        case SCR_NPF:
+        {
+            fmt_tenths(a, sizeof(a), npf_tenths_dec(P.npf_focal, P.npf_ap10, npf_dec()));
+            char b[12];
+            fmt_tenths(b, sizeof(b), P.npf_ap10);
+            snprintf(buf, len, "%s s con %d mm f/%s", a, P.npf_focal, b);
+            break;
+        }
+        case SCR_INTERVAL: snprintf(buf, len, "%s, %d scatti", presets[COERCE(P.int_preset, 0, NUM_PRESETS - 1)].name, P.int_count); break;
+        case SCR_STARS: *on = lv; snprintf(buf, len, lv ? "Live View acceso: pronta" : "START/STOP accende il Live View"); break;
+        case SCR_POLAR:
+        {
+            int h, m;
+            polar_clock(&h, &m);
+            snprintf(buf, len, "Polare alle ore %d:%02d", h, m);
+            break;
+        }
+        case SCR_SKY:
+        {
+            struct jtime j = jt_now(&d70, &mins, &off);
+            int ill = moon_illum(j, &wax);
+            snprintf(buf, len, "%s, %d%%", moon_phase_name(ill, wax), (ill + 5) / 10);
+            break;
+        }
+        case SCR_MWPLAN:
+        {
+            struct jtime j = jt_now(&d70, &mins, &off);
+            float al, az;
+            alt_az(GC_RA, GC_DEC, lst_deg(j, lon_deg()), lat_deg(), &al, &az);
+            *on = al > 10.0f;
+            if (al > 0.0f) snprintf(buf, len, "Adesso verso %s, alto %d gradi", compass16(az), (int)(al + 0.5f));
+            else snprintf(buf, len, "Adesso sotto l'orizzonte");
+            break;
+        }
+        case SCR_MOON:
+        {
+            struct jtime j = jt_now(&d70, &mins, &off);
+            float ra, dec, al, az;
+            moon_pos(j, &ra, &dec, 0);
+            alt_az(ra, dec, lst_deg(j, lon_deg()), lat_deg(), &al, &az);
+            int ill = moon_illum(j, &wax);
+            *on = al > 0.0f;
+            if (al > 0.0f) snprintf(buf, len, "Verso %s, alta %d gradi, %d%%", compass16(az), (int)(al + 0.5f), (ill + 5) / 10);
+            else snprintf(buf, len, "Sotto l'orizzonte, %d%%", (ill + 5) / 10);
+            break;
+        }
+        default:
+            *on = P.astro_tag != 0;
+            snprintf(buf, len, P.astro_tag ? "Nomi dei file: %s_" : "Nomi dei file normali (IMG_)", tag_names[COERCE(P.astro_tag, 0, NUM_TAGS - 1)]);
+            break;
     }
 }
 
@@ -372,22 +401,23 @@ static void draw_menu_md(const struct menu_row *rows, const struct md_item *it, 
     fill(C_LINE, px + 18, y0 + 324, pw - 36, 1);
     txt_in(FONT_SMALL, C_DIM, px + 18, y0 + 332, "ADESSO", e2, 0, 6);
     if (on && e2 >= 1000) fill_circle(px + 24, y0 + 361, 4, C_OK);
-    txt_in(FONT_MED, on ? C_OK : C_TEXT, px + (on ? 36 : 18), y0 + 350, buf, e2, 0, 6);
+    if (e2 >= 1000) txt_fit(on ? C_OK : C_TEXT, px + (on ? 36 : 18), y0 + 350, pw - (on ? 52 : 34), buf);
+    else if (txt_w(FONT_MED, buf) <= pw - (on ? 52 : 34)) txt_in(FONT_MED, on ? C_OK : C_TEXT, px + (on ? 36 : 18), y0 + 350, buf, e2, 0, 6);
 }
 
 static void draw_astro()
 {
     fill(C_BG, 0, 46, SCR_W, 398);
     draw_header("Astro");
-    draw_menu_md(astro_rows, astro_md, NUM_ASTRO_ROWS, sel[SCR_ASTRO], 64, astro_status, 5);
-    draw_footer(sel[SCR_ASTRO] == 5 ? "</> cambia etichetta   MENU indietro" : "^/v scegli   SET apri   MENU indietro");
+    draw_menu_md(astro_rows, astro_md, NUM_ASTRO_ROWS, sel[SCR_ASTRO], 49, astro_status, ASTRO_TAG_ROW);
+    draw_footer(sel[SCR_ASTRO] == ASTRO_TAG_ROW ? "</> cambia etichetta   MENU indietro" : "^/v scegli   SET apri   INFO aiuto   MENU indietro");
 }
 
 static void astro_key(int key, int dx, int dy)
 {
     int s = sel[SCR_ASTRO];
     if (dy) { sel[SCR_ASTRO] = COERCE(s + dy, 0, NUM_ASTRO_ROWS - 1); if (sel[SCR_ASTRO] != s) md_select(); }
-    else if ((dx || key == MODULE_KEY_PRESS_SET) && s == 5)
+    else if ((dx || key == MODULE_KEY_PRESS_SET) && s == ASTRO_TAG_ROW)
     {
         P.astro_tag = MOD(P.astro_tag + (dx ? dx : 1), NUM_TAGS);
         persist_touch();
@@ -395,7 +425,11 @@ static void astro_key(int key, int dx, int dy)
         md_t0 = get_ms_clock();
         md_stat_t = -100000;
     }
-    else if (key == MODULE_KEY_PRESS_SET) go(astro_rows[s].target, 1);
+    else if (key == MODULE_KEY_PRESS_SET)
+    {
+        if (astro_rows[s].target == SCR_MWPLAN) { mw_back_sky = 0; mw_night = 0; }
+        go(astro_rows[s].target, 1);
+    }
 }
 
 static void draw_foto()
@@ -758,8 +792,8 @@ static void profiles_key(int key, int dx, int dy)
 /* ------------------------------------------------------------------ opzioni */
 
 static const char *const opt_labels[] = { "Tema", "Animazioni", "Schermata iniziale", "Apri all'accensione",
-    "Cestino apre Iride", "Tasto luce LCD", "Anteprima col rullino", "Avviso posa", "Latitudine", "Longitudine",
-    "Fuso orario", "Cielo del luogo", "Diagnostica tasti" };
+    "Cestino apre Iride", "Tasto luce LCD", "Anteprima col rullino", "Avviso posa", "Luogo", "Latitudine", "Longitudine",
+    "Fuso orario", "Cielo del luogo", "Diagnostica tasti", "Prova della 6D" };
 
 /* buio del cielo di casa (mag/arcsec^2 come un SQM): serve a stimare le stelle visibili con la Luna */
 static const short sqm_steps[] = { 220, 215, 210, 205, 200, 195, 190, 185 };
@@ -787,19 +821,29 @@ static void opt_value(int row, char *buf, int len, int *kind)
         case 5: *kind = opt_light_key ? VK_ON : VK_OFF; break;
         case 6: snprintf(buf, len, "< %s >", opt_review_off ? "spegni" : "lascia com'e'"); break;
         case 7: *kind = opt_wind ? VK_ON : VK_OFF; break;
-        case 8: snprintf(buf, len, "< %d.%02d N >", P.lat100 / 100, ABS(P.lat100 % 100)); break;
-        case 9: snprintf(buf, len, "< %d.%02d E >", P.lon100 / 100, ABS(P.lon100 % 100)); break;
-        case 10:
-            if (P.tz_mode == 0) snprintf(buf, len, "< Italia (ora legale auto) >");
-            else snprintf(buf, len, "< UTC+%d fisso >", P.tz_mode - 1);
+        case 8:
+        {
+            int ci = city_find();
+            if (ci >= 0) snprintf(buf, len, "< %s >", cities[ci].name);
+            else snprintf(buf, len, "< vicino a %s >", cities[city_nearest()].name);
             break;
+        }
+        case 9: snprintf(buf, len, "< %d.%02d %c >", ABS(P.lat100) / 100, ABS(P.lat100) % 100, P.lat100 < 0 ? 'S' : 'N'); break;
+        case 10: snprintf(buf, len, "< %d.%02d %c >", ABS(P.lon100) / 100, ABS(P.lon100) % 100, P.lon100 < 0 ? 'O' : 'E'); break;
         case 11:
+        {
+            char t[48];
+            tz_name(tz_valid(P.tz_mode) ? P.tz_mode : 0, t, sizeof(t));
+            snprintf(buf, len, "< %s >", t);
+            break;
+        }
+        case 12:
         {
             int i = sqm_index();
             snprintf(buf, len, "< %d,%d %s >", sqm_steps[i] / 10, sqm_steps[i] % 10, sqm_names[i]);
             break;
         }
-        case 12: *kind = VK_ACTION; snprintf(buf, len, ">"); break;
+        case 13: case 14: *kind = VK_ACTION; snprintf(buf, len, ">"); break;
     }
 }
 
@@ -815,21 +859,29 @@ static void opt_change(int row, int dir, int big)
         case 5: opt_light_key = !opt_light_key; break;
         case 6: opt_review_off = !opt_review_off; break;
         case 7: opt_wind = !opt_wind; break;
-        case 8: P.lat100 = COERCE(P.lat100 + dir * (big ? 100 : 1), -9000, 9000); persist_touch(); break;
-        case 9: P.lon100 = COERCE(P.lon100 + dir * (big ? 100 : 1), -18000, 18000); persist_touch(); break;
-        case 10: P.tz_mode = MOD(P.tz_mode + dir, 5); persist_touch(); break;
-        case 11: opt_sqm10 = sqm_steps[COERCE(sqm_index() - dir, 0, (int)COUNT(sqm_steps) - 1)]; break;   /* destra = piu' buio */
+        case 8:
+        {
+            /* citta' successiva; da un luogo personalizzato si parte dalla piu' vicina */
+            int ci = city_find();
+            city_set(ci >= 0 ? ci + dir * (big ? 5 : 1) : city_nearest());
+            break;
+        }
+        case 9: P.lat100 = COERCE(P.lat100 + dir * (big ? 100 : 1), -9000, 9000); persist_touch(); break;
+        case 10: P.lon100 = COERCE(P.lon100 + dir * (big ? 100 : 1), -18000, 18000); persist_touch(); break;
+        case 11: P.tz_mode = tz_next(tz_valid(P.tz_mode) ? P.tz_mode : 0, dir * (big ? 4 : 1)); persist_touch(); break;
+        case 12: opt_sqm10 = sqm_steps[COERCE(sqm_index() - dir, 0, (int)COUNT(sqm_steps) - 1)]; break;   /* destra = piu' buio */
     }
 }
 
 static void opt_activate(int row)
 {
-    if (row == 12) { go(SCR_KEYS, 1); return; }
+    if (row == 13) { go(SCR_KEYS, 1); return; }
+    if (row == 14) { go(SCR_BENCH, 1); return; }
     opt_change(row, 1, 0);
 }
 
-static const char *const opt_heads[] = { "ASPETTO", 0, 0, "APERTURA DI IRIDE", 0, 0, "SCATTO", 0, "LUOGO E ORA", 0, 0, 0, "STRUMENTI" };
-static const struct form opt_form = { 13, opt_labels, opt_value, opt_change, opt_activate, 0,
+static const char *const opt_heads[] = { "ASPETTO", 0, 0, "APERTURA DI IRIDE", 0, 0, "SCATTO", 0, "LUOGO E ORA", 0, 0, 0, 0, "STRUMENTI", 0 };
+static const struct form opt_form = { 15, opt_labels, opt_value, opt_change, opt_activate, 0,
     "^/v riga   </> cambia (ghiera superiore x100)   MENU indietro", 54, 42, opt_heads, 0, 0 };
 
 /* ------------------------------------------------------------------ diagnostica tasti */
@@ -1088,6 +1140,9 @@ static const struct screen_def screens[SCR_COUNT] = {
     [SCR_OPTIONS]  = { "Opzioni",             SCR_HOME,  &opt_form,    0,             0,            0,           0, 0 },
     [SCR_RESTORE]  = { "Torna alla 6D",       SCR_HOME,  0,            draw_restore,  restore_key,  0,           0, 0 },
     [SCR_KEYS]     = { "Diagnostica tasti",   SCR_OPTIONS, 0,          draw_keys,     0,            keys_enter,  keys_tick, 250 },
+    [SCR_BENCH]    = { "Prova della 6D",      SCR_OPTIONS, 0,          draw_bench,    bench_key,    bench_enter, bench_tick, 1 },
+    [SCR_MOON]     = { "Luna",                SCR_ASTRO, &moon_form,   0,             0,            moonshot_enter, moonshot_tick, 1000 },
+    [SCR_MWPLAN]   = { "Dove puntare",        SCR_ASTRO, 0,            draw_mwplan,   mwplan_key,   mwplan_enter, mwplan_tick, 1 },
 };
 
 /* titolo della schermata madre per il percorso nell'intestazione (NULL se non serve) */
@@ -1098,6 +1153,179 @@ static const char *parent_title(const char *section)
     if (p == SCR_HOME || p == screen) return 0;
     const char *t = screens[p].title;
     return streq(t, section) ? 0 : t;
+}
+
+/* ------------------------------------------------------------------ aiuto (tasto INFO) */
+
+static const char *help_text(int scr)
+{
+    switch (scr)
+    {
+        case SCR_HOME: return
+            "Iride riunisce le funzioni di Magic Lantern per la 6D, in italiano.\n"
+            "ASTRO: strumenti per la notte. FOTO: HDR, focus stacking, ND e altro. RULLINI: pellicole simulate con le pose contate.\n"
+            "Profili: impostazioni salvate. Opzioni: tema, luogo, fuso orario.\n"
+            "Torna alla 6D: rimette tutto com'era prima di Iride.\n"
+            "In ogni schermata INFO apre l'aiuto; un tasto qualsiasi lo chiude.";
+        case SCR_ASTRO: return
+            "Via Lattea: la posa piu' lunga senza stelle mosse (regola NPF).\n"
+            "Intervallometro: sequenze di luci, dark, flat e bias, anche silenziose e col dithering.\n"
+            "Fuoco sulle stelle: misura la stella e mette a fuoco, anche da solo.\n"
+            "Allineamento polare: dove va la Polare nel cannocchiale.\n"
+            "Calendario: Luna, buio e Via Lattea nelle prossime notti.\n"
+            "Dove puntare: direzione e altezza del centro della Via Lattea, ora per ora.\n"
+            "Luna da fotografare: l'esposizione giusta per fase e altezza.\n"
+            "Etichetta file: LGHT, DARK, FLAT o BIAS al posto di IMG_.";
+        case SCR_FOTO: return
+            "Funzioni di Magic Lantern spiegate semplici: Iride le accende e le regola.\n"
+            "HDR: piu' scatti a esposizioni diverse. Focus stacking: il fuoco si sposta tra uno scatto e l'altro.\n"
+            "Dual ISO ed ETTR: piu' gamma dinamica nel RAW.\n"
+            "Movimento: scatta da sola quando qualcosa cambia.\n"
+            "Filtri ND: il tempo giusto col filtro.\n"
+            "Torna alla 6D rimette i valori di prima.";
+        case SCR_NPF: return
+            "La regola NPF dice quanto puo' durare la posa prima che la rotazione della Terra allunghi le stelle in trattini.\n"
+            "Dipende da focale, diaframma e pixel del sensore (6,54 micron sulla 6D).\n"
+            "Punto del cielo: verso il polo le stelle si muovono meno e la posa si allunga; sull'equatore celeste e' la piu' corta.\n"
+            "Applica: imposta il tempo sulla 6D (ghiera su M).";
+        case SCR_INTERVAL: return
+            "Scatta da sola una serie di foto. Il preset sceglie scatti, posa e pausa (Via Lattea, Deep sky, Star trails...).\n"
+            "Prima di partire stima durata, ora di fine, batteria e spazio sulla scheda.\n"
+            "Otturatore silenzioso: foto senza alzare lo specchio, da 0,3 a 30 secondi. Serve silent.mo; i file non hanno i dati EXIF.\n"
+            "Dithering: ogni tot scatti una pausa per spostare di poco la montatura.\n"
+            "Registro: un file CSV con ogni scatto, per AstroStack.\n"
+            "Si ferma da sola con la batteria quasi scarica o la scheda piena.";
+        case SCR_STARS: return
+            "Metti una stella luminosa nel riquadro; SET ingrandisce x5 e x10.\n"
+            "HFR: il raggio che contiene meta' della luce della stella. Piu' e' piccolo, meglio e' a fuoco.\n"
+            "</> gira il fuoco, ^/v cambia il passo.\n"
+            "Q: fuoco automatico. Iride gira il fuoco, disegna la curva a V e si ferma sul minimo, arrivandoci sempre dallo stesso verso. L'obiettivo deve essere su AF.";
+        case SCR_POLAR: return
+            "Dove mettere la Polare nel cannocchiale polare della montatura, per il luogo e l'ora impostati.\n"
+            "Occhio nudo: come la vedi guardando a nord. Cannocchiale: l'immagine capovolta.\n"
+            "Luogo e fuso orario si scelgono in Opzioni.";
+        case SCR_SKY: return
+            "Una riga per notte: data, Luna, la striscia della notte, le ore di buio senza Luna e quando si vede il centro della Via Lattea.\n"
+            "La striscia va dalla sera alla mattina: nero e' cielo buio, grigio e' cielo schiarito dalla Luna, i puntini sono le stelle che si vedono.\n"
+            "La stellina segna la notte migliore. SET: dove puntare quella notte.";
+        case SCR_SHELF: return
+            "Ogni pellicola imposta ISO, bilanciamento del bianco e stile della 6D per somigliare a quel film nel JPEG (il RAW resta neutro), e conta le pose come un rullino vero.\n"
+            "Push / pull: la pellicola tirata o frenata.\n"
+            "Torna alla 6D mette in pausa il rullino.";
+        case SCR_HDR: return
+            "La 6D scatta piu' foto di fila, piu' chiare e piu' scure, da unire poi in HDR al computer.\n"
+            "Scatti: quante foto. Passo: quanti stop tra una e l'altra. Ordine: in che sequenza.\n"
+            "Col treppiede; parte col normale pulsante di scatto.";
+        case SCR_FSTACK: return
+            "Piu' foto col fuoco spostato un poco tra una e l'altra, da unire al computer per avere tutto a fuoco (macro, paesaggi).\n"
+            "Metti a fuoco il punto di partenza in Live View, scegli quante foto davanti e dietro e il passo, poi avvia. L'obiettivo deve essere su AF: lo muove Iride.";
+        case SCR_DUAL: return
+            "Dual ISO legge meta' delle righe del sensore a un ISO e meta' a un altro: nel RAW c'e' piu' gamma dinamica.\n"
+            "Il file va convertito al computer (cr2hdr).\n"
+            "ISO di recupero: il secondo ISO, quello per le ombre.";
+        case SCR_ETTR: return
+            "Auto ETTR sceglie l'esposizione piu' chiara possibile senza bruciare le luci: meno rumore nelle ombre del RAW.\n"
+            "Quando: sempre, dopo ogni scatto (Auto Snap), premendo SET o con un doppio mezzo scatto.";
+        case SCR_MOTION: return
+            "Scatto su movimento: la 6D scatta da sola quando nell'inquadratura cambia la luce o l'immagine (fulmini, animali). Serve il Live View.\n"
+            "Sensibilita': quanto deve cambiare l'immagine per scattare.\n"
+            "Trappola di fuoco: scatta quando il soggetto entra a fuoco (obiettivo in MF).";
+        case SCR_LVTOOLS: return
+            "Aiuti che si vedono nel Live View.\n"
+            "Focus peaking: colora i bordi a fuoco. Zebra: righe sulle zone bruciate. Istogramma e falsi colori: per l'esposizione. Zoom di fuoco: un riquadro ingrandito. Esposimetro spot: la luce al centro.\n"
+            "Live View al buio: schiarisce lo schermo da 1 a 6 stop per inquadrare di notte; le foto non cambiano.";
+        case SCR_ND: return
+            "Metti il tempo giusto senza filtro e scegli il filtro: Iride calcola il tempo col filtro.\n"
+            "Oltre 30 s usa la posa B e chiude lo scatto da sola.";
+        case SCR_OPTIONS: return
+            "Tema: normale o rosso per la notte.\n"
+            "Luogo: scegli una citta' o regola latitudine e longitudine; serve per Luna, Sole, Polare e Via Lattea.\n"
+            "Fuso orario: Europa, USA, Australia e Nuova Zelanda con l'ora legale automatica, oppure uno scarto fisso da UTC.\n"
+            "Cielo del luogo: quanto e' buio il tuo cielo, per stimare le stelle che si vedono.\n"
+            "Prova della 6D: controlla Iride su questa macchina.";
+        case SCR_RESTORE: return
+            "Rimette la 6D come prima di Iride: stile, bilanciamento, funzioni di Magic Lantern accese da Iride e nomi dei file. Il rullino va in pausa.";
+        case SCR_BENCH: return
+            "Prova le parti di Iride su questa 6D e misura i tempi. SET avvia.\n"
+            "Il risultato resta nella scheda, in ML/LOGS/IRIDEBEN.TXT: allegalo se qualcosa non va.";
+        case SCR_MOON: return
+            "Esposizione per la Luna con la regola Looney 11 (f/11 a 1/ISO con la Luna piena), corretta per la fase e per l'altezza sull'orizzonte.\n"
+            "Soggetto: la parte illuminata, o la luce cinerea (la parte scura rischiarata dalla Terra).\n"
+            "Applica: imposta tempo, ISO e diaframma (ghiera su M). Oltre 30 s serve la posa B.";
+        case SCR_MWPLAN: return
+            "Il cielo da est a ovest, con l'altezza in gradi: la fascia e' la Via Lattea, il punto il suo centro (verde quando si vede).\n"
+            "Sotto: la direzione da guardare con la bussola e l'altezza.\n"
+            "</> cambia l'ora, ^/v la notte.";
+    }
+    return 0;
+}
+
+static int help_scr = -1;                  /* schermata con l'aiuto aperto, -1 = chiuso */
+
+/* righe che servono per un paragrafo (stesso taglio di txt_wrap) */
+static int wrap_lines(int font, int w, const char *s, int n)
+{
+    char line[96];
+    int lines = 0, i = 0;
+    while (i < n)
+    {
+        while (i < n && s[i] == ' ') i++;
+        if (i >= n) break;
+        int k = 0, cut = 0;
+        while (i + k < n && k < (int)sizeof(line) - 1)
+        {
+            line[k] = s[i + k]; line[k + 1] = 0;
+            if (txt_w(font, line) > w) break;
+            if (s[i + k] == ' ') cut = k;
+            k++;
+        }
+        if (i + k < n && cut > 0) k = cut;
+        if (k == 0) k = 1;
+        i += k;
+        lines++;
+    }
+    return lines;
+}
+
+static void draw_help()
+{
+    const char *t = help_text(screen);
+    if (!t) return;
+    int x = 10, y = 52, w = SCR_W - 20, h = 386;
+    fill(C_BG, x, y, w, h);
+    bmp_draw_rect(C_ACCENT, x, y, w, h);
+    bmp_draw_rect(C_ACCENT, x + 1, y + 1, w - 2, h - 2);
+    char buf[64];
+    snprintf(buf, sizeof(buf), "Aiuto: %s", screens[screen].title);
+    txt(FONT_MED, C_ACCENT, x + 18, y + 12, buf);
+    /* testo medio se ci sta, altrimenti piccolo */
+    int tw = w - 36, font = FONT_MED, lh = 25, need = 0;
+    for (int pass = 0; pass < 2; pass++)
+    {
+        need = 0;
+        for (const char *p = t; *p; )
+        {
+            const char *e = strchr(p, '\n');
+            int n = e ? (int)(e - p) : (int)strlen(p);
+            need += wrap_lines(font, tw, p, n) * lh + lh / 3;
+            p += n + (e ? 1 : 0);
+        }
+        if (need <= h - 60) break;
+        font = FONT_SMALL; lh = 20;
+    }
+    int ty = y + 48;
+    char para[400];
+    for (const char *p = t; *p; )
+    {
+        const char *e = strchr(p, '\n');
+        int n = e ? (int)(e - p) : (int)strlen(p);
+        n = MIN(n, (int)sizeof(para) - 1);
+        memcpy(para, p, n); para[n] = 0;
+        ty = txt_wrap(font, C_TEXT, x + 18, ty, tw, para, lh) + lh / 3;
+        p += (e ? (int)(e - p) + 1 : (int)strlen(p));
+        if (ty > y + h - lh) break;
+    }
+    draw_footer("un tasto qualsiasi chiude l'aiuto");
 }
 
 static void render(int dir)
@@ -1113,17 +1341,22 @@ static void render(int dir)
         draw_footer(sd->form->hint);
     }
     else if (sd->draw) sd->draw();
+    if (help_scr >= 0 && help_scr != screen) help_scr = -1;   /* cambiata schermata: l'aiuto si chiude */
+    if (help_scr == screen) draw_help();
     frame_show(dir);
 }
 
 static void handle_key(int key)
 {
     const struct screen_def *sd = &screens[screen];
+    if (help_scr >= 0) { help_scr = -1; dirty = 1; return; }            /* un tasto qualsiasi chiude l'aiuto */
+    if (key == MODULE_KEY_INFO && help_text(screen)) { help_scr = screen; dirty = 1; return; }
     int dx = key_dx(key), dy = key_dy(key);
     if (dx || key == MODULE_KEY_PRESS_SET) val_kick(dx);
     if (key == MODULE_KEY_MENU)
     {
         if (screen == SCR_HOME) gui_stop_menu();
+        else if (screen == SCR_MWPLAN && mw_back_sky) { mw_back_sky = 0; sky_keep = 1; sky_sel = mw_night; go(SCR_SKY, -1); }
         else go(sd->parent, -1);
         return;
     }

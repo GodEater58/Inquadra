@@ -3,13 +3,18 @@
 
 /* ------------------------------------------------------------------ salvataggio */
 
-static int persist_sum(const struct persist *p)
+/* somma di controllo delle prime n parole (il checksum e' la parola successiva) */
+static int persist_sum_n(const void *p, int n)
 {
     const int *w = (const int *)p;
-    int n = (int)(sizeof(struct persist) / sizeof(int)) - 1;   /* escluso il checksum */
     unsigned int h = 2166136261u;
     for (int i = 0; i < n; i++) h = (h ^ (unsigned int)w[i]) * 16777619u;
     return (int)h;
+}
+
+static int persist_sum(const struct persist *p)
+{
+    return persist_sum_n(p, (int)(sizeof(struct persist) / sizeof(int)) - 1);
 }
 
 static const char *const prof_names[] = {
@@ -23,7 +28,7 @@ static void persist_defaults()
     P.roll_film = 1; P.roll_exp = 36;
     P.int_count = 20; P.int_pause = 2; P.int_screen_off = 1;
     P.npf_focal = 24; P.npf_ap10 = 28;
-    P.lat100 = 4190; P.lon100 = 1250;          /* Roma: si cambia in Opzioni */
+    P.lat100 = 4189; P.lon100 = 1251;          /* Roma (come nell'elenco delle citta'): si cambia in Opzioni */
     P.hdr_frames = 1; P.hdr_step = 2; P.hdr_seq = 1;
     P.fs_front = 5; P.fs_behind = 5; P.fs_step = 3;
     P.dual_rec = 1; P.md_trigger = 1; P.md_level = 8;
@@ -47,11 +52,22 @@ static void persist_load()
     if (buf)
     {
         int r = FIO_ReadFile(f, buf, sizeof(struct persist));
+        const int *w = (const int *)buf;
+        int v2_bytes = PERSIST_V2_WORDS * (int)sizeof(int);
         if (r == (int)sizeof(struct persist) && buf->magic == PERSIST_MAGIC &&
             buf->version == PERSIST_VERSION && buf->size == (int)sizeof(struct persist) &&
             buf->checksum == persist_sum(buf))
         {
             memcpy(&P, buf, sizeof(P));
+        }
+        else if (r == v2_bytes && buf->magic == PERSIST_MAGIC && buf->version == 2 && buf->size == v2_bytes &&
+                 w[PERSIST_V2_WORDS - 1] == persist_sum_n(buf, PERSIST_V2_WORDS - 1))
+        {
+            /* file della 1.0/1.1: stessa struttura fino ai profili, il resto parte da zero */
+            memcpy(&P, buf, __builtin_offsetof(struct persist, ml_prev2));
+            P.version = PERSIST_VERSION;
+            P.size = sizeof(struct persist);
+            persist_touch();
         }
         fio_free(buf);
     }
@@ -304,7 +320,9 @@ enum
     MLF_DUAL, MLF_DUAL_REC, MLF_ETTR, MLF_ETTR_TRIG,
     MLF_MD, MLF_MD_TRIG, MLF_MD_LEVEL, MLF_TRAP,
     MLF_GDRAW, MLF_ZEBRA, MLF_PEAK, MLF_ZOOM, MLF_HIST, MLF_FALSE, MLF_SPOT,
-    MLF_AUTOEXPO, MLF_DEFLICK, MLF_COUNT
+    MLF_AUTOEXPO, MLF_DEFLICK,
+    MLF_DISPGAIN, MLF_SILENT, MLF_SILENT_MODE,          /* dalla 1.2: valori di prima in ml_prev2 */
+    MLF_COUNT
 };
 
 /* scheda del menu ML e voce: le sottovoci stanno in un menu che ha il nome della voce madre */
@@ -315,6 +333,7 @@ static const char *const mlf_menu[MLF_COUNT] = {
     "Shoot", "Motion Detect", "Motion Detect", "Focus",
     "Overlay", "Overlay", "Overlay", "Overlay", "Overlay", "Overlay", "Overlay",
     "Expo", "Shoot",
+    "Display", "Shoot", "Silent Picture",
 };
 static const char *const mlf_entry[MLF_COUNT] = {
     "Advanced Bracket", "Frames", "Sequence", "",
@@ -323,7 +342,11 @@ static const char *const mlf_entry[MLF_COUNT] = {
     "Motion Detect", "Trigger by", "Trigger level", "Trap Focus",
     "Global Draw", "Zebras", "Focus Peak", "Magic Zoom", "Histogram", "False color", "Spotmeter",
     "Auto exposure", "Post Deflicker",
+    "LV display gain", "Silent Picture", "Silent Mode",
 };
+
+/* dove sta il valore di prima di una funzione (le prime NMLF nella parte v2 del salvataggio) */
+static int *ml_prev_slot(int f) { return f < NMLF ? &P.ml_prev[f] : &P.ml_prev2[f - NMLF]; }
 
 static int ml_get(int f)
 {
@@ -339,7 +362,7 @@ static int ml_set(int f, int v)
     if (cur == INT_MIN) return 0;
     if (!(P.ml_touched & (1 << f)))
     {
-        P.ml_prev[f] = cur;
+        *ml_prev_slot(f) = cur;
         P.ml_touched |= 1 << f;
         persist_touch();
     }
@@ -351,8 +374,8 @@ static int ml_set(int f, int v)
 static void ml_restore(int f)
 {
     if (!(P.ml_touched & (1 << f))) return;
-    if (f == MLF_HDR_STEP) hdr_stepsize = P.ml_prev[f];
-    else menu_set_value_from_script(mlf_menu[f], mlf_entry[f], P.ml_prev[f]);
+    if (f == MLF_HDR_STEP) hdr_stepsize = *ml_prev_slot(f);
+    else menu_set_value_from_script(mlf_menu[f], mlf_entry[f], *ml_prev_slot(f));
     P.ml_touched &= ~(1 << f);
     persist_touch();
 }

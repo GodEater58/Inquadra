@@ -27,6 +27,20 @@ static int npf_tenths(int focal, int ap10)
     return (int)((35.0f * ap + 30.0f * pitch) / (float)focal * 10.0f);
 }
 
+/* punto del cielo: piu' vicino al polo celeste, piu' lente le stelle (t / cos della declinazione) */
+static const int npf_decs[] = { 0, 15, 29, 45, 60, 75 };
+static const char *const npf_dec_names[] = { "equatore (caso peggiore)", "15 gradi", "centro Via Lattea, 29",
+    "45 gradi", "60 gradi", "verso la Polare, 75" };
+#define NPF_DECS ((int)COUNT(npf_decs))
+static int npf_dec() { return npf_decs[COERCE(opt_npf_dec, 0, NPF_DECS - 1)]; }
+
+/* NPF completa: t = (35 N + 30 p) / (f cos d) */
+static int npf_tenths_dec(int focal, int ap10, int dec)
+{
+    float c = cosf((float)MIN(ABS(dec), 85) * 0.017453293f);
+    return (int)((float)npf_tenths(focal, ap10) / c + 0.5f);
+}
+
 /* tempo Canon a 1/3 di stop piu' lungo che non supera t secondi (tolleranza 0,1 EV) */
 static int npf_shutter_code(float t)
 {
@@ -49,7 +63,7 @@ static void npf_apply()
 {
     if (shooting_mode != SHOOTMODE_M) { say(C_WARN, "Metti la ghiera su M e riprova"); return; }
     snap_take();
-    int t10 = npf_tenths(P.npf_focal, P.npf_ap10);
+    int t10 = npf_tenths_dec(P.npf_focal, P.npf_ap10, npf_dec());
     float t = (float)MIN(t10, 300) / 10.0f;
     if (t < 1.0f) t = 1.0f;
     int raw_sh = npf_shutter_code(t);
@@ -69,13 +83,14 @@ static void npf_apply()
     say(ok ? C_OK : C_WARN, buf);
 }
 
-static const char *const npf_labels[] = { "Focale", "Diaframma", "Applica (ghiera su M)" };
+static const char *const npf_labels[] = { "Focale", "Diaframma", "Punto del cielo", "Applica (ghiera su M)" };
 
 static void npf_value(int row, char *buf, int len, int *kind)
 {
     char a[12];
     if (row == 0) snprintf(buf, len, "< %d mm >", P.npf_focal);
     else if (row == 1) { fmt_tenths(a, sizeof(a), P.npf_ap10); snprintf(buf, len, "< f/%s >", a); }
+    else if (row == 2) snprintf(buf, len, "< %s >", npf_dec_names[COERCE(opt_npf_dec, 0, NPF_DECS - 1)]);
     else *kind = VK_ACTION;
 }
 
@@ -83,46 +98,57 @@ static void npf_change(int row, int dir, int big)
 {
     if (row == 0) P.npf_focal = COERCE(P.npf_focal + dir * (big ? 5 : 1), 8, 800);
     else if (row == 1) P.npf_ap10 = step_in(ap_steps, COUNT(ap_steps), P.npf_ap10, dir);
+    else if (row == 2) opt_npf_dec = COERCE(opt_npf_dec + dir, 0, NPF_DECS - 1);
     persist_touch();
 }
 
-static void npf_activate(int row) { npf_apply(); }
+static void npf_activate(int row)
+{
+    if (row == 2) { opt_npf_dec = MOD(opt_npf_dec + 1, NPF_DECS); return; }
+    npf_apply();
+}
 
 static void npf_extra()
 {
     char buf[96], a[12], b[12];
-    int t10 = npf_tenths(P.npf_focal, P.npf_ap10);
+    int dec = npf_dec();
+    int t0 = npf_tenths(P.npf_focal, P.npf_ap10), t10 = npf_tenths_dec(P.npf_focal, P.npf_ap10, dec);
     int r500 = P.npf_focal > 0 ? 5000 / P.npf_focal : 0;
-    int y = 198;
-    info_card(24, y, SCR_W - 48, 130, "TEMPO MASSIMO CON LE STELLE PUNTIFORMI (NPF)");
+    int y = 242;
+    info_card(24, y, SCR_W - 48, 118, "TEMPO MASSIMO CON LE STELLE PUNTIFORMI (NPF)");
     fmt_tenths(a, sizeof(a), MIN(t10, 9999));
     snprintf(buf, sizeof(buf), "%s s", a);
-    txt(FONT_LARGE, t10 > 300 ? C_WARN : C_ACCENT, 44, y + 32, buf);
+    txt(FONT_LARGE, t10 > 300 ? C_WARN : C_ACCENT, 44, y + 26, buf);
+    if (dec > 0)
+    {
+        /* quanto si guadagna puntando lontano dall'equatore celeste */
+        int k100 = t0 > 0 ? t10 * 100 / t0 : 100;
+        fmt_tenths(b, sizeof(b), t0);
+        snprintf(buf, sizeof(buf), "x%d,%02d rispetto all'equatore (%s s)", k100 / 100, k100 % 100, b);
+        txt(FONT_SMALL, C_DIM, 44 + txt_w(FONT_LARGE, a) + 40, y + 40, buf);
+    }
     /* confronto: barra NPF e barra regola del 500 sulla stessa scala */
-    int mx = MAX(MAX(t10, r500 * 10 / 10), 1);
+    int mx = MAX(MAX(t10, r500), 1);
     int bw = 260;
-    fill(C_PANEL2, 44, y + 80, bw, 8);
-    fill(C_ACCENT, 44, y + 80, bw * MIN(t10, mx) / mx, 8);
-    fill(C_PANEL2, 44, y + 100, bw, 8);
-    fill(C_LINE, 44, y + 100, bw * MIN(r500, mx) / mx, 8);
-    txt(FONT_SMALL, C_DIM, 44 + bw + 10, y + 78, "NPF");
+    fill(C_PANEL2, 44, y + 74, bw, 8);
+    fill(C_ACCENT, 44, y + 74, bw * MIN(t10, mx) / mx, 8);
+    fill(C_PANEL2, 44, y + 94, bw, 8);
+    fill(C_LINE, 44, y + 94, bw * MIN(r500, mx) / mx, 8);
+    txt(FONT_SMALL, C_DIM, 44 + bw + 10, y + 72, "NPF");
     fmt_tenths(b, sizeof(b), r500);
     snprintf(buf, sizeof(buf), "regola del 500: %s s", b);
-    txt(FONT_SMALL, C_DIM, 44 + bw + 10, y + 98, buf);
-    int x2 = 420;
-    snprintf(buf, sizeof(buf), "ISO %d", P.npf_ap10 <= 20 ? 3200 : 6400);
-    txt(FONT_MED, C_TEXT, x2 + 60, y + 30, buf);
-    txt(FONT_MED, C_TEXT, x2 + 60, y + 56, "bianco 3900 K");
-    txt(FONT_SMALL, C_DIM, x2, y + 34, "ISO");
-    txt(FONT_SMALL, C_DIM, x2, y + 60, "WB");
-    txt(FONT_SMALL, C_DIM, x2, y + 86, "RAW, stabilizzatore spento");
-    if (t10 > 300) txt(FONT_SMALL, C_WARN, x2, y + 104, "oltre 30 s: imposto 30 s");
-    info_card(24, y + 140, SCR_W - 48, 92, "OBIETTIVO");
-    txt(FONT_MED, C_TEXT, 44, y + 162, lens_info.name[0] ? lens_info.name : "Manuale: imposta focale e diaframma");
-    txt(FONT_SMALL, C_DIM, 44, y + 194, "t = (35 x N + 30 x p) / f      N diaframma, f focale, p pixel 6,54 um");
+    txt(FONT_SMALL, C_DIM, 44 + bw + 10, y + 92, buf);
+    int x2 = 470;
+    snprintf(buf, sizeof(buf), "ISO %d   3900 K", P.npf_ap10 <= 20 ? 3200 : 6400);
+    txt(FONT_MED, C_TEXT, x2, y + 26, buf);
+    txt(FONT_SMALL, C_DIM, x2, y + 54, "RAW, stabilizzatore spento");
+    if (t10 > 300) txt(FONT_SMALL, C_WARN, x2, y + 72, "oltre 30 s: imposto 30 s");
+    info_card(24, y + 126, SCR_W - 48, 70, "OBIETTIVO");
+    txt(FONT_MED, C_TEXT, 44, y + 146, lens_info.name[0] ? lens_info.name : "Manuale: imposta focale e diaframma");
+    txt(FONT_SMALL, C_DIM, 44, y + 174, "t = (35 x N + 30 x p) / (f x cos d)    N diaframma, p pixel 6,54 um, d declinazione");
 }
 
-static const struct form npf_form = { 3, npf_labels, npf_value, npf_change, npf_activate, npf_extra,
+static const struct form npf_form = { 4, npf_labels, npf_value, npf_change, npf_activate, npf_extra,
     "^/v riga   </> cambia   SET applica   MENU indietro", 58, 44, 0, 0, 0 };
 
 /* ------------------------------------------------------------------ intervallometro */
@@ -158,25 +184,56 @@ static void preset_select(int p)
     persist_touch();
 }
 
-static const char *const int_labels[] = { "Preset", "Scatti", "Posa", "Pausa", "Ritardo iniziale", "Schermo", "Etichetta file", "Avvia" };
+static const char *const int_labels[] = { "Preset", "Scatti", "Posa", "Pausa", "Ritardo iniziale", "Otturatore",
+    "Dithering", "Pausa per il dithering", "Schermo", "Etichetta file", "Registro della sessione", "Avvia" };
+enum { IR_PRESET, IR_COUNT, IR_POSA, IR_PAUSE, IR_DELAY, IR_SHUTTER, IR_DITHER, IR_DITHER_S, IR_SCREEN, IR_TAG, IR_SESSION, IR_START, IR_N };
+static const int dither_steps[] = { 0, 1, 2, 3, 5, 10 };
+static const int dither_s_steps[] = { 5, 10, 15, 20, 30, 60 };
+
+/* posa di uno scatto in secondi (-1 se dipende dalla fotocamera e non si sa) */
+static float int_expo()
+{
+    return P.int_bulb > 0 ? (float)P.int_bulb : P.int_preset == PRESET_BIAS ? 0.00025f :
+        lens_info.raw_shutter > 0 ? raw2shutterf(lens_info.raw_shutter) : -1.0f;
+}
+
+/* durata della sequenza in secondi, comprese le pause per il dithering */
+static float int_duration(float expo)
+{
+    int n = P.int_count, dn = opt_dither_n > 0 ? (n - 1) / opt_dither_n : 0;
+    float pause = (float)(MAX(n - 1, 0) * P.int_pause);
+    if (dn > 0 && opt_dither_s > P.int_pause) pause += (float)(dn * (opt_dither_s - P.int_pause));
+    return (float)n * expo + pause + (float)delay_steps[COERCE(P.int_delay_idx, 0, (int)COUNT(delay_steps) - 1)];
+}
 
 static void int_value(int row, char *buf, int len, int *kind)
 {
     const struct preset *ps = &presets[COERCE(P.int_preset, 0, NUM_PRESETS - 1)];
     switch (row)
     {
-        case 0: snprintf(buf, len, "< %s >", ps->name); break;
-        case 1: snprintf(buf, len, "%d", P.int_count); break;
-        case 2:
+        case IR_PRESET: snprintf(buf, len, "< %s >", ps->name); break;
+        case IR_COUNT: snprintf(buf, len, "%d", P.int_count); break;
+        case IR_POSA:
             if (P.int_bulb > 0) snprintf(buf, len, "%d s (posa B)", P.int_bulb);
             else if (P.int_preset == PRESET_BIAS) snprintf(buf, len, "1/4000");
             else snprintf(buf, len, "come la fotocamera");
             break;
-        case 3: snprintf(buf, len, "%d s", P.int_pause); break;
-        case 4: snprintf(buf, len, "%d s", delay_steps[COERCE(P.int_delay_idx, 0, (int)COUNT(delay_steps) - 1)]); break;
-        case 5: *kind = P.int_screen_off ? VK_OFF : VK_ON; break;
-        case 6: snprintf(buf, len, "%s", tag_names[ps->tag]); *kind = VK_INFO; break;
-        case 7: *kind = VK_ACTION; snprintf(buf, len, "SET  >"); break;
+        case IR_PAUSE: snprintf(buf, len, "%d s", P.int_pause); break;
+        case IR_DELAY: snprintf(buf, len, "%d s", delay_steps[COERCE(P.int_delay_idx, 0, (int)COUNT(delay_steps) - 1)]); break;
+        case IR_SHUTTER: snprintf(buf, len, "< %s >", opt_silent ? "silenzioso" : "meccanico"); break;
+        case IR_DITHER:
+            if (opt_dither_n <= 0) snprintf(buf, len, "< no >");
+            else if (opt_dither_n == 1) snprintf(buf, len, "< dopo ogni scatto >");
+            else snprintf(buf, len, "< ogni %d scatti >", opt_dither_n);
+            break;
+        case IR_DITHER_S:
+            if (opt_dither_n <= 0) { snprintf(buf, len, "-"); *kind = VK_INFO; }
+            else snprintf(buf, len, "< %d s >", opt_dither_s);
+            break;
+        case IR_SCREEN: *kind = P.int_screen_off ? VK_OFF : VK_ON; break;
+        case IR_TAG: snprintf(buf, len, "%s", tag_names[ps->tag]); *kind = VK_INFO; break;
+        case IR_SESSION: *kind = opt_session ? VK_ON : VK_OFF; break;
+        case IR_START: *kind = VK_ACTION; snprintf(buf, len, "SET  >"); break;
     }
 }
 
@@ -184,14 +241,29 @@ static void int_change(int row, int dir, int big)
 {
     switch (row)
     {
-        case 0: preset_select(MOD(P.int_preset + dir, NUM_PRESETS)); break;
-        case 1: P.int_count = COERCE(P.int_count + dir * (big ? 10 : 1), 1, 9999); break;
-        case 2: P.int_bulb = step_in(bulb_steps, COUNT(bulb_steps), P.int_bulb, dir); break;
-        case 3: P.int_pause = COERCE(P.int_pause + dir * (big ? 5 : 1), 0, 3600); break;
-        case 4: P.int_delay_idx = COERCE(P.int_delay_idx + dir, 0, (int)COUNT(delay_steps) - 1); break;
-        case 5: P.int_screen_off = !P.int_screen_off; break;
+        case IR_PRESET: preset_select(MOD(P.int_preset + dir, NUM_PRESETS)); break;
+        case IR_COUNT: P.int_count = COERCE(P.int_count + dir * (big ? 10 : 1), 1, 9999); break;
+        case IR_POSA: P.int_bulb = step_in(bulb_steps, COUNT(bulb_steps), P.int_bulb, dir); break;
+        case IR_PAUSE: P.int_pause = COERCE(P.int_pause + dir * (big ? 5 : 1), 0, 3600); break;
+        case IR_DELAY: P.int_delay_idx = COERCE(P.int_delay_idx + dir, 0, (int)COUNT(delay_steps) - 1); break;
+        case IR_SHUTTER: opt_silent = !opt_silent; break;
+        case IR_DITHER: opt_dither_n = step_in(dither_steps, COUNT(dither_steps), opt_dither_n, dir); break;
+        case IR_DITHER_S: if (opt_dither_n > 0) opt_dither_s = step_in(dither_s_steps, COUNT(dither_s_steps), opt_dither_s, dir); break;
+        case IR_SCREEN: P.int_screen_off = !P.int_screen_off; break;
+        case IR_SESSION: opt_session = !opt_session; break;
     }
     persist_touch();
+}
+
+/* lo scatto silenzioso a piena risoluzione della 6D: da 0,3 s, ghiera su M, niente posa B */
+static int silent_check(float expo)
+{
+    if (!ml_available(MLF_SILENT)) { say(C_WARN, "Silenzioso: attiva il modulo silent nel menu Modules di ML"); return 0; }
+    if (P.int_bulb > 0) { say(C_WARN, "Silenzioso: niente posa B, usa il tempo della fotocamera"); return 0; }
+    if (P.int_preset == PRESET_BIAS || P.int_preset == PRESET_HG) { say(C_WARN, "Silenzioso: non con bias e giorno-notte"); return 0; }
+    if (shooting_mode != SHOOTMODE_M) { say(C_WARN, "Silenzioso: metti la ghiera su M"); return 0; }
+    if (expo >= 0.0f && (expo < 0.29f || expo > 30.5f)) { say(C_WARN, "Silenzioso: tempi da 0,3 a 30 s"); return 0; }
+    return 1;
 }
 
 static int interval_check()
@@ -204,53 +276,105 @@ static int interval_check()
         if (shooting_mode != SHOOTMODE_M || !lv) { say(C_WARN, "Giorno-notte: ghiera su M e Live View acceso"); return 0; }
         if (!ml_available(MLF_AUTOEXPO)) { say(C_WARN, "Attiva il modulo autoexpo nel menu Modules di ML"); return 0; }
     }
+    if (opt_silent && !silent_check(int_expo())) return 0;
+    int b = cam_battery();
+    if (b >= 0 && b <= 5) { say(C_WARN, "Batteria al 5%: cambiala prima di iniziare"); return 0; }
+    if (cam_shots_left(opt_silent) == 0) { say(C_WARN, "La scheda e' piena"); return 0; }
     return 1;
 }
 
 static void int_activate(int row)
 {
-    if (row == 0) { preset_select(MOD(P.int_preset + 1, NUM_PRESETS)); return; }
-    if (row == 5) { P.int_screen_off = !P.int_screen_off; persist_touch(); return; }
+    switch (row)
+    {
+        case IR_PRESET: preset_select(MOD(P.int_preset + 1, NUM_PRESETS)); return;
+        case IR_SHUTTER: case IR_DITHER: case IR_DITHER_S: case IR_SCREEN: case IR_SESSION: int_change(row, 1, 0); return;
+    }
     if (!interval_check()) return;
     job_request = JOB_SEQ;
     gui_stop_menu();
 }
 
+/* riga "etichetta  valore" della scheda di destra */
+static void kv_line(int x, int y, int w, const char *k, const char *v, int c)
+{
+    txt(FONT_SMALL, C_DIM, x, y + 5, k);
+    txt_r(FONT_MED, c, x + w, y, v);
+}
+
 static void int_extra()
 {
     const struct preset *ps = &presets[COERCE(P.int_preset, 0, NUM_PRESETS - 1)];
-    const int x = 456, w = SCR_W - 24 - x;
-    char buf[96];
+    const int x = 456, w = SCR_W - 24 - x, ix = x + 16, iw = w - 32;
+    char buf[96], v[32];
     info_card(x, 52, w, 384, "PRESET");
-    txt(FONT_MED_LARGE, C_ACCENT, x + 16, 72, ps->name);
-    /* la sequenza: un rettangolo per scatto, lo spazio e' la pausa */
+    txt(FONT_MED_LARGE, C_ACCENT, ix, 72, ps->name);
+    /* la sequenza: un rettangolo per scatto, lo spazio e' la pausa (piu' lungo dove c'e' il dithering) */
     int n = MIN(P.int_count, 12), fw = 12, gap = 2 + MIN(P.int_pause, 10);
-    int fx = x + 16;
-    for (int i = 0; i < n && fx + fw <= x + w - 16; i++, fx += fw + gap)
+    int fx = ix;
+    for (int i = 0; i < n && fx + fw <= x + w - 16; i++)
+    {
         fill(i == 0 ? C_ACCENT : C_DIM, fx, 108, fw, 16);
+        fx += fw + gap + (opt_dither_n > 0 && (i + 1) % opt_dither_n == 0 ? 6 : 0);
+    }
     if (P.int_count > n) txt(FONT_SMALL, C_DIM, fx + 2, 110, "...");
-    /* durata: scatti x (posa + pausa) + ritardo */
-    float expo = P.int_bulb > 0 ? (float)P.int_bulb : P.int_preset == PRESET_BIAS ? 0.00025f :
-        lens_info.raw_shutter > 0 ? raw2shutterf(lens_info.raw_shutter) : -1.0f;
-    txt(FONT_SMALL, C_DIM, x + 16, 140, "DURATA");
-    if (expo >= 0.0f)
+
+    /* durata e ora di fine */
+    float expo = int_expo();
+    txt(FONT_SMALL, C_DIM, ix, 136, "DURATA");
+    float tot = expo >= 0.0f ? int_duration(expo) : -1.0f;
+    if (tot >= 0.0f)
     {
-        float tot = (float)P.int_count * expo + (float)(MAX(P.int_count - 1, 0) * P.int_pause)
-                  + (float)delay_steps[COERCE(P.int_delay_idx, 0, (int)COUNT(delay_steps) - 1)];
         fmt_duration(buf, sizeof(buf), (int)(tot * 10.0f));
-        txt(FONT_LARGE, C_TEXT, x + 16, 156, buf);
+        txt(FONT_LARGE, C_TEXT, ix, 150, buf);
+        struct tm now;
+        LoadCalendarFromRTC(&now);
+        int end = MOD(now.tm_hour * 60 + now.tm_min + (int)(tot / 60.0f + 0.5f), 1440);
+        snprintf(buf, sizeof(buf), "finisce verso le %02d:%02d", end / 60, end % 60);
+        txt(FONT_SMALL, C_DIM, ix, 186, buf);
     }
-    else txt(FONT_MED, C_TEXT, x + 16, 160, "dipende dal tempo");
-    if (P.int_preset == 3 || P.int_preset == PRESET_HG)
+    else txt(FONT_MED, C_TEXT, ix, 154, "dipende dal tempo");
+
+    /* in campo: batteria, scheda, temperatura */
+    fill(C_LINE, ix, 210, iw, 1);
+    txt(FONT_SMALL, C_DIM, ix, 216, "IN CAMPO");
+    int b = cam_battery(), left = cam_battery_left_s();
+    if (b < 0) snprintf(v, sizeof(v), "-");
+    else if (left > 0) snprintf(v, sizeof(v), "%d%%  ~%dh%02d", b, left / 3600, left % 3600 / 60);
+    else snprintf(v, sizeof(v), "%d%%", b);
+    kv_line(ix, 234, iw, "BATTERIA", v, b >= 0 && b <= 15 ? C_WARN : C_TEXT);
+    int sl = cam_shots_left(opt_silent);
+    if (sl < 0) snprintf(v, sizeof(v), "-");
+    else snprintf(v, sizeof(v), "%d scatti", sl);
+    kv_line(ix, 260, iw, "SCHEDA", v, sl >= 0 && sl < P.int_count ? C_WARN : C_TEXT);
+    snprintf(v, sizeof(v), "%d gradi", cam_temp_c());
+    kv_line(ix, 286, iw, "TEMPERATURA", v, C_TEXT);
+
+    /* i limiti: quello che finisce prima */
+    int y = 318;
+    if (sl >= 0 && sl < P.int_count)
     {
-        snprintf(buf, sizeof(buf), "video a 25 fps: %d s", P.int_count / 25);
-        txt(FONT_SMALL, C_DIM, x + 16, 196, buf);
+        snprintf(buf, sizeof(buf), "La scheda basta per %d scatti su %d.", sl, P.int_count);
+        y = txt_wrap(FONT_SMALL, C_WARN, ix, y, iw, buf, 14) + 4;
     }
-    snprintf(buf, sizeof(buf), "%s %s", ps->note1, ps->note2);
-    txt_wrap(FONT_MED, C_DIM, x + 16, 222, w - 30, buf, 25);
+    if (left > 0 && tot > 0.0f && left < (int)tot && expo >= 0.0f)
+    {
+        int per = MAX(1, (int)(expo + 0.5f) + P.int_pause);
+        snprintf(buf, sizeof(buf), "La batteria basta per circa %d scatti: Iride si ferma da sola al 4%%.", MIN(left / per, P.int_count));
+        y = txt_wrap(FONT_SMALL, C_WARN, ix, y, iw, buf, 14) + 4;
+    }
+    if (opt_silent)
+    {
+        y = txt_wrap(FONT_SMALL, C_DIM, ix, y, iw, "Silenzioso: DNG senza otturatore, da 0,3 a 30 s; i dati di scatto vanno nel registro.", 14) + 4;
+    }
+    if (y < 400)
+    {
+        snprintf(buf, sizeof(buf), "%s %s", ps->note1, ps->note2);
+        txt_wrap(FONT_SMALL, C_DIM, ix, y, iw, buf, 14);
+    }
 }
 
-static const struct form int_form = { 8, int_labels, int_value, int_change, int_activate, int_extra,
+static const struct form int_form = { IR_N, int_labels, int_value, int_change, int_activate, int_extra,
     "^/v riga   </> cambia   SET avvia   MENU indietro", 52, 48, 0, 420, 0 };
 
 /* ------------------------------------------------------------------ fuoco sulle stelle (HFR) */
@@ -385,7 +509,171 @@ static int hfr_measure(int *hfr100, int *peak_out, int *cx_out, int *cy_out, int
 
 static void stars_reset() { hfr_count = 0; hfr_best = 0; hfr_last = -1; hfr_peak = 0; star_x = -1; }
 
-static void stars_enter() { stars_reset(); }
+/* ---- fuoco automatico sulle stelle: curva a V dell'HFR
+ * Si gira il fuoco a passi uguali misurando l'HFR (media di 3 misure dopo ogni passo).
+ * Se peggiora subito si torna indietro e si prova dall'altra parte; quando l'HFR risale per due
+ * passi il minimo e' passato. Una parabola sui punti intorno al minimo dice dove sta il fuoco;
+ * ci si torna arrivando sempre dallo stesso verso della scansione, cosi' il gioco degli
+ * ingranaggi dell'obiettivo non sposta il risultato. */
+enum { AF_IDLE, AF_RUN, AF_DONE, AF_FAIL };
+#define AF_MAXP 96
+#define AF_MAXSTEPS 40
+#define AF_BACKLASH 8                              /* ritorno per arrivare sul fuoco dallo stesso verso */
+#define AF_WIN 6                                   /* passi intorno al migliore usati per la curva */
+#define AF_RISE 112                                /* "peggiora" = HFR oltre il 12% del migliore */
+static volatile int af_state = AF_IDLE, af_abort = 0;
+static int af_pos, af_dir, af_n, af_phase, af_rise, af_lost, af_reversed, af_target, af_h0, af_hend, af_min;
+static short af_px[AF_MAXP], af_ph[AF_MAXP];
+static char af_msg[64];
+
+static int af_measure()
+{
+    int sum = 0, n = 0;
+    msleep(450);                                   /* il Live View mostra la stella dopo lo spostamento */
+    for (int k = 0; k < 3; k++)
+    {
+        int h, p, cx, cy, r;
+        if (hfr_measure(&h, &p, &cx, &cy, &r))
+        {
+            sum += h; n++;
+            hfr_last = h; hfr_peak = p;
+            if (hfr_best == 0 || h < hfr_best) hfr_best = h;
+            star_x = LV2BM_X(cx); star_y = LV2BM_Y(cy); star_r = MAX(6, LV2BM_DX(r));
+        }
+        msleep(120);
+    }
+    return n ? sum / n : -1;
+}
+
+static int af_move(int steps)
+{
+    if (!steps) return 1;
+    int dir = steps > 0 ? 1 : -1;
+    if (!lens_focus(ABS(steps), dir * focus_step, 1, 0)) return 0;
+    af_pos += steps;
+    return 1;
+}
+
+static void af_fail(const char *why)
+{
+    snprintf(af_msg, sizeof(af_msg), "%s", why);
+    af_state = AF_FAIL;
+}
+
+/* centro della curva a V. Una stella sfocata cresce come HFR^2 = a (x - x0)^2 + c, quindi si adatta
+ * una parabola ai quadrati dell'HFR dei punti vicini al migliore: e' esatta per questa forma,
+ * non solo vicino al minimo, e regge meglio il rumore della misura dove la curva e' piatta. */
+static int af_vertex()
+{
+    int bi = af_min, lo = 1000, hi = -1000;
+    float sx = 0, sx2 = 0, sx3 = 0, sx4 = 0, sy = 0, sxy = 0, sx2y = 0;
+    int n = 0;
+    for (int i = 0; i < af_n; i++)
+    {
+        int d = af_px[i] - af_px[bi];
+        if (d < -AF_WIN || d > AF_WIN || af_ph[i] <= 0) continue;
+        float x = (float)d, h = (float)af_ph[i] / 100.0f, y = h * h;
+        sx += x; sx2 += x * x; sx3 += x * x * x; sx4 += x * x * x * x;
+        sy += y; sxy += x * y; sx2y += x * x * y;
+        lo = MIN(lo, d); hi = MAX(hi, d);
+        n++;
+    }
+    if (n < 3) return af_px[bi];
+    /* sistema normale per y = a x^2 + b x + c (regola di Cramer) */
+    float N = (float)n;
+    float D = sx4 * (sx2 * N - sx * sx) - sx3 * (sx3 * N - sx * sx2) + sx2 * (sx3 * sx - sx2 * sx2);
+    if (fabsf(D) < 1e-6f) return af_px[bi];
+    float Da = sx2y * (sx2 * N - sx * sx) - sx3 * (sxy * N - sx * sy) + sx2 * (sxy * sx - sx2 * sy);
+    float Db = sx4 * (sxy * N - sy * sx) - sx2y * (sx3 * N - sx * sx2) + sx2 * (sx3 * sy - sxy * sx2);
+    float a = Da / D, b = Db / D;
+    if (a <= 0.0f) return af_px[bi];
+    float v = -b / (2.0f * a);
+    v = COERCE(v, (float)lo, (float)hi);
+    return af_px[bi] + (int)(v + (v >= 0.0f ? 0.5f : -0.5f));
+}
+
+static void af_point(int h)
+{
+    if (af_n < AF_MAXP) { af_px[af_n] = (short)af_pos; af_ph[af_n] = (short)MIN(h, 32000); af_n++; }
+    if (h > 0 && (af_min < 0 || h < af_ph[af_min])) { af_min = af_n - 1; af_rise = 0; }
+    else if (h > 0 && h * 100 > af_ph[af_min] * AF_RISE) af_rise++;
+}
+
+/* un passo della macchina a stati: un movimento e una misura */
+static void af_step()
+{
+    if (af_state != AF_RUN) return;
+    if (af_phase == 0)
+    {
+        /* indietro e di nuovo avanti: il gioco degli ingranaggi e' gia' preso nel verso della scansione */
+        if (!af_move(-af_dir * AF_BACKLASH) || !af_move(af_dir * AF_BACKLASH)) { af_fail("Fuoco automatico: il motore non risponde (AF attivo?)"); return; }
+        af_h0 = af_measure();
+        if (af_h0 < 0) { af_fail("Fuoco automatico: nessuna stella nel riquadro"); return; }
+        af_point(af_h0);
+        af_phase = 1;
+        return;
+    }
+    if (af_phase == 1)
+    {
+        if (!af_move(af_dir)) { af_fail("Fuoco automatico: il motore non risponde (AF attivo?)"); return; }
+        int h = af_measure();
+        if (h < 0) { if (++af_lost >= 3) af_fail("Fuoco automatico: stella persa"); return; }
+        af_lost = 0;
+        af_point(h);
+        if (ABS(af_pos) > AF_MAXSTEPS) { af_fail("Fuoco automatico: fuoco non trovato in 40 passi"); return; }
+        if (af_rise < 2) return;
+        if (!af_reversed && af_ph[af_min] * 100 > af_ph[0] * 95)
+        {
+            /* non migliora (il primo punto resta il migliore, a meno del rumore): si torna indietro e si ricomincia la curva nell'altro verso.
+             * Il primo passo indietro recupera il gioco e non si misura; i punti vecchi si buttano,
+             * cosi' tutti quelli della curva sono presi muovendo il fuoco nello stesso verso. */
+            af_reversed = 1;
+            af_dir = -af_dir;
+            af_rise = 0; af_n = 0; af_min = -1;
+            if (!af_move(af_dir)) { af_fail("Fuoco automatico: il motore non risponde"); return; }
+            return;
+        }
+        af_target = af_vertex();
+        /* indietro oltre il minimo, poi di nuovo avanti: si arriva sempre dallo stesso verso */
+        int back = af_target - af_pos - af_dir * AF_BACKLASH;
+        if (!af_move(back) || !af_move(af_dir * AF_BACKLASH)) { af_fail("Fuoco automatico: il motore non risponde"); return; }
+        af_phase = 2;
+        return;
+    }
+    if (af_phase == 2)
+    {
+        af_hend = af_measure();
+        snprintf(af_msg, sizeof(af_msg), "Fuoco automatico: HFR %d.%02d -> %d.%02d",
+                 af_h0 / 100, af_h0 % 100, MAX(af_hend, 0) / 100, MAX(af_hend, 0) % 100);
+        af_state = AF_DONE;
+    }
+}
+
+static void af_start()
+{
+    af_pos = 0; af_dir = 1; af_n = 0; af_phase = 0; af_rise = 0; af_lost = 0; af_reversed = 0;
+    af_min = -1; af_h0 = af_hend = -1; af_abort = 0; af_msg[0] = 0;
+    stars_reset();
+    af_state = AF_RUN;
+}
+
+static void af_task(void *unused)
+{
+    while (af_state == AF_RUN)
+    {
+        if (af_abort || ml_shutdown_requested || !app_running || screen != SCR_STARS || !lv)
+        {
+            af_state = AF_FAIL;
+            snprintf(af_msg, sizeof(af_msg), "Fuoco automatico fermato");
+            break;
+        }
+        af_step();
+        dirty = 1;
+    }
+    dirty = 1;
+}
+
+static void stars_enter() { stars_reset(); if (af_state != AF_RUN) af_state = AF_IDLE; }
 
 static void stars_leave()
 {
@@ -396,6 +684,7 @@ static void stars_leave()
 static int stars_tick()
 {
     if (!lv) { hfr_last = -1; star_x = -1; return 1; }
+    if (af_state == AF_RUN) return 1;              /* misura il fuoco automatico */
     int h, p, cx, cy, r;
     if (hfr_measure(&h, &p, &cx, &cy, &r))
     {
@@ -461,7 +750,24 @@ static void draw_stars()
     }
     int gx = 380, gy = 344, gw = 320, gh = 88;
     bmp_draw_rect(C_LINE, gx - 2, gy - 2, gw + 4, gh + 4);
-    if (hfr_count > 0)
+    if (af_state == AF_RUN || ((af_state == AF_DONE || af_state == AF_FAIL) && af_n > 1))
+    {
+        /* la curva a V: posizione del fuoco in orizzontale, HFR in verticale */
+        int lo = 0, hi = 0, mx = 1;
+        for (int i = 0; i < af_n; i++) { lo = MIN(lo, af_px[i]); hi = MAX(hi, af_px[i]); mx = MAX(mx, af_ph[i]); }
+        int span = MAX(hi - lo, 1);
+        for (int i = 0; i < af_n; i++)
+        {
+            int x = gx + 6 + (af_px[i] - lo) * (gw - 12) / span, y = gy + gh - 4 - af_ph[i] * (gh - 10) / mx;
+            fill_circle(x, y, i == af_min ? 4 : 2, i == af_min ? C_OK : C_ACCENT);
+        }
+        if (af_state == AF_DONE)
+        {
+            int x = gx + 6 + (af_target - lo) * (gw - 12) / span;
+            fill(C_OK, x, gy, 1, gh);
+        }
+    }
+    else if (hfr_count > 0)
     {
         int n = MIN(hfr_count, HFR_HIST), maxv = 1;
         for (int i = 0; i < n; i++) maxv = MAX(maxv, hfr_hist[(hfr_count - n + i) % HFR_HIST]);
@@ -473,11 +779,40 @@ static void draw_stars()
             fill((hfr_best > 0 && val * 100 <= hfr_best * 105) ? C_OK : C_ACCENT, gx + i * bw, gy + gh - bh, MAX(bw - 1, 1), bh);
         }
     }
-    draw_footer(lv ? "SET zoom  </> fuoco  ^/v passo  INFO azzera  START esci LV" : "START/STOP accende il Live View   MENU indietro");
+    if (af_state == AF_RUN)
+    {
+        snprintf(buf, sizeof(buf), "Fuoco automatico: passo %+d", af_pos);
+        fill(C_BG, 0, 386, 370, 34);
+        txt(FONT_MED, C_ACCENT, 16, 392, buf);
+        anim_keep();
+    }
+    else if (af_state == AF_DONE || af_state == AF_FAIL)
+    {
+        fill(C_BG, 0, 386, 370, 34);
+        txt_fit(af_state == AF_DONE ? C_OK : C_WARN, 16, 392, 354, af_msg);
+    }
+    draw_footer(af_state == AF_RUN ? "Q ferma il fuoco automatico" :
+                lv ? "SET zoom  </> fuoco  ^/v passo  Q auto  INFO aiuto" : "START/STOP accende il Live View   MENU indietro");
 }
 
 static void stars_key(int key, int dx, int dy)
 {
+    if (af_state == AF_RUN)
+    {
+        /* durante il fuoco automatico ogni tasto lo ferma */
+        af_abort = 1;
+        return;
+    }
+    if (af_state == AF_DONE || af_state == AF_FAIL) { say(af_state == AF_DONE ? C_OK : C_WARN, af_msg); af_state = AF_IDLE; }
+    if (key == MODULE_KEY_Q)
+    {
+        if (!lv) { say(C_WARN, "Serve il Live View"); return; }
+        if (is_manual_focus()) { say(C_WARN, "Fuoco automatico: obiettivo su AF, non MF"); return; }
+        if (hfr_last < 0) { say(C_WARN, "Centra prima una stella nel riquadro"); return; }
+        af_start();
+        task_create("iride_af", 0x1d, 0x2000, af_task, (void *)0);
+        return;
+    }
     if (dx)
     {
         if (!lv) { say(C_WARN, "Serve il Live View"); return; }
@@ -491,7 +826,6 @@ static void stars_key(int key, int dx, int dy)
         set_lv_zoom(lv_dispsize == 1 ? 5 : lv_dispsize == 5 ? 10 : 1);
         stars_reset();
     }
-    else if (key == MODULE_KEY_INFO) stars_reset();
 }
 
 /* ------------------------------------------------------------------ astronomia di base */
@@ -515,11 +849,24 @@ static int days_from_civil(int y, int m, int d)
 
 static int weekday(int days1970) { return MOD(days1970 + 4, 7); }   /* 0 = domenica */
 
+static int days_in_month(int y, int m)
+{
+    static const char dm[12] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+    if (m == 2) return 28 + ((y % 4 == 0 && y % 100 != 0) || y % 400 == 0);
+    return dm[COERCE(m, 1, 12) - 1];
+}
+
 static int last_sunday(int y, int m)
 {
-    int dim = (m == 3 || m == 10) ? 31 : 30;
-    int d = days_from_civil(y, m, dim);
-    return dim - weekday(d);
+    int dim = days_in_month(y, m);
+    return dim - weekday(days_from_civil(y, m, dim));
+}
+
+/* n-esima domenica del mese (n = 1, 2, ...) */
+static int nth_sunday(int y, int m, int n)
+{
+    int w = weekday(days_from_civil(y, m, 1));
+    return 1 + (7 - w) % 7 + (n - 1) * 7;
 }
 
 /* ora legale europea: dall'ultima domenica di marzo all'ultima di ottobre, alle 01:00 UTC */
@@ -532,10 +879,107 @@ static int eu_dst(int y, int m, int d, int utc_hour)
     return d < ls || (d == ls && utc_hour < 1);
 }
 
+/* ---- fusi orari. tz_mode: 0 = Europa centrale (Italia) con l'ora legale, 1..4 = UTC+0..+3 fisso
+ * (versioni fino alla 1.1), 10..17 = zone con l'ora legale, 100..204 = fisso a quarti d'ora da UTC-12 a UTC+14.
+ * Regole dal database IANA dei fusi (tzdata 2026); le ore sono quelle dell'orologio. */
+enum { DST_NONE, DST_EU, DST_US, DST_AU, DST_NZ };
+struct tzdef { short code, std_min; char rule; const char *name; };
+static const struct tzdef tzdefs[] = {
+    {  0,   60, DST_EU, "Europa centrale" },
+    { 10,    0, DST_EU, "Europa occidentale" },
+    { 11,  120, DST_EU, "Europa orientale" },
+    { 12, -300, DST_US, "USA est" },
+    { 13, -360, DST_US, "USA centrale" },
+    { 14, -420, DST_US, "USA montagne" },
+    { 15, -480, DST_US, "USA Pacifico" },
+    { 16,  600, DST_AU, "Australia sud-est" },
+    { 17,  720, DST_NZ, "Nuova Zelanda" },
+};
+#define TZ_FIXED(off_min) (100 + ((off_min) + 720) / 15)
+#define TZ_FIXED_MIN 100
+#define TZ_FIXED_MAX 204
+
+static const struct tzdef *tz_def(int code)
+{
+    for (int i = 0; i < (int)COUNT(tzdefs); i++) if (tzdefs[i].code == code) return &tzdefs[i];
+    return 0;
+}
+
+static int tz_valid(int code)
+{
+    return tz_def(code) || (code >= 1 && code <= 4) || (code >= TZ_FIXED_MIN && code <= TZ_FIXED_MAX);
+}
+
+/* scarto fisso o d'inverno in minuti */
+static int tz_std_min(int code)
+{
+    const struct tzdef *t = tz_def(code);
+    if (t) return t->std_min;
+    if (code >= 1 && code <= 4) return (code - 1) * 60;
+    if (code >= TZ_FIXED_MIN && code <= TZ_FIXED_MAX) return (code - 100) * 15 - 720;
+    return 60;
+}
+
+static int tz_dst(int rule, int y, int m, int d, int h, int std_min)
+{
+    switch (rule)
+    {
+        case DST_EU: return eu_dst(y, m, d, h - std_min / 60);
+        case DST_US:    /* dalla seconda domenica di marzo alla prima di novembre, alle 2 */
+            if (m < 3 || m > 11) return 0;
+            if (m > 3 && m < 11) return 1;
+            if (m == 3) { int s = nth_sunday(y, 3, 2); return d > s || (d == s && h >= 2); }
+            { int s = nth_sunday(y, 11, 1); return d < s || (d == s && h < 2); }
+        case DST_AU:    /* dalla prima domenica di ottobre alla prima di aprile */
+            if (m > 4 && m < 10) return 0;
+            if (m > 10 || m < 4) return 1;
+            if (m == 10) { int s = nth_sunday(y, 10, 1); return d > s || (d == s && h >= 2); }
+            { int s = nth_sunday(y, 4, 1); return d < s || (d == s && h < 3); }
+        case DST_NZ:    /* dall'ultima domenica di settembre alla prima di aprile */
+            if (m > 4 && m < 9) return 0;
+            if (m > 9 || m < 4) return 1;
+            if (m == 9) { int s = last_sunday(y, 9); return d > s || (d == s && h >= 2); }
+            { int s = nth_sunday(y, 4, 1); return d < s || (d == s && h < 3); }
+    }
+    return 0;
+}
+
 static int utc_offset_min(int y, int m, int d, int local_hour)
 {
-    if (P.tz_mode > 0) return (P.tz_mode - 1) * 60;
-    return eu_dst(y, m, d, local_hour - 1) ? 120 : 60;
+    int code = tz_valid(P.tz_mode) ? P.tz_mode : 0;
+    int std = tz_std_min(code);
+    const struct tzdef *t = tz_def(code);
+    return std + (t && tz_dst(t->rule, y, m, d, local_hour, std) ? 60 : 0);
+}
+
+/* "UTC+5:30", "UTC-3", "UTC" */
+static void fmt_utc(char *buf, int len, int off)
+{
+    if (!off) { snprintf(buf, len, "UTC"); return; }
+    int a = ABS(off);
+    if (a % 60) snprintf(buf, len, "UTC%c%d:%02d", off < 0 ? '-' : '+', a / 60, a % 60);
+    else snprintf(buf, len, "UTC%c%d", off < 0 ? '-' : '+', a / 60);
+}
+
+/* nome del fuso per le opzioni */
+static void tz_name(int code, char *buf, int len)
+{
+    const struct tzdef *t = tz_def(code);
+    if (t) { snprintf(buf, len, "%s, ora legale auto", t->name); return; }
+    char u[16];
+    fmt_utc(u, sizeof(u), tz_std_min(code));
+    snprintf(buf, len, "%s fisso", u);
+}
+
+/* fuso successivo o precedente: prima le zone con l'ora legale, poi gli scarti fissi */
+static int tz_next(int code, int dir)
+{
+    if (code >= 1 && code <= 4) code = TZ_FIXED((code - 1) * 60);     /* vecchi valori: stesso scarto */
+    int nz = (int)COUNT(tzdefs), n = nz + (TZ_FIXED_MAX - TZ_FIXED_MIN + 1), i = 0;
+    for (int k = 0; k < nz; k++) if (tzdefs[k].code == code) i = k;
+    if (code >= TZ_FIXED_MIN && code <= TZ_FIXED_MAX) i = nz + code - TZ_FIXED_MIN;
+    i = MOD(i + dir, n);
+    return i < nz ? tzdefs[i].code : TZ_FIXED_MIN + i - nz;
 }
 
 /* ora locale (giorni dal 1970 + minuti) -> jtime */
@@ -642,6 +1086,108 @@ static void polaris(struct jtime j, float *ra_deg, float *dec_deg)
     float dy = ((float)j.d + j.f - 9496.5f) / 365.25f;   /* anni dal 1/1/2026 */
     *ra_deg = (3.09745f + 0.025356f * dy + 0.0001604f * dy * dy) * 15.0f;
     *dec_deg = 89.37159f + 0.00377f * dy;
+}
+
+/* citta' pronte: coordinate da GeoNames, fuso dal database IANA (con l'ora legale dove c'e') */
+struct city { const char *name; short lat100, lon100; unsigned char tz; };
+static const struct city cities[] = {
+    { "Aosta", 4574, 732, 0 },
+    { "Torino", 4507, 769, 0 },
+    { "Genova", 4440, 894, 0 },
+    { "Milano", 4546, 919, 0 },
+    { "Trento", 4607, 1112, 0 },
+    { "Bolzano", 4649, 1134, 0 },
+    { "Venezia", 4544, 1233, 0 },
+    { "Padova", 4541, 1189, 0 },
+    { "Rovigo", 4507, 1179, 0 },
+    { "Ferrara", 4484, 1162, 0 },
+    { "Verona", 4544, 1099, 0 },
+    { "Trieste", 4565, 1378, 0 },
+    { "Bologna", 4449, 1134, 0 },
+    { "Firenze", 4378, 1125, 0 },
+    { "Ancona", 4361, 1351, 0 },
+    { "Perugia", 4311, 1239, 0 },
+    { "Roma", 4189, 1251, 0 },
+    { "L'Aquila", 4235, 1340, 0 },
+    { "Campobasso", 4156, 1467, 0 },
+    { "Napoli", 4085, 1427, 0 },
+    { "Bari", 4112, 1687, 0 },
+    { "Potenza", 4064, 1581, 0 },
+    { "Catanzaro", 3888, 1660, 0 },
+    { "Palermo", 3812, 1336, 0 },
+    { "Cagliari", 3923, 912, 0 },
+    { "Reykjavik", 6414, -2190, 148 },
+    { "Lisbona", 3873, -915, 10 },
+    { "Londra", 5151, -13, 10 },
+    { "Madrid", 4042, -370, 0 },
+    { "Tenerife", 2847, -1625, 10 },
+    { "Parigi", 4885, 235, 0 },
+    { "Berlino", 5252, 1341, 0 },
+    { "Vienna", 4821, 1637, 0 },
+    { "Atene", 3798, 2373, 11 },
+    { "Helsinki", 6017, 2494, 11 },
+    { "Istanbul", 4101, 2895, 160 },
+    { "Mosca", 5575, 3762, 160 },
+    { "Citta' del Capo", -3393, 1842, 156 },
+    { "Nairobi", -128, 3682, 160 },
+    { "Dubai", 2508, 5531, 164 },
+    { "Nuova Delhi", 2862, 7721, 170 },
+    { "Kathmandu", 2770, 8532, 171 },
+    { "Bangkok", 1375, 10050, 176 },
+    { "Pechino", 3991, 11640, 180 },
+    { "Tokyo", 3569, 13969, 184 },
+    { "Perth", -3195, 11586, 180 },
+    { "Sydney", -3387, 15121, 16 },
+    { "Auckland", -3685, 17476, 17 },
+    { "Honolulu", 2131, -15786, 108 },
+    { "Los Angeles", 3405, -11824, 15 },
+    { "Phoenix", 3345, -11207, 120 },
+    { "Denver", 3974, -10498, 14 },
+    { "Citta' del Messico", 1943, -9913, 124 },
+    { "Chicago", 4185, -8765, 13 },
+    { "New York", 4071, -7401, 12 },
+    { "Buenos Aires", -3461, -5838, 136 },
+    { "San Paolo", -2355, -4664, 136 },
+};
+#define NUM_CITIES ((int)COUNT(cities))
+
+/* la citta' che corrisponde al luogo impostato, -1 se il luogo e' personalizzato */
+static int city_find()
+{
+    for (int i = 0; i < NUM_CITIES; i++)
+        if (cities[i].lat100 == P.lat100 && cities[i].lon100 == P.lon100 && cities[i].tz == P.tz_mode) return i;
+    return -1;
+}
+
+/* la piu' vicina (in gradi, con la longitudine accorciata verso i poli) */
+static int city_nearest()
+{
+    int best = 0;
+    float bd = 1e9f, cl = cosf((float)P.lat100 * 0.00017453293f);
+    for (int i = 0; i < NUM_CITIES; i++)
+    {
+        float dla = (float)(cities[i].lat100 - P.lat100);
+        float dlo = (float)(cities[i].lon100 - P.lon100);
+        if (dlo > 18000.0f) dlo -= 36000.0f;
+        if (dlo < -18000.0f) dlo += 36000.0f;
+        float d = dla * dla + dlo * dlo * cl * cl;
+        if (d < bd) { bd = d; best = i; }
+    }
+    return best;
+}
+
+static void city_set(int i)
+{
+    i = MOD(i, NUM_CITIES);
+    P.lat100 = cities[i].lat100; P.lon100 = cities[i].lon100; P.tz_mode = cities[i].tz;
+    persist_touch();
+}
+
+/* "45.07 N  11.79 E" */
+static void fmt_latlon(char *buf, int len)
+{
+    snprintf(buf, len, "%d.%02d %c  %d.%02d %c", ABS(P.lat100) / 100, ABS(P.lat100) % 100, P.lat100 < 0 ? 'S' : 'N',
+             ABS(P.lon100) / 100, ABS(P.lon100) % 100, P.lon100 < 0 ? 'O' : 'E');
 }
 
 static float lat_deg() { return (float)P.lat100 / 100.0f; }
@@ -845,17 +1391,18 @@ static void draw_polar()
 
     draw_segments(x2, 336, 312, 34, "Occhio nudo", "Cannocchiale", inverted);
     txt_in(FONT_SMALL, C_DIM, x2, 378, inverted ? "Immagine capovolta, come nel cannocchiale" : "Guardando a nord, senza ottiche", e4, 0, 6);
-    char la[16], lo[16];
-    snprintf(la, sizeof(la), "%d.%02d", P.lat100 / 100, ABS(P.lat100 % 100));
-    snprintf(lo, sizeof(lo), "%d.%02d", P.lon100 / 100, ABS(P.lon100 % 100));
-    snprintf(buf, sizeof(buf), "Luogo %s N  %s E   UTC+%d%s", la, lo, off / 60, P.tz_mode ? "" : " (auto)");
+    char ll[32], u[16];
+    int ci = city_find();
+    fmt_latlon(ll, sizeof(ll));
+    fmt_utc(u, sizeof(u), off);
+    snprintf(buf, sizeof(buf), "%s%s%s   %s", ci >= 0 ? cities[ci].name : "", ci >= 0 ? "  " : "", ll, u);
     txt_in(FONT_SMALL, C_DIM, x2, 398, buf, e4, 0, 6);
-    draw_footer("INFO o SET cambia vista   MENU indietro   (luogo in Opzioni)");
+    draw_footer("SET o </> cambia vista   INFO aiuto   MENU indietro");
 }
 
 static void polar_key(int key, int dx, int dy)
 {
-    if (key == MODULE_KEY_INFO || key == MODULE_KEY_PRESS_SET || dx) { P.polar_view = dx ? (dx > 0) : !P.polar_view; persist_touch(); }
+    if (key == MODULE_KEY_PRESS_SET || dx) { P.polar_view = dx ? (dx > 0) : !P.polar_view; persist_touch(); }
 }
 
 /* ------------------------------------------------------------------ calendario del cielo */
@@ -881,6 +1428,7 @@ struct night
     unsigned char q[SKY_SAMPLES];         /* brillanza allo zenit col buio o con la Luna (SQM x10 - 100), 0 = non calcolata */
 };
 static struct night nights[SKY_NIGHTS];
+static int mw_night, mw_back_sky, sky_keep;   /* "Dove puntare" aperta dal calendario (sky2.inc) */
 static int sky_ready = 0, sky_progress = 0, sky_scroll = 0;
 static int sky_sel = 0, sky_t0 = 0, sky_ready_t0 = 0, sky_best = 0;
 static struct glider sky_moon_g = { -1, 0, 0, 0 };
@@ -929,6 +1477,31 @@ static float sky_sqm(const struct skymodel *m, float moon_alt)
 static int sky_nelm10(float sqm)
 {
     return (int)((7.93f - 5.0f * log10f(powf(10.0f, 4.316f - sqm / 5.0f) + 1.0f)) * 10.0f + 0.5f);
+}
+
+/* fuso orario di adesso in minuti (ora legale compresa) */
+static int tz_now_min()
+{
+    int d70, mins, off;
+    jt_now(&d70, &mins, &off);
+    return off;
+}
+
+/* adesso: altezza e fase della Luna e stelle visibili allo zenit (per il registro della sessione) */
+static float sky_now_nelm(float *moon_alt, int *illum)
+{
+    int d70, mins, off, wax;
+    struct jtime j = jt_now(&d70, &mins, &off);
+    float lst = lst_deg(j, lon_deg()), ra, dec;
+    moon_pos(j, &ra, &dec, 0);
+    float a = altitude(ra, dec, lst, lat_deg());
+    a -= 0.95f * cosf(a * DEG2RAD);                       /* parallasse lunare */
+    int ill = moon_illum(j, &wax);
+    struct skymodel sm;
+    sky_model(&sm, ill);
+    if (moon_alt) *moon_alt = a;
+    if (illum) *illum = ill;
+    return (float)sky_nelm10(sky_sqm(&sm, a)) / 10.0f;
 }
 
 static void sky_compute_night(int n, int day1970)
@@ -1127,11 +1700,19 @@ static int sky_tick()
     return 1;
 }
 
-static void sky_enter() { sky_ready = 0; sky_progress = 0; sky_scroll = 0; sky_sel = 0; sky_moon_g.vis = -1; gcn_state = 0; }
+static void sky_enter()
+{
+    /* di ritorno da "Dove puntare": il calendario c'e' gia', si resta sulla notte scelta */
+    if (sky_keep && sky_ready) { sky_keep = 0; sky_t0 = get_ms_clock(); return; }
+    sky_keep = 0;
+    sky_ready = 0; sky_progress = 0; sky_scroll = 0; sky_sel = 0; sky_moon_g.vis = -1; gcn_state = 0;
+}
 
 static void sky_key(int key, int dx, int dy)
 {
-    if (!sky_ready || !dy) return;
+    if (!sky_ready) return;
+    if (key == MODULE_KEY_PRESS_SET) { mw_night = sky_sel; mw_back_sky = 1; go(SCR_MWPLAN, 1); return; }
+    if (!dy) return;
     int s = COERCE(sky_sel + dy, 0, SKY_NIGHTS - 1);
     if (s != sky_sel) { sky_sel = s; sky_t0 = get_ms_clock(); }
 }
@@ -1465,11 +2046,11 @@ static void draw_sky()
         {
             /* senza zeri iniziali, cosi' sta nella colonna */
             snprintf(buf, sizeof(buf), "%d:%02d-%d:%02d", n->gc_start / 60, n->gc_start % 60, n->gc_end / 60, n->gc_end % 60);
-            txt_in(FONT_MED, C_OK, 590, ry, buf, er, 24, 0);
+            txt_in(FONT_MED, C_OK, 590, ry, buf, er, COERCE(SCR_W - 6 - 590 - txt_w(FONT_MED, buf), 0, 24), 0);   /* entra senza uscire dal bordo */
         }
         else txt_in(FONT_MED, mine ? C_TEXT : C_DIM, 610, ry, "-", er, 24, 0);
     }
-    draw_footer("^/v scegli la notte   MENU indietro   calcolato in macchina");
+    draw_footer("^/v scegli la notte   SET dove puntare   MENU indietro");
 }
 
 /* ------------------------------------------------------------------ menu Astro */
@@ -1480,6 +2061,9 @@ static const struct menu_row astro_rows[] = {
     { "Fuoco sulle stelle", "Misura HFR in Live View, zoom e passi di fuoco", SCR_STARS },
     { "Allineamento polare", "Dove mettere la Polare nel cannocchiale", SCR_POLAR },
     { "Calendario del cielo", "Luna, buio e Via Lattea nelle prossime 7 notti", SCR_SKY },
+    { "Dove puntare la Via Lattea", "Direzione, altezza e arco del centro, ora per ora", SCR_MWPLAN },
+    { "Luna da fotografare", "Fase, posizione e tempo di scatto giusto", SCR_MOON },
     { "Etichetta file", "LGHT, DARK, FLAT, BIAS al posto di IMG_", -1 },
 };
 #define NUM_ASTRO_ROWS ((int)COUNT(astro_rows))
+#define ASTRO_TAG_ROW (NUM_ASTRO_ROWS - 1)

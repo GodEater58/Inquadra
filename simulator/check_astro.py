@@ -28,6 +28,8 @@ for r in rows:
     i = np.arctan2(sd*np.sin(elong), md - sd*np.cos(elong))
     ill = (1 + np.cos(i)) / 2
     gca = gc.transform_to(aa).alt.deg
+    gcz = gc.transform_to(aa).az.deg
+    upd('azimut centro VL (gradi)', ((r['gc_az'] - gcz + 180) % 360) - 180)
     moon_c_topo = r['moon_alt'] - 0.95*np.cos(np.radians(r['moon_alt']))
     dha = (r['polar_ha'] - ha + 12) % 24 - 12
     upd('HA polare (min)', dha*60); upd('sole (gradi)', r['sun_alt']-sun); upd('luna (gradi)', moon_c_topo-moon); upd('illuminazione (%)', (r['moon_illum']-ill)*100); upd('centro VL (gradi)', r['gc_alt']-gca)

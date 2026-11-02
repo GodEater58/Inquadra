@@ -299,16 +299,36 @@ static const struct form motion_form = { 4, motion_labels, motion_value, motion_
 
 static const int lv_feats[] = { MLF_PEAK, MLF_ZEBRA, MLF_HIST, MLF_FALSE, MLF_ZOOM, MLF_SPOT };
 static const char *const lv_names[] = { "Focus peaking", "Zebra", "Istogramma", "Falsi colori", "Zoom di fuoco", "Esposimetro spot" };
-static const char *const lv_labels[] = { "Focus peaking", "Zebra", "Istogramma", "Falsi colori", "Zoom di fuoco", "Esposimetro spot", "Spegni tutto" };
+static const char *const lv_labels[] = { "Focus peaking", "Zebra", "Istogramma", "Falsi colori", "Zoom di fuoco",
+    "Esposimetro spot", "Live View al buio", "Spegni tutto" };
+#define LV_GAIN_ROW 6
 
 static void lv_value(int row, char *buf, int len, int *kind)
 {
     if (row < 6) ml_status(lv_feats[row], buf, len, kind);
+    else if (row == LV_GAIN_ROW)
+    {
+        /* guadagno del display di ML: schiarisce solo lo schermo, non le foto */
+        int v = ml_get(MLF_DISPGAIN);
+        if (v == INT_MIN) { snprintf(buf, len, "non disponibile"); *kind = VK_INFO; }
+        else if (v <= 0) snprintf(buf, len, "< spento >");
+        else snprintf(buf, len, "< +%d stop >", v);
+    }
     else { *kind = VK_ACTION; snprintf(buf, len, "SET"); }
 }
 
 static void lv_change(int row, int dir, int big)
 {
+    if (row == LV_GAIN_ROW)
+    {
+        int v = ml_get(MLF_DISPGAIN);
+        if (v == INT_MIN) { say(C_WARN, "Funzione non disponibile"); return; }
+        int nv = COERCE(v + dir, 0, 6);
+        if (nv == v) return;
+        if (ml_set(MLF_DISPGAIN, nv)) say(C_OK, nv ? "Live View schiarito: solo lo schermo, non le foto" : "Live View normale");
+        else say(C_WARN, "Non riuscito: serve il Live View in modo foto");
+        return;
+    }
     if (row >= 6) return;
     int f = lv_feats[row];
     int v = ml_get(f);
@@ -320,18 +340,21 @@ static void lv_change(int row, int dir, int big)
 static void lv_activate(int row)
 {
     if (row < 6) { lv_change(row, 1, 0); return; }
+    if (row == LV_GAIN_ROW) { lv_change(row, ml_get(MLF_DISPGAIN) >= 6 ? -6 : 1, 0); return; }
     for (int i = 0; i < 6; i++) if (ml_get(lv_feats[i]) > 0) ml_set(lv_feats[i], 0);
+    if (ml_get(MLF_DISPGAIN) > 0) ml_set(MLF_DISPGAIN, 0);
     say(C_OK, "Strumenti del Live View spenti");
 }
 
 static void lv_extra()
 {
     info_card(24, 384, SCR_W - 48, 52, 0);
-    txt(FONT_MED, C_DIM, 44, 398, "Si vedono nel Live View. Iride accende da sola il disegno di ML.");
+    txt(FONT_MED, C_DIM, 44, 398, sel[SCR_LVTOOLS] == LV_GAIN_ROW ? "Per inquadrare di notte. Le foto restano uguali." :
+        "Si vedono nel Live View. Iride accende da sola il disegno di ML.");
 }
 
-static const struct form lv_form = { 7, lv_labels, lv_value, lv_change, lv_activate, lv_extra,
-    "^/v riga   SET o </> accendi/spegni   MENU indietro", 58, 46, 0, 0, 0 };
+static const struct form lv_form = { 8, lv_labels, lv_value, lv_change, lv_activate, lv_extra,
+    "^/v riga   SET o </> accendi/spegni   MENU indietro", 56, 40, 0, 0, 380 };
 
 /* ------------------------------------------------------------------ filtri ND */
 
@@ -447,8 +470,11 @@ static const char *job_name = "";
 
 static void job_overlay(const char *state)
 {
-    bmp_printf(FONT(FONT_MED, COLOR_WHITE, COLOR_BLACK), 10, 10, " IRIDE  %s  %d/%d  %s   [cestino = stop] ",
-        job_name, job_index, job_total, state);
+    int b = cam_battery();
+    char bt[16] = "";
+    if (b >= 0) snprintf(bt, sizeof(bt), "  batt %d%%", b);
+    bmp_printf(FONT(FONT_MED, COLOR_WHITE, COLOR_BLACK), 10, 10, " IRIDE  %s  %d/%d  %s%s   [cestino = stop] ",
+        job_name, job_index, job_total, state, bt);
 }
 
 static int job_wait(int seconds, const char *what)
@@ -467,6 +493,18 @@ static int job_wait(int seconds, const char *what)
     return 0;
 }
 
+/* aspetta che Canon abbia scritto il file (al massimo 3 s) e ne restituisce il numero */
+static int wait_file_saved(int fn0)
+{
+    for (int k = 0; k < 30; k++)
+    {
+        int fn = current_file_number();
+        if (fn != fn0 && !lens_info.job_state) return fn;
+        msleep(100);
+    }
+    return MOD(fn0, 9999) + 1;
+}
+
 static void seq_run()
 {
     int preset = COERCE(P.int_preset, 0, NUM_PRESETS - 1);
@@ -477,12 +515,20 @@ static void seq_run()
     seq_tag = ps->tag;
     int bulb = P.int_bulb;
     int is_bias = (preset == PRESET_BIAS), is_hg = (preset == PRESET_HG);
+    int silent = opt_silent && !bulb && !is_bias && !is_hg;
     int done = 0;
+    const char *why = 0;                         /* perche' si e' fermata prima della fine */
     prefix_refresh();
 
     if (is_hg) { ml_set(MLF_AUTOEXPO, 1); ml_set(MLF_DEFLICK, 1); }
+    if (silent)
+    {
+        /* modulo silent: scatto a piena risoluzione, senza otturatore */
+        if (!ml_set(MLF_SILENT, 1) || !ml_set(MLF_SILENT_MODE, 5)) { silent = 0; why = "modulo silent non disponibile"; }
+        else if (!lv) { force_liveview(); msleep(1000); }
+    }
 
-    if (!job_wait(delay_steps[COERCE(P.int_delay_idx, 0, (int)COUNT(delay_steps) - 1)], "inizio tra"))
+    if (!why && !job_wait(delay_steps[COERCE(P.int_delay_idx, 0, (int)COUNT(delay_steps) - 1)], "inizio tra"))
     {
         int saved_shutter = lens_info.raw_shutter;
         if (is_bias) { lens_set_rawshutter(shutterf_to_raw(1.0f / 4000.0f)); msleep(200); }
@@ -492,30 +538,42 @@ static void seq_run()
         for (int i = 0; i < job_total; i++)
         {
             if (job_abort || ml_shutdown_requested) break;
+            /* in campo: ci si ferma puliti prima che la batteria o la scheda finiscano */
+            int b = cam_battery();
+            if (b >= 0 && b <= 4) { why = "batteria al 4%"; break; }
+            if (cam_shots_left(silent) == 0) { why = "scheda piena"; break; }
             job_index = i + 1;
             job_overlay("scatto");
+            int fn0 = current_file_number();
+            float t = bulb > 0 ? (float)bulb : raw2shutterf(lens_info.raw_shutter);
             if (bulb > 0)
             {
                 if (bulb_take_pic(bulb * 1000)) { job_abort = 1; break; }
             }
-            else
-            {
-                float t = raw2shutterf(lens_info.raw_shutter);
-                lens_take_picture(64 + 2 * (int)t, AF_DISABLE);
-            }
+            else if (silent) take_a_pic(AF_DISABLE);
+            else lens_take_picture(64 + 2 * (int)t, AF_DISABLE);
             done++;
-            if (i < job_total - 1 && job_wait(P.int_pause, "pausa")) break;
+            session_frame(silent ? 0 : wait_file_saved(fn0), seq_tag, t, silent, "intervallometro");
+            if (i < job_total - 1)
+            {
+                /* la montatura sposta un poco l'inquadratura mentre la macchina aspetta */
+                int dith = opt_dither_n > 0 && (i + 1) % opt_dither_n == 0;
+                if (job_wait(dith ? MAX(P.int_pause, opt_dither_s) : P.int_pause, dith ? "dithering" : "pausa")) break;
+            }
         }
         if (screen_off) display_on();
         if (is_bias) lens_set_rawshutter(saved_shutter);
     }
     if (is_hg) { ml_restore(MLF_AUTOEXPO); ml_restore(MLF_DEFLICK); }
+    if (opt_silent) { ml_restore(MLF_SILENT_MODE); ml_restore(MLF_SILENT); }
 
-    char line[96];
-    snprintf(line, sizeof(line), "ASTRO,%s,%s,%d,%d,%d", ps->name, tag_names[seq_tag], done, job_total, bulb);
+    char line[128];
+    snprintf(line, sizeof(line), "ASTRO,%s,%s,%d,%d,%d,%s,%s", ps->name, tag_names[seq_tag], done, job_total, bulb,
+             silent ? "silenzioso" : "meccanico", why ? why : (job_abort ? "interrotta" : "finita"));
     log_line(line);
     beep_times(2);
-    NotifyBox(6000, "Iride: %s %s, %d/%d scatti", ps->name, job_abort ? "interrotta" : "finita", done, job_total);
+    if (why) NotifyBox(8000, "Iride: %s fermata, %s: %d/%d scatti", ps->name, why, done, job_total);
+    else NotifyBox(6000, "Iride: %s %s, %d/%d scatti", ps->name, job_abort ? "interrotta" : "finita", done, job_total);
 }
 
 static void bulb_run()
@@ -544,6 +602,7 @@ static void job_task(void *unused)
     /* l'ultimo file puo' arrivare dopo l'ultimo controllo del contatore: riallinea */
     msleep(500);
     if (P.roll_loaded) P.roll_last_fn = current_file_number();
+    sess_ext_fn = current_file_number();          /* gli scatti della sequenza non sono "dal cavo" */
     job_running = JOB_NONE;
     persist_touch();
     prefix_refresh();

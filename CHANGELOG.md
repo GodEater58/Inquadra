@@ -1,5 +1,25 @@
 # Novità
 
+## 1.2 – 2 novembre 2026
+- **Fuoco automatico sulle stelle**: in *Fuoco sulle stelle* il tasto **Q** gira il fuoco da solo. Misura l'HFR dopo ogni passo (media di 3), disegna la curva a V, trova il minimo con una parabola sui quadrati dell'HFR e ci torna arrivando sempre dallo stesso verso, così il gioco degli ingranaggi non sposta il risultato. Se all'inizio peggiora prova dall'altra parte; si ferma con un tasto, se perde la stella o dopo 40 passi. Obiettivo su AF
+- **Intervallometro da campo**
+  - prima di partire: durata, ora di fine, batteria (% e tempo rimasto), spazio e scatti che stanno sulla scheda, temperatura del sensore
+  - non parte con la batteria sotto il 5% o la scheda piena; durante la sequenza si ferma da solo al 4% o a scheda piena e dice perché
+  - **otturatore silenzioso**: foto a piena risoluzione senza alzare lo specchio, pose da 0,3 a 30 s (modulo silent di ML: già attivo nel pacchetto per la scheda; chi aggiorna solo `iride.mo` lo attiva in Menu ML › Modules › silent. I file non hanno i dati EXIF)
+  - **pausa per il dithering** ogni 1-10 scatti (5-60 s), per spostare la montatura (per esempio NG-EQ36) tra uno scatto e l'altro
+  - **registro della sessione** `ISmmddhh.CSV` nella cartella delle foto: file, tipo, ora, posa, ISO, diaframma, focale, temperatura, batteria, Luna e magnitudine limite per ogni scatto. Con l'etichetta file attiva registra anche gli scatti fatti dal cavo (per esempio dal comando della montatura). Lettore Python per AstroStack in `tools/astrostack/`
+- **Via Lattea (NPF) con il punto del cielo**: verso il polo le stelle si muovono meno e la posa si allunga (divisa per il coseno della declinazione, da 0 a 75 gradi)
+- **Luna da fotografare** (nuova voce di Astro): fase, altezza, sorgere e tramonto; tempo con la regola Looney 11 corretto per la fase e per l'assorbimento dell'atmosfera, anche per la luce cinerea. SET imposta tempo, ISO e diaframma
+- **Dove puntare la Via Lattea** (nuova voce di Astro, e SET dal Calendario sulla notte scelta): il cielo da est a ovest con la fascia della Via Lattea e il suo centro, direzione da bussola e altezza ogni mezz'ora dalle 16 alle 8
+- **Live View al buio** in *Strumenti Live View*: schiarisce lo schermo da 1 a 6 stop per inquadrare di notte, le foto non cambiano
+- **Luogo e fusi orari in tutto il mondo**
+  - 57 città pronte (25 italiane e 32 nel mondo, coordinate GeoNames) nella nuova riga *Luogo*; latitudine e longitudine restano regolabili e mostrano S e O
+  - fusi con l'ora legale automatica: Europa centrale, occidentale e orientale, USA (est, centro, montagne, Pacifico), Australia sud-est, Nuova Zelanda; poi gli scarti fissi a quarti d'ora da UTC-12 a UTC+14 (India +5:30, Nepal +5:45...). Confrontati col database IANA dei fusi: 249.888 confronti 2026-2028, nessuna differenza
+- **Aiuto col tasto INFO** in ogni schermata (tranne Profili, dove INFO salva). L'allineamento polare cambia vista con SET o sinistra/destra
+- **Prova della 6D** (Opzioni › Strumenti): misura i tempi di disegno e dei calcoli sulla macchina vera e li salva in `ML/LOGS/IRIDEBEN.TXT`. Gli avvisi mostrati da Iride finiscono anche nel registro `ML/LOGS/IRIDE.CSV`
+- Calendario: gli orari della Via Lattea non escono più dal bordo destro mentre la riga entra
+- Simulatore: 148 test (fuoco automatico con gioco degli ingranaggi da 0 a 4 passi, sessione, dithering, batteria, scheda piena, città e fusi, aiuto); controllo dei fusi con `check_tz.py`
+
 ## 1.1 – 2 novembre 2026
 - **Sottomenu ridisegnati** con la stessa cura della Home:
   - Astro e Foto: a sinistra le voci con un'icona ciascuna, a destra la voce scelta con un'illustrazione animata, a cosa serve e com'è adesso (per esempio "12.2 s con 24 mm f/2.8", "Polare alle ore 12:52", "attivo: 5 scatti da 1,5 EV"); pallino verde sulle funzioni accese

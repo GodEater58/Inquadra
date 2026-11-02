@@ -34,8 +34,9 @@
 #include <picstyle.h>
 #include <lvinfo.h>
 #include <math.h>
+#include <battery.h>
 
-#define IRIDE_VERSION "1.1"
+#define IRIDE_VERSION "1.2"
 
 /* ------------------------------------------------------------------ compatibilita' API */
 
@@ -110,12 +111,18 @@ static CONFIG_INT("iride.anim",     opt_anim, 0);         /* 0 complete, 1 rapid
 static CONFIG_INT("iride.theme",    opt_theme, 2);        /* 0 normale, 1 notte, 2 notte in Astro */
 static CONFIG_INT("iride.splash",   opt_splash, 1);
 static CONFIG_INT("iride.sqm",      opt_sqm10, 210);      /* cielo buio del luogo, mag/arcsec^2 x10 */
+static CONFIG_INT("iride.session",  opt_session, 1);      /* registro della sessione accanto alle foto */
+static CONFIG_INT("iride.silent",   opt_silent, 0);       /* intervallometro: otturatore silenzioso (modulo silent) */
+static CONFIG_INT("iride.dither.n", opt_dither_n, 0);     /* pausa per il dithering ogni n scatti (0 = no) */
+static CONFIG_INT("iride.dither.s", opt_dither_s, 10);    /* durata della pausa per il dithering, s */
+static CONFIG_INT("iride.npf.dec",  opt_npf_dec, 0);      /* NPF: punto del cielo (indice della declinazione) */
 
 /* ------------------------------------------------------------------ stato salvato su scheda */
 
 #define NPROF 5
 #define NSTYLE 10
-#define NMLF 24
+#define NMLF 24                          /* funzioni ML della struttura v2 */
+#define NMLF2 8                          /* funzioni ML aggiunte dalla 1.2 */
 
 struct profile
 {
@@ -150,6 +157,11 @@ struct persist
     int nd_idx, nd_base;
 
     struct profile prof[NPROF];
+
+    /* dalla versione 3 (Iride 1.2): tutto quello che segue e' nuovo; un file v2 si carica
+       copiando la parte sopra e lasciando questa ai valori di partenza */
+    int ml_prev2[NMLF2];
+    int reserved[24];                     /* spazio per le versioni future senza perdere i dati */
     int checksum;
 };
 
@@ -157,7 +169,8 @@ static struct persist P;
 static volatile int persist_dirty = 0;
 
 #define PERSIST_MAGIC 0x45444952   /* "RIDE" */
-#define PERSIST_VERSION 2
+#define PERSIST_VERSION 3
+#define PERSIST_V2_WORDS ((int)(__builtin_offsetof(struct persist, ml_prev2) / sizeof(int)) + 1)   /* v2: fino a prof, poi il checksum */
 
 /* ------------------------------------------------------------------ stato dell'interfaccia */
 
@@ -165,7 +178,7 @@ enum
 {
     SCR_HOME, SCR_ASTRO, SCR_FOTO, SCR_NPF, SCR_INTERVAL, SCR_STARS, SCR_POLAR, SCR_SKY,
     SCR_SHELF, SCR_CONFIRM, SCR_HDR, SCR_FSTACK, SCR_DUAL, SCR_ETTR, SCR_MOTION, SCR_LVTOOLS,
-    SCR_ND, SCR_PROFILES, SCR_OPTIONS, SCR_RESTORE, SCR_KEYS, SCR_COUNT
+    SCR_ND, SCR_PROFILES, SCR_OPTIONS, SCR_RESTORE, SCR_KEYS, SCR_BENCH, SCR_MOON, SCR_MWPLAN, SCR_COUNT
 };
 
 static volatile int app_running = 0;
@@ -239,6 +252,8 @@ static void say(int color, const char *text);
 static const char *parent_title(const char *section);
 static void go(int s, int dir);
 static void lv_task(void *unused);
+static void session_watch_external(int fn);
+static void log_warning(const char *text);
 static int persist_touch_ms = 0;
 static void persist_touch() { persist_dirty = 1; persist_touch_ms = get_ms_clock(); }
 
@@ -247,8 +262,11 @@ static void persist_touch() { persist_dirty = 1; persist_touch_ms = get_ms_clock
 #include "icons.inc"
 #include "store.inc"
 #include "film.inc"
+#include "campo.inc"
 #include "astro.inc"
+#include "sky2.inc"
 #include "photo.inc"
+#include "bench.inc"
 #include "screens.inc"
 
 /* ------------------------------------------------------------------ ciclo dell'app */
@@ -256,6 +274,7 @@ static void persist_touch() { persist_dirty = 1; persist_touch_ms = get_ms_clock
 static void say(int color, const char *text)
 {
     snprintf(msg, sizeof(msg), "%s", text);
+    if (color == C_WARN) log_warning(text);     /* gli avvisi restano nel registro su scheda */
     msg_color = color;
     msg_t0 = get_ms_clock();
     msg_until = msg_t0 + 3500;
@@ -645,4 +664,12 @@ MODULE_CONFIGS_START()
     MODULE_CONFIG(opt_theme)
     MODULE_CONFIG(opt_splash)
     MODULE_CONFIG(opt_sqm10)
+    MODULE_CONFIG(opt_session)
+    MODULE_CONFIG(opt_silent)
+    MODULE_CONFIG(opt_dither_n)
+    MODULE_CONFIG(opt_dither_s)
+    MODULE_CONFIG(opt_npf_dec)
+    MODULE_CONFIG(opt_moon_iso)
+    MODULE_CONFIG(opt_moon_ap)
+    MODULE_CONFIG(opt_moon_es)
 MODULE_CONFIGS_END()

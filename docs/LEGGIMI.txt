@@ -1,12 +1,13 @@
-IRIDE 6D 1.1 per Canon EOS 6D (firmware Canon 1.1.6)
+IRIDE 6D 1.2 per Canon EOS 6D (firmware Canon 1.1.6)
 =====================================================
 
 Magic Lantern per 6D 1.1.6 (build ufficiale del 20/06/2025, commit ed3e7c0)
-+ modulo Iride. Moduli gia' attivi: iride, autoexpo, deflick, dual_iso, ettr.
++ modulo Iride. Moduli gia' attivi: iride, autoexpo, deflick, dual_iso, ettr,
+silent.
 
 ATTENZIONE
 - Sperimentale. Prime prove su una 6D vera: rullini e nomi dei file funzionano.
-  Il resto: 108 test superati sul simulatore, calcoli astronomici confrontati
+  Il resto: 148 test superati sul simulatore, calcoli astronomici confrontati
   con astropy, compilato contro il firmware 1.1.6.
 - Magic Lantern gira dalla scheda e non modifica la ROM: con una scheda senza
   ML la macchina e' quella di sempre.
@@ -34,7 +35,8 @@ APRIRE IRIDE
   durante lo scatto. Per verificarlo: Opzioni > Diagnostica tasti.
 - Dal menu Magic Lantern: scheda Shoot > Iride > SET.
 Joystick o ghiere per muoversi, SET conferma, MENU indietro.
-In basso c'e' sempre l'aiuto dei tasti.
+In basso c'e' sempre l'aiuto dei tasti. INFO apre la spiegazione della
+schermata (tranne in Profili, dove INFO salva); un tasto qualsiasi la chiude.
 
 
 COSA C'E'
@@ -46,26 +48,46 @@ HOME        Astro, Foto, Rullini, Torna alla 6D, Profili, Opzioni.
             per esempio Astro > Via Lattea.
 
 ASTRO       Via Lattea: regola NPF, SET applica tempo, diaframma, ISO, 3900 K.
+              Punto del cielo: verso il polo la posa si allunga.
             Intervallometro: Via Lattea, Deep sky, Star trails, Timelapse,
               Giorno-notte (Live View + M: usa autoexpo e deflicker di ML),
               Dark, Flat, Bias. Cestino = stop.
+              A destra: durata, ora di fine, batteria, scatti che stanno
+              sulla scheda, temperatura. Non parte sotto il 5% di batteria
+              o a scheda piena; si ferma da solo al 4% o a scheda piena.
+              Otturatore silenzioso: senza specchio, 0,3-30 s, niente EXIF
+              (serve il modulo silent: Menu ML > Modules).
+              Dithering: ogni N scatti una pausa per spostare la montatura.
+              Registro della sessione: ISmmddhh.CSV nella cartella delle
+              foto, uno scatto per riga (anche quelli dal cavo, se
+              l'etichetta file e' attiva). Per AstroStack.
             Fuoco stelle: START/STOP accende il Live View (Iride si chiude
               un attimo e torna qui), SET zoom x5/x10, sinistra/destra fuoco,
               HFR piu' basso = piu' a fuoco, accanto "meglio" o "peggio".
               La stella va cercata dentro il riquadro.
+              Q = fuoco automatico (obiettivo su AF): curva a V e ritorno sul
+              minimo. Un tasto qualsiasi lo ferma.
               START/STOP di nuovo: LV spento.
             Allineamento polare: posizione della Polare sul reticolo
-              (INFO, SET o sinistra/destra: occhio nudo / cannocchiale
+              (SET o sinistra/destra: occhio nudo / cannocchiale
               capovolto) e mappa del cielo a nord con Grande Carro e
               Cassiopea per trovarla.
             Calendario: 7 notti. Su/giu' sceglie la notte: fase lunare,
               buio, sorgere e tramonto della Luna, Via Lattea e la linea del
               tempo dalle 16 alle 8 (cielo, Luna, centro della Via Lattea,
               tratto arancione = buio senza Luna). Stella = notte migliore.
+              SET = dove puntare in quella notte.
+            Dove puntare la Via Lattea: il cielo da est a ovest, direzione
+              e altezza del centro ogni mezz'ora. Sinistra/destra ora,
+              su/giu' notte.
+            Luna da fotografare: fase, posizione, sorgere e tramonto, tempo
+              di scatto (Looney 11 con fase e altezza; anche luce cinerea).
+              SET imposta tempo, ISO e diaframma.
             Etichetta file: LGHT / DARK / FLAT / BIAS al posto di IMG_.
 
 FOTO        HDR, Focus stacking (Live View + AF), Dual ISO, ETTR,
-            Movimento e trappola di fuoco, Strumenti Live View,
+            Movimento e trappola di fuoco, Strumenti Live View (con Live
+            View al buio: schermo piu' chiaro di 1-6 stop, foto uguali),
             Filtri ND (fino a 30 s imposta il tempo, oltre scatta in posa B).
 
 RULLINI     Ogni pellicola ha due righe: carattere e uso ideale.
@@ -94,12 +116,15 @@ OPZIONI     Tema (normale / notte rossa / notte solo in Astro), animazioni
             l'animazione in corso), schermata iniziale, apri all'accensione,
             cestino apre
             Iride, tasto luce,
-            anteprima col rullino, avviso posa, luogo (di fabbrica Roma
-            41.90 N 12.50 E: imposta il tuo per polare e calendario), fuso orario,
+            anteprima col rullino, avviso posa, luogo (57 citta' pronte,
+            di fabbrica Roma; latitudine e longitudine regolabili), fuso
+            orario (Europa, USA, Australia, Nuova Zelanda con l'ora legale
+            automatica, oppure fisso da UTC-12 a UTC+14), cielo del luogo,
             diagnostica tasti (ultimi tasti ricevuti, anche in
-            ML/LOGS/IRIDEKEY.TXT).
+            ML/LOGS/IRIDEKEY.TXT), prova della 6D (tempi di disegno e
+            calcolo, in ML/LOGS/IRIDEBEN.TXT).
 
-Registro di rullini e sessioni astro: ML/LOGS/IRIDE.CSV
+Registro di rullini, sessioni astro e avvisi: ML/LOGS/IRIDE.CSV
 Stato di Iride: ML/SETTINGS/IRIDE.DAT (se lo cancelli, riparte da zero)
 
 
@@ -118,6 +143,8 @@ AGGIORNARE DA UNA VERSIONE PRECEDENTE
 -------------------------------------
 Basta sostituire il file ML/modules/iride.mo sulla scheda.
 Rullini, profili e impostazioni restano (ML/SETTINGS/IRIDE.DAT).
+Per l'otturatore silenzioso attiva anche il modulo silent
+(Menu ML > Modules > silent, poi riavvia).
 
 
 DISINSTALLARE

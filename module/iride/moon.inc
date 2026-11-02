@@ -396,7 +396,7 @@ static int moon_px(const struct mview *w, int px, int py)
 }
 
 /* cache dei disegni: una grande (Luna del calendario) e otto piccole (le righe) */
-#define MC_R 46
+#define MC_R 80                          /* fino alla Luna della schermata "Luna da fotografare" */
 #define MC_SMALL 10
 #define MC_NS 8
 struct mslot { int key[6]; int ok; };

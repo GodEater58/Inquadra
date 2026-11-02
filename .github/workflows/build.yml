@@ -19,6 +19,10 @@ jobs:
           mkdir -p out
           gcc -std=gnu99 -O1 -Wall -Wno-unused-function -Wno-unused-variable -Wno-format-truncation -Ishim -o preview preview.c -lm
           ./preview
+      - name: Fusi orari a confronto col database IANA
+        run: cd simulator && python3 check_tz.py
+      - name: Lettore delle sessioni per AstroStack
+        run: python3 tools/astrostack/test_iride_session.py
 
   build:
     name: Firmware per 6D 1.1.6
@@ -46,7 +50,7 @@ jobs:
           mkdir sd && cd sd
           unzip -q ../ml/platform/6D.116/build/magiclantern.zip
           mkdir -p ML/SETTINGS
-          for m in IRIDE AUTOEXPO DEFLICK DUAL_ISO ETTR; do : > ML/SETTINGS/$m.EN; done
+          for m in IRIDE AUTOEXPO DEFLICK DUAL_ISO ETTR SILENT; do : > ML/SETTINGS/$m.EN; done
           cp ../Iride6D/docs/LEGGIMI.txt .
           zip -qr ../Iride6D-SD.zip .
       - uses: actions/upload-artifact@v4

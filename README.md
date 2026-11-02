@@ -3,9 +3,9 @@
 **Firmware personalizzato per Canon EOS 6D** (firmware Canon 1.1.6), costruito come modulo di [Magic Lantern](https://www.magiclantern.fm/).
 Un'interfaccia a tutto schermo, animata, con menu dedicati ad **astrofotografia**, **foto**, **rullini** in stile pellicola e **profili**, più un tasto che riporta la macchina com'era.
 
-*English: custom full-screen UI for the Canon EOS 6D (fw 1.1.6) running on Magic Lantern — astrophotography tools (NPF, intervalometer presets, HFR star focus, polar alignment, sky calendar), photo tools (HDR, focus stacking, Dual ISO, ETTR, ND), film-roll simulation and user profiles. UI in Italian.*
+*English: custom full-screen UI for the Canon EOS 6D (fw 1.1.6) running on Magic Lantern — astrophotography tools (NPF with declination, field intervalometer with silent shutter, dithering pauses and CSV session log, HFR star focus with V-curve autofocus, polar alignment, sky calendar, Moon exposure, Milky Way planner, worldwide cities and time zones), photo tools (HDR, focus stacking, Dual ISO, ETTR, ND), film-roll simulation and user profiles. UI in Italian.*
 
-> ⚠️ **Software sperimentale.** Prime prove su una 6D reale: rullini e nomi dei file funzionano. Il resto è verificato su un simulatore che esegue lo stesso codice (108 test) ed è compilato contro il firmware 6D 1.1.6. Usalo a tuo rischio. Non è affiliato né approvato da Canon.
+> ⚠️ **Software sperimentale.** Prime prove su una 6D reale: rullini e nomi dei file funzionano. Il resto è verificato su un simulatore che esegue lo stesso codice (148 test) ed è compilato contro il firmware 6D 1.1.6. Usalo a tuo rischio. Non è affiliato né approvato da Canon.
 
 | | | |
 |---|---|---|
@@ -14,6 +14,8 @@ Un'interfaccia a tutto schermo, animata, con menu dedicati ad **astrofotografia*
 | ![Home](docs/screenshots/01_home-v06.png) | ![Astro](docs/screenshots/02_astro-v11.png) | ![Rullini](docs/screenshots/14_rullini-v10.png) |
 | ![Allineamento polare](docs/screenshots/06_polare-v11.png) | ![Calendario del cielo](docs/screenshots/07_cielo-v11d.png) | ![Tema notte](docs/screenshots/21_cielo_notte-v11d.png) |
 | ![Fuoco stelle](docs/screenshots/05_stelle-v11.png) | ![Foto](docs/screenshots/08_foto-v11.png) | ![Torna alla 6D](docs/screenshots/19_torna_6d-v11.png) |
+| ![Fuoco automatico](docs/screenshots/05b_fuoco_auto-v12.png) | ![Luna da fotografare](docs/screenshots/25_luna_foto-v12.png) | ![Dove puntare la Via Lattea](docs/screenshots/26_dove_puntare-v12.png) |
+| ![Intervallometro da campo](docs/screenshots/04_intervallometro-v12.png) | ![Luogo e fuso](docs/screenshots/18d_opzioni_luogo-v12.png) | ![Aiuto con INFO](docs/screenshots/05c_aiuto-v12.png) |
 
 <p align="center"><img src="docs/screenshots/menu-v11.gif" width="540" alt="Menu Astro con l'anteprima della voce scelta"></p>
 
@@ -21,12 +23,13 @@ Un'interfaccia a tutto schermo, animata, con menu dedicati ad **astrofotografia*
 
 | Area | Cosa fa |
 |---|---|
-| 🌌 **Astro** | Via Lattea con regola NPF (applica tempo, diaframma, ISO, bianco) · intervallometro con preset Via Lattea, Deep sky, Star trails, Timelapse, Giorno-notte, Dark, Flat, Bias · fuoco sulle stelle con misura HFR in Live View · allineamento polare su reticolo con mappa del cielo a nord (Grande Carro e Cassiopea) · calendario di 7 notti con linea del tempo della notte (crepuscoli, Luna, centro della Via Lattea), stelle visibili col cielo buio e con la Luna, quando torna il centro della Via Lattea e notte migliore · nomi file LGHT/DARK/FLAT/BIAS per lo stacking |
+| 🌌 **Astro** | Via Lattea con regola NPF e punto del cielo (applica tempo, diaframma, ISO, bianco) · intervallometro con preset Via Lattea, Deep sky, Star trails, Timelapse, Giorno-notte, Dark, Flat, Bias, con otturatore silenzioso, pausa per il dithering, controllo di batteria, scheda e temperatura e registro della sessione in CSV (lettore per AstroStack in [tools/astrostack](tools/astrostack/)) · fuoco sulle stelle con misura HFR in Live View e fuoco automatico a curva a V · Luna da fotografare (regola Looney 11 con fase e altezza) · dove puntare la Via Lattea ora per ora · allineamento polare su reticolo con mappa del cielo a nord (Grande Carro e Cassiopea) · calendario di 7 notti con linea del tempo della notte (crepuscoli, Luna, centro della Via Lattea), stelle visibili col cielo buio e con la Luna, quando torna il centro della Via Lattea e notte migliore · nomi file LGHT/DARK/FLAT/BIAS per lo stacking |
 | 📷 **Foto** | Bracketing HDR · focus stacking · Dual ISO · ETTR · scatto su movimento e trappola di fuoco · strumenti del Live View (peaking, zebra, istogramma, falsi colori, zoom, spot) · filtri ND con posa B automatica |
 | 🎞️ **Rullini** | 16 pellicole (colore, dia, B/N, cine) · push/pull · 12/24/36 pose · pausa e ripresa · contatore nella barra del Live View · registro su scheda · avviso se la macchina è in solo RAW · [preset per LightCraft e Lightroom](presets/) |
 | 💾 **Profili** | 5 posti per le impostazioni preferite |
 | 🔁 **Torna alla 6D** | Rimette tutto com'era prima di Iride: stile immagine e cursori, ISO, tempo, diaframma, bianco, anteprima, impostazioni di Magic Lantern, nomi dei file |
-| ✨ **Interfaccia** | Sottomenu con anteprima della voce scelta (icona animata, a cosa serve, com'è adesso), percorso nell'intestazione, schede con i conti già fatti, Opzioni in sezioni · animazioni senza sfarfallio (doppio buffer): diaframma all'avvio, riquadri della Home che entrano e icone che si animano, zoom dal riquadro alla schermata, dialoghi che salgono come fogli, barra di selezione elastica, interruttori e valori che scorrono, avvisi che entrano e si spengono · caricamento e riavvolgimento del rullino con contapose a rullo · tema notte rosso, compare all'accensione, si apre col cestino (o col tasto luce) · diagnostica dei tasti |
+| 🌍 **Luogo** | 57 città pronte, latitudine e longitudine libere, fusi orari di tutto il mondo con l'ora legale automatica (controllati col database IANA) |
+| ✨ **Interfaccia** | Aiuto col tasto INFO in ogni schermata · Sottomenu con anteprima della voce scelta (icona animata, a cosa serve, com'è adesso), percorso nell'intestazione, schede con i conti già fatti, Opzioni in sezioni · animazioni senza sfarfallio (doppio buffer): diaframma all'avvio, riquadri della Home che entrano e icone che si animano, zoom dal riquadro alla schermata, dialoghi che salgono come fogli, barra di selezione elastica, interruttori e valori che scorrono, avvisi che entrano e si spengono · caricamento e riavvolgimento del rullino con contapose a rullo · tema notte rosso, compare all'accensione, si apre col cestino (o col tasto luce) · diagnostica dei tasti |
 
 ### Tasto luce
 
@@ -77,9 +80,10 @@ La compilazione e i test girano anche in automatico con GitHub Actions a ogni mo
 
 ```
 cd simulator && mkdir -p out
-gcc -std=gnu99 -Ishim -o preview preview.c -lm && ./preview   # 108 test
+gcc -std=gnu99 -Ishim -o preview preview.c -lm && ./preview   # 148 test
 pip install astropy pillow
 python3 check_astro.py   # confronto astronomico con astropy
+python3 check_tz.py      # fusi orari a confronto col database IANA
 python3 render.py        # schermate in png/
 python3 gif.py ../docs/screenshots   # GIF del README (caricamento, animazioni)
 ```
@@ -87,7 +91,8 @@ python3 gif.py ../docs/screenshots   # GIF del README (caricamento, animazioni)
 ## Struttura
 
 ```
-module/iride/       il modulo (iride.c include ui, store, film, astro, photo, screens)
+module/iride/       il modulo (iride.c include ui, moon, icons, store, film, campo, astro, sky2, photo, bench, screens)
+tools/astrostack/   lettore delle sessioni CSV per AstroStack
 module/*.patch      aggiunge iride ai moduli e al pacchetto della 6D
 simulator/          test su PC e generatore delle schermate
 presets/            preset pellicola XMP per LightCraft e Lightroom (e il loro generatore)

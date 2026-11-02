@@ -42,7 +42,7 @@ names = sorted(glob.glob("out/*.ops"))
 imgs = []
 for n in names:
     k = os.path.basename(n)[:-4]
-    bg = "out/05_lv.pgm" if k.startswith("05") else None
+    bg = (f"out/{k}_lv.pgm" if os.path.exists(f"out/{k}_lv.pgm") else "out/05_lv.pgm") if k.startswith("05") else None
     im = render(n, bg); im.save(f"png/{k}.png"); imgs.append((k, im))
 # foglio riassuntivo 2 colonne
 pad, lab = 16, 30

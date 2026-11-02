@@ -173,6 +173,9 @@ static unsigned int iride_clock(unsigned int ctx)
         get_ms_clock() - persist_touch_ms > 8000)
         persist_save();
 
+    /* scatti dal cavo (per esempio dalla montatura) nel registro della sessione */
+    session_watch_external(current_file_number());
+
     if (!P.roll_loaded) return CBR_RET_CONTINUE;
     int fn = current_file_number();
     if (fn <= 0) return CBR_RET_CONTINUE;

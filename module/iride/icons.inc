@@ -117,6 +117,45 @@ static void ic_calendar(int cx, int cy, int s, int t)
     draw_moon(mx, my, mr, ill, 1, mr >= 12 ? 0 : -1);
 }
 
+/* Dove puntare la Via Lattea: orizzonte, arco della Via Lattea e il centro che sale */
+static void ic_mwplan(int cx, int cy, int s, int t)
+{
+    int x0 = cx - K(46), x1 = cx + K(46), base = cy + K(30);
+    /* l'arco: una fascia di puntini curva */
+    icon_rng = 5;
+    int e = ip(t, 0, 900, EZ_IO);
+    for (int i = 0; i < 40 + s / 2; i++)
+    {
+        int u = irand(100);
+        int px = x0 + K(u), py = base - K(10 + (50 - ABS(u - 50)) * 9 / 10) + irand(MAX(K(10), 2)) - K(5);
+        fill(tc(irand(3) ? COLOR_GRAY(46) : COLOR_WHITE), px, py, 1, 1);
+    }
+    /* il centro: sale lungo l'arco con l'animazione */
+    int u = 20 + 40 * e / 1000;
+    int gx = x0 + K(u), gy = base - K(10 + (50 - ABS(u - 50)) * 9 / 10);
+    fill_circle(gx, gy, MAX(K(6), 2), C_OK);
+    /* orizzonte e punti cardinali */
+    fill(C_DIM, x0, base, x1 - x0, MAX(K(2), 1));
+    for (int i = 0; i < 3; i++) fill(C_LINE, x0 + K(10 + i * 40), base + K(4), 1, MAX(K(6), 2));
+    if (s >= 60) txt_c(FONT_SMALL, C_DIM, cx, base + K(10), "S");
+}
+
+/* Luna da fotografare: la Luna con il riquadro di messa a fuoco */
+static void ic_moonshot(int cx, int cy, int s, int t)
+{
+    int r = K(30);
+    int ill = t >= 0 ? 300 + ip(t, 0, 900, EZ_IO) * 6 / 10 : 800;
+    fill_circle(cx, cy, r + 2, C_BG);
+    draw_moon(cx, cy, r, ill, 1, r >= 12 ? 0 : -1);
+    /* angoli del riquadro */
+    int q = K(44), l = K(12);
+    int c = C_ACCENT;
+    fill(c, cx - q, cy - q, l, 2); fill(c, cx - q, cy - q, 2, l);
+    fill(c, cx + q - l, cy - q, l, 2); fill(c, cx + q - 2, cy - q, 2, l);
+    fill(c, cx - q, cy + q - 2, l, 2); fill(c, cx - q, cy + q - l, 2, l);
+    fill(c, cx + q - l, cy + q - 2, l, 2); fill(c, cx + q - 2, cy + q - l, 2, l);
+}
+
 /* Etichetta file: un foglio con l'angolo piegato e la targhetta che entra */
 static void ic_tag(int cx, int cy, int s, int t)
 {
