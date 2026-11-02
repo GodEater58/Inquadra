@@ -4,7 +4,8 @@ Le transizioni tra schermate (zoom dal riquadro della Home, foglio del dialogo) 
 spostano la memoria video: qui sono ricomposte con la stessa geometria e la stessa curva
 partendo dalle schermate ferme.
 
-Uso: python3 gif.py CARTELLA_USCITA   ->  caricamento.gif, animazioni.gif, menu.gif
+Uso: python3 gif.py CARTELLA_USCITA   ->  caricamento.gif, animazioni.gif, menu.gif, impostazioni.gif,
+                                         opzioni.gif, polare.gif, calendario.gif
 """
 import os
 import sys
@@ -128,6 +129,27 @@ def main():
     # menu Astro con l'anteprima della voce scelta
     fr = seq("g_astro_a", 26) + seq("g_astro_b", 30) + seq("g_astro_c", 30)
     save(os.path.join(out, "menu.gif"), fr, [40] * 25 + [700] + [40] * 29 + [700] + [40] * 29 + [1500])
+
+    def run(parts, last_hold=1500, hold=500):
+        fr, du = [], []
+        for k, (prefix, n) in enumerate(parts):
+            fs = seq(prefix, n)
+            fr += fs
+            du += [40] * (n - 1) + [last_hold if k == len(parts) - 1 else hold]
+        return fr, du
+
+    # impostazioni (HDR): barra elastica, valore, interruttore
+    fr, du = run([("g_hdr_a", 8), ("g_hdr_b", 8), ("g_hdr_c", 8), ("g_hdr_d", 8), ("g_hdr_e", 8), ("g_hdr_f", 8), ("g_hdr_g", 12)])
+    save(os.path.join(out, "impostazioni.gif"), fr, du)
+    # Opzioni che scorrono per sezioni
+    fr, du = run([("g_opt_00", 6)] + [("g_opt_%02d" % k, 7) for k in range(1, 12)], hold=250)
+    save(os.path.join(out, "opzioni.gif"), fr, du)
+    # allineamento polare
+    fr, du = run([("g_pol_a", 24), ("g_pol_b", 18), ("g_pol_c", 14)], hold=200)
+    save(os.path.join(out, "polare.gif"), fr, du)
+    # calendario del cielo
+    fr, du = run([("g_sky_a", 22), ("g_sky_b", 16), ("g_sky_c", 16)], hold=700)
+    save(os.path.join(out, "calendario.gif"), fr, du)
 
 
 if __name__ == "__main__":

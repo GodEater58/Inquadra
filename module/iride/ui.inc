@@ -943,7 +943,12 @@ static void draw_form(const struct form *f, int s)
     {
         int top, lead;
         int hh = hl_span(y0 + ry[s], rh - 4, &top, &lead);
-        fill(C_SEL, x0, top - off, w, hh);
+        /* solo dentro i pannelli: in volo non copre i titoli di sezione */
+        for (int i = 0; i < f->n && i < 24; i++)
+        {
+            int a = MAX(top, y0 + ry[i]), b = MIN(top + hh, y0 + ry[i] + rh - 4);
+            if (b > a) fill(C_SEL, x0, a - off, w, b - a);
+        }
         fill(C_ACCENT, x0, lead - off, 6, rh - 4);
     }
     for (int i = 0; i < f->n && i < 24; i++)

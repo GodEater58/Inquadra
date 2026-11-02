@@ -11,6 +11,7 @@
   - Torna alla 6D: riepilogo, un'icona per ogni tipo di modifica e un pulsante grande
 - **Corretto lo sfarfallio** dello zoom tra la Home e le schermate: il rettangolo veniva prima riempito di grigio sullo schermo visibile e poi ridisegnato. Ora ogni riga viene composta a parte e scritta una volta sola
 - Animazioni più regolari: un fotogramma più lento del solito non le ferma più a metà
+- Nelle impostazioni la barra di selezione, mentre scorre da una riga all'altra, non copre più i titoli di sezione
 - In Live View Iride si ridisegna ogni 250 ms, così il menu Canon che ML risveglia ogni 2 secondi non si vede sopra
 - Corretto: un testo che finisce con uno spazio poteva far leggere oltre la sua fine
 - **Fuoco sulle stelle, tre correzioni nella misura:**

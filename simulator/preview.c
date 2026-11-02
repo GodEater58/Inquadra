@@ -751,7 +751,8 @@ int main(void)
                 screen = m ? SCR_FOTO : SCR_ASTRO; sel[screen] = i; hl_reset(); md_select();
                 frames_at(nm, tmd, COUNT(tmd));
             }
-        sel[SCR_ASTRO] = 1; sel[SCR_FOTO] = 0;
+        sel[SCR_ASTRO] = 1;
+ sel[SCR_FOTO] = 0;
 
         /* Torna alla 6D: barra, spunta, poi la Home con l'avviso */
         struct persist saved = P;
@@ -783,6 +784,31 @@ int main(void)
         handle_key(MODULE_KEY_PRESS_DOWN); md_select(); frames_at("g_astro_b", g40, 30);
         handle_key(MODULE_KEY_PRESS_DOWN); handle_key(MODULE_KEY_PRESS_DOWN); frames_at("g_astro_c", g40, 30);
         sel[SCR_ASTRO] = 1;
+        /* impostazioni: barra elastica, valore che entra, interruttore; Opzioni che scorrono */
+        screen = SCR_HDR; sel[SCR_HDR] = 0; hl_reset(); frames_at("g_hdr_a", g40, 8);
+        handle_key(MODULE_KEY_PRESS_DOWN); frames_at("g_hdr_b", g40, 8);
+        handle_key(MODULE_KEY_PRESS_RIGHT); frames_at("g_hdr_c", g40, 8);
+        handle_key(MODULE_KEY_PRESS_DOWN); frames_at("g_hdr_d", g40, 8);
+        handle_key(MODULE_KEY_PRESS_RIGHT); frames_at("g_hdr_e", g40, 8);
+        handle_key(MODULE_KEY_PRESS_UP); handle_key(MODULE_KEY_PRESS_UP); frames_at("g_hdr_f", g40, 8);
+        handle_key(MODULE_KEY_PRESS_SET); frames_at("g_hdr_g", g40, 12);
+        screen = SCR_OPTIONS; sel[SCR_OPTIONS] = 0; hl_reset(); frames_at("g_opt_00", g40, 6);
+        for (int k = 1; k <= 11; k++)
+        {
+            char nm[24]; snprintf(nm, sizeof(nm), "g_opt_%02d", k);
+            handle_key(MODULE_KEY_PRESS_DOWN); frames_at(nm, g40, 7);
+        }
+        /* allineamento polare: entrata, impulso, cambio di vista */
+        screen = SCR_POLAR; P.polar_view = 0; hl_reset(); polar_enter(); frames_at("g_pol_a", g40, 24);
+        polar_tick(); frames_at("g_pol_b", g40, 18);
+        handle_key(MODULE_KEY_INFO); frames_at("g_pol_c", g40, 14);
+        P.polar_view = 0;
+        /* calendario: entrata e scelta delle notti */
+        screen = SCR_SKY; sky_enter(); while (!sky_ready) sky_tick(); hl_reset(); sky_ready_t0 = sky_t0 = clock_ms;
+        frames_at("g_sky_a", g40, 22);
+        handle_key(MODULE_KEY_PRESS_DOWN); frames_at("g_sky_b", g40, 16);
+        handle_key(MODULE_KEY_PRESS_DOWN); handle_key(MODULE_KEY_PRESS_DOWN); frames_at("g_sky_c", g40, 16);
+        sky_sel = 0;
         shelf_cat = CAT_COLOR; shelf_enter();
     }
 
