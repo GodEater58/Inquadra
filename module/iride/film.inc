@@ -355,15 +355,15 @@ static void cyl_zone(int x, int y, int w, int h, int c)
     int a = x + w * 70 / 100, b = x + w * 87 / 100, e = x + w - 1;
     int s1c = shade_of(c, 1);
     if (s1c >= 0) fill(cc(s1c), b, y, e - b, h);   /* la zona piu' scura parte dal primo tono */
-    for (int lv = 1; lv <= 2; lv++)
+    for (int tone = 1; tone <= 2; tone++)
     {
-        int x0 = lv == 1 ? a : b, x1 = lv == 1 ? b : e;
-        int sc = shade_of(c, lv);
+        int x0 = tone == 1 ? a : b, x1 = tone == 1 ? b : e;
+        int sc = shade_of(c, tone);
         if (sc >= 0) fill(cc(sc), x0, y, x1 - x0, h);
         else
         {
             /* retinatura sopra il tono precedente (o il colore pieno) */
-            int step = lv == 1 ? 3 : 2;
+            int step = tone == 1 ? 3 : 2;
             for (int i = x0; i < x1; i += step) fill(COLOR_BLACK, i, y, 1, h);
         }
     }

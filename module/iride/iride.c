@@ -318,10 +318,10 @@ static void app_task(void *unused)
     {
         if (!gui_menu_shown() || to_ml_menu || lv_toggle) break;
 
-        int k = kq_pop();
-        if (k >= 0)
+        int key = kq_pop();                  /* non "k": e' gia' il contatore di TASK_LOOP */
+        if (key >= 0)
         {
-            handle_key(k);
+            handle_key(key);
             continue;
         }
 

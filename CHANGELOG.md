@@ -32,7 +32,12 @@
   - un pixel caldo più luminoso di una stella debole poteva "vincere" e far dire "nessuna stella"; due pixel caldi vicini potevano essere presi per una stella. Ora il candidato si sceglie dai pixel intorno e servono almeno 4 pixel di stella
   - accanto all'HFR compare "meglio" o "peggio" rispetto alle misure precedenti; se la stella è satura il consiglio è di abbassare l'ISO
 - Menu Astro e Foto: lo stato delle voci si ricalcola ogni 300 ms invece che a ogni fotogramma
-- Simulatore: 91 test, con 6000 tasti a caso su tutte le schermate controllati con AddressSanitizer
+- **Controllo bug a tappeto** (analisi statica con gcc e clang, AddressSanitizer e UndefinedBehaviorSanitizer, casi estremi):
+  - un testo che usciva dallo schermo in alto veniva spostato da Magic Lantern sul bordo, così se ne vedeva un pezzo: succedeva con le scritte del rullino mentre vola via nel caricamento e con i titoli di sezione delle Opzioni mentre la lista scorre. Ora i testi fuori dallo schermo non si scrivono
+  - Calendario: un valore rovinato del cielo del luogo nella configurazione non falsa più i conti; a latitudini dove il centro della Via Lattea non è mai alto col buio lo dice così (prima diceva che non sale sopra 10 gradi, non sempre vero)
+  - Luna: dall'emisfero sud è disegnata capovolta, come la si vede da lì
+  - nomi interni che si sovrapponevano ad altri (nessun effetto visibile, ma pericolosi per le modifiche future)
+- Simulatore: 108 test, con 6000 tasti a caso su tutte le schermate controllati con AddressSanitizer, più 10 casi estremi (ora legale, capodanno, 29 febbraio, sole di mezzanotte, poli, emisfero sud, equatore, configurazione rovinata) e il controllo che nessun testo o forma esca dallo schermo
 
 ## 1.0 – 1 novembre 2026
 - **Descrizioni dei rullini riscritte e verificate** su schede tecniche e prove: due righe per pellicola, carattere e uso ideale. Corrette le imprecisioni: Delta 3200 (ISO reale 1000, a 3200 è già tirata), CineStill 800T (pellicola cinema al tungsteno, aloni rossi, di giorno vira al blu), Ektar (la grana più fine, calca i rossi sulla pelle), Superia (verdi intensi, palette fresca), Velvia (tolleranza minima, meglio in luce morbida), Ektachrome E100 (neutra con tendenza fredda) e le altre. Stesse descrizioni nei preset XMP

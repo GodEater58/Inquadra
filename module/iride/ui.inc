@@ -48,6 +48,9 @@ static int tc(int c)
 
 static void txt(int font, int fg, int x, int y, const char *s)
 {
+    /* fuori dallo schermo non si scrive: ML sposterebbe il testo sul bordo (si vedrebbe un pezzo
+       in alto mentre un rullino vola via o una lista scorre) */
+    if (y < 0 || y > SCR_H - 12 || x < -8 || x > SCR_W - 4) return;
     bmp_printf(FONT(font, fg, NO_BG_ERASE), x, y, "%s", s);
 }
 
@@ -530,9 +533,9 @@ static void icon_sky(int x, int y, int bg, int t)
     icon_rng = 7;
     for (int i = 0; i < 90; i++)
     {
-        int t = irand(w);
-        int spread = 14 - ABS(t - w / 2) / 10;
-        int px = x + t, py = y + 70 - t * 55 / w + irand(2 * spread + 1) - spread;
+        int p = irand(w);
+        int spread = 14 - ABS(p - w / 2) / 10;
+        int px = x + p, py = y + 70 - p * 55 / w + irand(2 * spread + 1) - spread;
         int c = irand(4) == 0 ? COLOR_WHITE : irand(2) ? COLOR_GRAY(62) : COLOR_GRAY(44);
         fill(tc(c), px, py, 1 + (irand(5) == 0), 1);
     }

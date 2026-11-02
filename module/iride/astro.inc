@@ -898,11 +898,14 @@ static struct glider sky_moon_g = { -1, 0, 0, 0 };
 
 struct skymodel { float b0, istar, tz; };
 
+/* cielo del luogo, entro valori sensati anche se la configurazione e' rovinata */
+static int sky_sqm0() { return COERCE(opt_sqm10, 160, 230); }
+
 static void sky_model(struct skymodel *m, int illum)
 {
     float alpha = acosf(COERCE(2.0f * illum / 1000.0f - 1.0f, -1.0f, 1.0f)) * RAD2DEG;   /* angolo di fase, 0 = piena */
     float a2 = alpha * alpha;
-    m->b0 = 34.08f * expf(20.7233f - 0.92104f * (opt_sqm10 / 10.0f));                     /* nanoLambert */
+    m->b0 = 34.08f * expf(20.7233f - 0.92104f * (sky_sqm0() / 10.0f));                     /* nanoLambert */
     m->istar = powf(10.0f, -0.4f * (3.84f + 0.026f * alpha + 4e-9f * a2 * a2));
     m->tz = 1.0f - powf(10.0f, -0.4f * SKY_EXT);                                          /* massa d'aria 1 allo zenit */
 }
@@ -1213,7 +1216,7 @@ static void gc_missing_line(int gc_dark, char *buf, int len)
     switch (gcn_state)
     {
         case 1: snprintf(buf, len, "Centro Via Lattea: cerco quando torna..."); return;
-        case 3: snprintf(buf, len, "Centro Via Lattea: da qui non sale sopra 10 gradi"); return;
+        case 3: snprintf(buf, len, "Centro Via Lattea: da qui mai alto col buio"); return;
         case 2:
             civil_from_days(gcn_day, &y, &m, &d);
             fmt_hm(a, sizeof(a), gcn_start); fmt_hm(b, sizeof(b), gcn_end);
@@ -1241,7 +1244,7 @@ static void fmt_day(char *buf, int len, int day1970)
 static int sky_lift(const struct night *n, int i)
 {
     if ((n->s[i] & SK_SUN) != SK_NIGHT || !n->q[i]) return 0;
-    return MAX(0, opt_sqm10 - (n->q[i] + 100));
+    return MAX(0, sky_sqm0() - (n->q[i] + 100));
 }
 
 /* un colore per campione, "piu' scuro = meglio": giorno e crepuscoli come prima,
@@ -1259,7 +1262,7 @@ static int sky_px(const struct night *n, int i)
    big: puntini piu' fitti e scritte dentro le zone (sera, buio, Luna, alba) */
 static void draw_sky_bar(const struct night *n, int x0, int y, int w, int h, int reveal, int big)
 {
-    int base = COERCE((opt_sqm10 - 180) / 10, 1, 4);      /* stelle col cielo del luogo, senza Luna */
+    int base = COERCE((sky_sqm0() - 180) / 10, 1, 4);      /* stelle col cielo del luogo, senza Luna */
     for (int i = 0; i < SKY_SAMPLES - 1; i++)
     {
         int xa = x0 + w * i / (SKY_SAMPLES - 1), xb = x0 + w * (i + 1) / (SKY_SAMPLES - 1);

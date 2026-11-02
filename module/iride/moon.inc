@@ -130,10 +130,10 @@ struct mfeat
 };
 struct mray { short nx, ny, nz, dx, dy, dz, len; };
 
-static struct mfeat mf[MF_MAX];
+static struct mfeat moon_f[MF_MAX];
 static short moon_sq[1025];        /* sqrt(1 - s) in Q10, s in 1024 passi */
-static struct mray mr[MR_MAX];
-static int mf_n, mr_n, moon_ready;
+static struct mray moon_r[MR_MAX];
+static int moon_fn, moon_rn, moon_ready;
 
 static unsigned misqrt(unsigned v)
 {
@@ -171,8 +171,8 @@ static int mnoise(int u, int v, int sh, int seed)
 
 static int moon_add(float lat, float lon, float d_km, int kind, int alb, int dep, int rays, int rlen)
 {
-    if (mf_n >= MF_MAX) return -1;
-    struct mfeat *f = &mf[mf_n];
+    if (moon_fn >= MF_MAX) return -1;
+    struct mfeat *f = &moon_f[moon_fn];
     float la = lat * MDEG, lo = lon * MDEG;
     float cx = cosf(la) * sinf(lo), cy = -sinf(la), cz = cosf(la) * cosf(lo);
     f->x = (short)(cx * MQ); f->y = (short)(cy * MQ); f->z = (short)(cz * MQ);
@@ -184,7 +184,7 @@ static int moon_add(float lat, float lon, float d_km, int kind, int alb, int dep
     f->rlen = rlen * MQ / 100;
     f->reach = kind == MF_MARE ? f->r * 13 / 10 : kind == MF_BRIGHT ? MAX(2 * f->r, f->rlen) : f->r * 14 / 10;
     f->reach2 = f->reach * f->reach; f->rlen2 = f->rlen * f->rlen;
-    f->nrays = 0; f->ray0 = mr_n;
+    f->nrays = 0; f->ray0 = moon_rn;
     /* raggi: archi di cerchio massimo che partono dal cratere */
     if (rays)
     {
@@ -193,29 +193,29 @@ static int moon_add(float lat, float lon, float d_km, int kind, int alb, int dep
         if (nl < 1e-3f) nl = 1e-3f;
         nx /= nl; ny /= nl; nz /= nl;
         float ex = cy * nz - cz * ny, ey = cz * nx - cx * nz, ez = cx * ny - cy * nx;  /* est locale */
-        for (int j = 0; j < rays && mr_n < MR_MAX; j++)
+        for (int j = 0; j < rays && moon_rn < MR_MAX; j++)
         {
-            float a = j * 6.2832f / rays + ((int)(mhash(j, mf_n, 7) & 255) - 128) / 512.0f;
+            float a = j * 6.2832f / rays + ((int)(mhash(j, moon_fn, 7) & 255) - 128) / 512.0f;
             float dx = cosf(a) * nx + sinf(a) * ex, dy = cosf(a) * ny + sinf(a) * ey, dz = cosf(a) * nz + sinf(a) * ez;
-            struct mray *ry = &mr[mr_n++];
+            struct mray *ry = &moon_r[moon_rn++];
             ry->dx = (short)(dx * MQ); ry->dy = (short)(dy * MQ); ry->dz = (short)(dz * MQ);
             ry->nx = (short)((cy * dz - cz * dy) * MQ);
             ry->ny = (short)((cz * dx - cx * dz) * MQ);
             ry->nz = (short)((cx * dy - cy * dx) * MQ);
-            ry->len = (short)(f->rlen * (600 + (int)(mhash(j, mf_n, 9) % 400)) / 1000);
+            ry->len = (short)(f->rlen * (600 + (int)(mhash(j, moon_fn, 9) % 400)) / 1000);
             f->nrays++;
         }
     }
-    return mf_n++;
+    return moon_fn++;
 }
 
 /* dentro un mare? (per non mettere crateri piccoli sui mari) */
 static int moon_in_mare(int x, int y, int z)
 {
-    for (int i = 0; i < mf_n; i++)
+    for (int i = 0; i < moon_fn; i++)
     {
-        if (mf[i].kind != MF_MARE) continue;
-        int dx = x - mf[i].x, dy = y - mf[i].y, dz = z - mf[i].z, r = mf[i].r * 9 / 10;
+        if (moon_f[i].kind != MF_MARE) continue;
+        int dx = x - moon_f[i].x, dy = y - moon_f[i].y, dz = z - moon_f[i].z, r = moon_f[i].r * 9 / 10;
         if (dx * dx + dy * dy + dz * dz < r * r) return 1;
     }
     return 0;
@@ -232,7 +232,7 @@ static void moon_init()
         moon_add(d->lat / 10.0f, d->lon / 10.0f, d->d, d->kind, d->alb, d->dep, d->rays, d->rlen);
     }
     /* altipiani: crateri minori sparsi, piu' fitti a sud come sulla Luna vera */
-    for (int k = 0; k < 600 && mf_n < MF_MAX; k++)
+    for (int k = 0; k < 600 && moon_fn < MF_MAX; k++)
     {
         unsigned h = mhash(k, 31, 3);
         float lat = -82.0f + (h & 1023) * 150.0f / 1023.0f;
@@ -288,7 +288,7 @@ static int moon_px(const struct mview *w, int px, int py)
     int nb = (n1 - 512) + (mnoise(u, v, 7, 6) - 512) / 2 + (n2 - 512) / 4;   /* contorni dei mari */
     /* ben dentro l'ombra contano solo i mari (luce cinerea): niente crateri */
     int deep = ((u * w->lx + nz * w->lz) >> 10) < -MQ * 45 / 100;
-    int nx = u, ny = v, nzz = nz;
+    int nx = u, nzz = nz;                      /* il Sole sta nel piano x-z: la componente y non serve */
     int big = r >= 14;
     int ray = 0;
     const unsigned char *cand = w->cand;
@@ -300,7 +300,7 @@ static int moon_px(const struct mview *w, int px, int py)
     int wu = u + (n2 - 512) * 44 / 512, wv = v + (mnoise(u, v, 6, 9) - 512) * 44 / 512;   /* contorni deformati */
     for (int k = 0; k < nc; k++)
     {
-        const struct mfeat *f = &mf[cand[k]];
+        const struct mfeat *f = &moon_f[cand[k]];
         if (f->kind != MF_MARE) continue;
         int dx = wu - f->x;
         if (dx > f->reach || dx < -f->reach) continue;
@@ -324,7 +324,7 @@ static int moon_px(const struct mview *w, int px, int py)
     /* crateri: fondo, alone, rilievo e raggi (tutto con (d/r)^2, senza radici) */
     for (int k = 0; k < nc && !deep; k++)
     {
-        const struct mfeat *f = &mf[cand[k]];
+        const struct mfeat *f = &moon_f[cand[k]];
         if (f->kind == MF_MARE) continue;
         int dx = u - f->x;
         if (dx > f->reach || dx < -f->reach) continue;
@@ -343,19 +343,19 @@ static int moon_px(const struct mview *w, int px, int py)
         {
             if (t2 < MQ)                                    /* parete interna: guarda verso il centro */
             {
-                nx -= dx * f->dk >> 10; ny -= dy * f->dk >> 10; nzz -= dz * f->dk >> 10;
+                nx -= dx * f->dk >> 10; nzz -= dz * f->dk >> 10;
             }
             else if (t2 < 2007)                             /* orlo esterno (fino a 1,4 r): guarda fuori */
             {
                 int wt = (2007 - t2) * (f->dep * MQ / 180) / 2950;
-                nx += (dx * f->kr >> 10) * wt >> 10; ny += (dy * f->kr >> 10) * wt >> 10; nzz += (dz * f->kr >> 10) * wt >> 10;
+                nx += (dx * f->kr >> 10) * wt >> 10; nzz += (dz * f->kr >> 10) * wt >> 10;
             }
         }
         if (f->nrays && w->pf > 0 && t2 > MQ && d2 < f->rlen2)
         {
             for (int j = f->ray0; j < f->ray0 + f->nrays; j++)
             {
-                const struct mray *ry = &mr[j];
+                const struct mray *ry = &moon_r[j];
                 int along = (u * ry->dx + v * ry->dy + nz * ry->dz) >> 10;
                 if (along <= 0 || along >= ry->len) continue;
                 int off = (u * ry->nx + v * ry->ny + nz * ry->nz) >> 10;
@@ -399,7 +399,7 @@ static int moon_px(const struct mview *w, int px, int py)
 #define MC_R 46
 #define MC_SMALL 10
 #define MC_NS 8
-struct mslot { int key[5]; int ok; };
+struct mslot { int key[6]; int ok; };
 static unsigned char mc_big[(2 * MC_R + 1) * (2 * MC_R + 1)];
 static unsigned char mc_small[MC_NS][(2 * MC_SMALL + 1) * (2 * MC_SMALL + 1)];
 static struct mslot ms_big, ms_small[MC_NS];
@@ -412,7 +412,8 @@ static void draw_moon(int cx, int cy, int r, int illum, int waxing, int bg)
     if (r < 3) return;
     moon_init();
     illum = COERCE(illum, 0, 1000);
-    int key[5] = { r, illum, waxing, night, bg };
+    int south = P.lat100 < 0;                              /* dall'emisfero sud la Luna e' capovolta */
+    int key[6] = { r, illum, waxing, night, bg, south };
     int side = 2 * r + 1, hit = 0;
     unsigned char *buf = 0;
     struct mslot *slot = 0;
@@ -421,7 +422,7 @@ static void draw_moon(int cx, int cy, int r, int illum, int waxing, int bg)
         for (int i = 0; i < MC_NS && !slot; i++)
         {
             int same = ms_small[i].ok;
-            for (int k = 0; k < 5; k++) if (ms_small[i].key[k] != key[k]) same = 0;
+            for (int k = 0; k < 6; k++) if (ms_small[i].key[k] != key[k]) same = 0;
             if (same) { slot = &ms_small[i]; buf = mc_small[i]; hit = 1; }
         }
         if (!slot) { slot = &ms_small[ms_next]; buf = mc_small[ms_next]; ms_next = (ms_next + 1) % MC_NS; }
@@ -429,7 +430,7 @@ static void draw_moon(int cx, int cy, int r, int illum, int waxing, int bg)
     else if (r <= MC_R)
     {
         slot = &ms_big; buf = mc_big; hit = ms_big.ok;
-        for (int k = 0; k < 5; k++) if (ms_big.key[k] != key[k]) hit = 0;
+        for (int k = 0; k < 6; k++) if (ms_big.key[k] != key[k]) hit = 0;
     }
 
     /* direzione del Sole: angolo di fase dalla frazione illuminata */
@@ -447,11 +448,11 @@ static void draw_moon(int cx, int cy, int r, int illum, int waxing, int bg)
         unsigned char *row = buf ? &buf[(py + r) * side] : 0;
         if (!hit)
         {
-            int v = py * w.kpx >> 10, nc = 0;
-            for (int k = 0; k < mf_n; k++)
+            int v = (south ? -py : py) * w.kpx >> 10, nc = 0;
+            for (int k = 0; k < moon_fn; k++)
             {
-                int dv = v - mf[k].y;
-                if (dv <= mf[k].reach && dv >= -mf[k].reach) cand[nc++] = k;
+                int dv = v - moon_f[k].y;
+                if (dv <= moon_f[k].reach && dv >= -moon_f[k].reach) cand[nc++] = k;
             }
             w.nc = nc;
         }
@@ -464,7 +465,7 @@ static void draw_moon(int cx, int cy, int r, int illum, int waxing, int bg)
                 if (hit) c = row[px + r];
                 else
                 {
-                    c = moon_px(&w, px, py);
+                    c = south ? moon_px(&w, -px, -py) : moon_px(&w, px, py);
                     if (row) row[px + r] = c;
                 }
             }
@@ -475,5 +476,5 @@ static void draw_moon(int cx, int cy, int r, int illum, int waxing, int bg)
             }
         }
     }
-    if (slot && !hit) { for (int k = 0; k < 5; k++) slot->key[k] = key[k]; slot->ok = 1; }
+    if (slot && !hit) { for (int k = 0; k < 6; k++) slot->key[k] = key[k]; slot->ok = 1; }
 }

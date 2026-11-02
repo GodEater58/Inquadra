@@ -26,11 +26,23 @@ int bmp_string_width(int fontspec, const char *s)
     return w;
 }
 static long glyphs = 0;
+static int offscreen = 0, offscreen_on = 0;
+static char offscreen_txt[8][96];
 int bmp_printf(uint32_t fontspec, int x, int y, const char *fmt, ...)
 {
     char buf[256];
     va_list ap; va_start(ap, fmt); vsnprintf(buf, sizeof(buf), fmt, ap); va_end(ap);
     glyphs += strlen(buf);
+    if (offscreen_on && *buf)
+    {
+        int w = bmp_string_width(fontspec, buf);
+        if (x < 0 || x + w > 720 || y < 0 || y > 470)
+        {
+            int dup = 0;
+            for (int i = 0; i < offscreen && i < 8; i++) if (!strncmp(offscreen_txt[i] + 13, buf, strlen(buf))) dup = 1;
+            if (!dup) { if (offscreen < 8) snprintf(offscreen_txt[offscreen], 96, "%4d %4d %3d %s  [schermo %d, transizione %d]", x, y, w, buf, screen, transition); offscreen++; }
+        }
+    }
     op("T\t%d\t%d\t%d\t%d\t%d\t%s\n", (fontspec >> 16) & 7, fontspec & 0xFF, (fontspec >> 8) & 0xFF, x, y, buf);
     return bmp_string_width(fontspec, buf);
 }
@@ -47,9 +59,16 @@ static void vram_raster(uint8_t c, int x, int y, int w, int h)
 }
 void bmp_fill(uint8_t c, int x, int y, int w, int h) { op("F\t%d\t%d\t%d\t%d\t%d\n", c, x, y, w, h); vram_raster(c, x, y, w, h); }
 void bmp_draw_rect(int c, int x, int y, int w, int h) { op("R\t%d\t%d\t%d\t%d\t%d\n", c, x, y, w, h); }
-void fill_circle(int x, int y, int r, int c) { op("C\t%d\t%d\t%d\t%d\t1\n", c, x, y, r); }
-void draw_circle(int x, int y, int r, int c) { op("C\t%d\t%d\t%d\t%d\t0\n", c, x, y, r); }
-void draw_line(int x1, int y1, int x2, int y2, int c) { op("L\t%d\t%d\t%d\t%d\t%d\n", c, x1, y1, x2, y2); }
+static int offshape = 0, offshape_on = 0; static char offshape_txt[96];
+static void shape_check(const char *what, int x0, int y0, int x1, int y1)
+{
+    if (!offshape_on || (x0 >= 0 && y0 >= 0 && x1 < 720 && y1 < 480)) return;
+    if (!offshape) snprintf(offshape_txt, sizeof(offshape_txt), "%s %d,%d - %d,%d", what, x0, y0, x1, y1);
+    offshape++;
+}
+void fill_circle(int x, int y, int r, int c) { shape_check("cerchio", x - r, y - r, x + r, y + r); op("C\t%d\t%d\t%d\t%d\t1\n", c, x, y, r); }
+void draw_circle(int x, int y, int r, int c) { shape_check("circonferenza", x - r, y - r, x + r, y + r); op("C\t%d\t%d\t%d\t%d\t0\n", c, x, y, r); }
+void draw_line(int x1, int y1, int x2, int y2, int c) { shape_check("linea", MIN(x1, x2), MIN(y1, y2), MAX(x1, x2), MAX(y1, y2)); op("L\t%d\t%d\t%d\t%d\t%d\n", c, x1, y1, x2, y2); }
 void clrscr(void) { if (to_idle) len_idle = 0; else len_real = 0; op("X\n"); vram_raster(0, 0, 0, 720, 480); }
 void bmp_draw_to_idle(int v) { to_idle = v; if (v) { len_idle = 0; } }
 static int frames_shown = 0;
@@ -716,6 +735,15 @@ int main(void)
         for (int a = 0; a < 44; a++) { int c = VP(100 + 44, 100 - 22 + a); if (c > COLOR_GRAY(4) && c < COLOR_GRAY(50)) mid++; }
         int edge = VP(100 + 44, 100), inner = VP(100 + 40, 100);
         CHECK(edge < inner, "bordo della Luna sfumato verso il nero");
+        /* emisfero sud: la Luna e' capovolta, la crescente e' illuminata a sinistra */
+        {
+            int la = P.lat100; P.lat100 = -3390;
+            bmp_draw_to_idle(0); clrscr(); draw_moon(100, 300, 44, 500, 1, 0);
+            int rs = 0, ls = 0;
+            for (int y = -30; y <= 30; y++) for (int x = 8; x <= 36; x++) { rs += VP(100 + x, 300 + y); ls += VP(100 - x, 300 + y); }
+            CHECK(ls > rs * 13 / 10, "emisfero sud: primo quarto illuminato a sinistra");
+            P.lat100 = la;
+        }
         #undef VP
         /* cache: lo stesso disegno due volte produce le stesse operazioni */
         bmp_draw_to_idle(0); clrscr(); draw_moon(100, 100, 44, 730, 1, 0); int l_a = len_real;
@@ -946,6 +974,64 @@ int main(void)
         }
     CHECK(crashes == 0, "tutte le %d schermate x 2 temi x %d tasti disegnate senza errori", SCR_COUNT, (int)COUNT(keys));
 
+    /* ---------- casi estremi: date (ora legale, capodanno, bisestile), luoghi (sud, equatore,
+       sole di mezzanotte, polo), fusi, cielo del luogo fuori scala; tasti a caso in ognuno */
+    {
+        struct persist saved = P;
+        int sq = opt_sqm10;
+        struct { int y, mo, d, h, mi, lat, lon, tz, sqm; } sc[] = {
+            { 2027, 3, 28, 1, 30, 4190, 1250, 0, 210 },     /* passaggio all'ora legale */
+            { 2026, 10, 25, 2, 30, 4510, 1190, 0, 205 },    /* ritorno all'ora solare */
+            { 2026, 12, 31, 23, 59, 4190, 1250, 0, 220 },   /* capodanno */
+            { 2028, 2, 29, 21, 0, 4190, 1250, 0, 190 },     /* bisestile */
+            { 2026, 6, 21, 23, 0, 6600, 2500, 3, 215 },     /* sole di mezzanotte: niente buio */
+            { 2026, 12, 21, 12, 0, 8990, 0, 1, 210 },       /* polo nord: notte polare */
+            { 2027, 1, 10, 22, 0, -3390, 15120, 4, 210 },   /* Sydney, emisfero sud */
+            { 2027, 4, 1, 3, 0, 0, 0, 1, 210 },             /* equatore */
+            { 2027, 7, 1, 1, 0, -8990, -17990, 1, 0 },      /* polo sud, longitudine limite, cielo a zero */
+            { 2026, 11, 1, 22, 47, 4190, 1250, 0, 999 },    /* cielo fuori scala */
+        };
+        unsigned rng = 777;
+        int fk[] = { MODULE_KEY_PRESS_UP, MODULE_KEY_PRESS_DOWN, MODULE_KEY_PRESS_LEFT, MODULE_KEY_PRESS_RIGHT,
+                     MODULE_KEY_PRESS_SET, MODULE_KEY_MENU, MODULE_KEY_INFO };
+        int bad = 0;
+        offscreen = 0; offscreen_on = 1; offshape = 0; offshape_on = 1;
+        for (unsigned c = 0; c < COUNT(sc); c++)
+        {
+            set_time(sc[c].y, sc[c].mo, sc[c].d, sc[c].h, sc[c].mi);
+            P.lat100 = sc[c].lat; P.lon100 = sc[c].lon; P.tz_mode = sc[c].tz; opt_sqm10 = sc[c].sqm;
+            opt_theme = c % 3;
+            /* calendario completo e polare in questo luogo */
+            screen = SCR_SKY; sky_enter(); sky_full(); hl_reset();
+            for (int k = 0; k < SKY_NIGHTS; k++)
+            {
+                const struct night *n = &nights[k];
+                if (n->moon_illum < 0 || n->moon_illum > 1000 || n->dark_min < 0 || n->dark_min > 1440 ||
+                    n->nelm_dark > 80 || n->nelm_moon > 80 || n->moonless_min > n->dark_min) bad++;
+            }
+            for (int k = 0; k < SKY_NIGHTS; k++) { sky_sel = k; render(0); }
+            screen = SCR_POLAR; polar_enter(); render(0);
+            screen = SCR_ASTRO; render(0);
+            for (int i = 0; i < 400; i++)
+            {
+                rng = rng * 1103515245u + 12345u;
+                handle_key(fk[(rng >> 16) % COUNT(fk)]);
+                clock_ms += 10 + (int)((rng >> 8) % 60);
+                theme_apply(); render(transition); transition = 0;
+                if (screens[screen].tick) screens[screen].tick();
+            }
+        }
+        /* la Luna a tutte le misure, fasi e sfondi */
+        for (int r = 1; r <= 60; r += 3) for (int il = -50; il <= 1050; il += 110) { draw_moon(360, 240, r, il, il & 1, r % 2 ? -1 : 10); }
+        CHECK(!bad, "casi estremi (ora legale, capodanno, bisestile, sole di mezzanotte, poli, sud, equatore): valori sensati");
+        P = saved; opt_sqm10 = sq; opt_theme = 0; P.tz_mode = 0;
+        set_time(2026, 11, 1, 22, 47); sky_enter(); sky_full(); sky_sel = 0;
+        offscreen_on = 0; offshape_on = 0;
+        for (int i = 0; i < offscreen && i < 8; i++) printf("  fuori schermo: %s\n", offscreen_txt[i]);
+        if (offshape) printf("  forme fuori schermo: %d, la prima: %s\n", offshape, offshape_txt);
+        CHECK(offscreen == 0, "casi estremi: nessun testo fuori dallo schermo (%d)", offscreen);
+    }
+
     /* ---------- tasti a caso su tutte le schermate (anche transizioni e animazioni):
        con -fsanitize=address,undefined trova letture/scritture fuori posto */
     {
@@ -957,6 +1043,7 @@ int main(void)
                      MODULE_KEY_PRESS_SET, MODULE_KEY_MENU, MODULE_KEY_INFO, MODULE_KEY_Q };
         int screens_seen = 0, seen[SCR_COUNT] = { 0 };
         screen = SCR_HOME; hl_reset(); transition = 0;
+        offscreen = 0; offscreen_on = 1; offshape = 0; offshape_on = 1;
         for (int i = 0; i < 6000; i++)
         {
             rng = rng * 1103515245u + 12345u;
@@ -970,6 +1057,10 @@ int main(void)
             if (!seen[screen]) { seen[screen] = 1; screens_seen++; }
         }
         CHECK(screens_seen >= SCR_COUNT - 2, "6000 tasti a caso: %d schermate visitate, nessun errore", screens_seen);
+        offscreen_on = 0; offshape_on = 0;
+        for (int i = 0; i < offscreen && i < 8; i++) printf("  fuori schermo: %s\n", offscreen_txt[i]);
+        if (offshape) printf("  forme fuori schermo: %d, la prima: %s\n", offshape, offshape_txt);
+        CHECK(offscreen == 0 && offshape == 0, "6000 tasti a caso: niente testi o forme fuori dallo schermo (%d, %d)", offscreen, offshape);
         P = saved; lv = lvs; opt_theme = 0; opt_anim = 0; msg[0] = 0;
     }
 

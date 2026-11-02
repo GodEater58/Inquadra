@@ -154,17 +154,17 @@ static void ic_hdr(int cx, int cy, int s, int t)
 /* Focus stacking: piani di fuoco uno dietro l'altro, il piano a fuoco scorre */
 static void ic_fstack(int cx, int cy, int s, int t)
 {
-    int sel = t >= 0 ? MIN(ip(t, 0, 900, EZ_IO) * 4 / 1000, 3) : 1;
+    int cur = t >= 0 ? MIN(ip(t, 0, 900, EZ_IO) * 4 / 1000, 3) : 1;
     for (int i = 3; i >= 0; i--)
     {
         int x = cx - K(36) + i * K(14), y = cy - K(30) + i * K(10);
         int px[4] = { x, x + K(44), x + K(30), x - K(14) };
         int py[4] = { y, y, y + K(30), y + K(30) };
-        fill_poly(px, py, 4, i == sel ? C_ACCENT : C_PANEL2);
-        draw_line(px[0], py[0], px[1], py[1], i == sel ? C_ACCENT : C_DIM);
-        draw_line(px[3], py[3], px[2], py[2], i == sel ? C_ACCENT : C_DIM);
-        draw_line(px[0], py[0], px[3], py[3], i == sel ? C_ACCENT : C_DIM);
-        draw_line(px[1], py[1], px[2], py[2], i == sel ? C_ACCENT : C_DIM);
+        fill_poly(px, py, 4, i == cur ? C_ACCENT : C_PANEL2);
+        draw_line(px[0], py[0], px[1], py[1], i == cur ? C_ACCENT : C_DIM);
+        draw_line(px[3], py[3], px[2], py[2], i == cur ? C_ACCENT : C_DIM);
+        draw_line(px[0], py[0], px[3], py[3], i == cur ? C_ACCENT : C_DIM);
+        draw_line(px[1], py[1], px[2], py[2], i == cur ? C_ACCENT : C_DIM);
     }
 }
 
