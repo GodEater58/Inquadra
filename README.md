@@ -12,7 +12,7 @@ Un'interfaccia a tutto schermo, animata, con menu dedicati ad **astrofotografia*
 <p align="center"><img src="docs/screenshots/animazioni-v11.gif" width="540" alt="Avvio, Home, scaffale dei rullini e dialogo"></p>
 
 | ![Home](docs/screenshots/01_home-v06.png) | ![Astro](docs/screenshots/02_astro-v11.png) | ![Rullini](docs/screenshots/14_rullini-v10.png) |
-| ![Allineamento polare](docs/screenshots/06_polare-v11.png) | ![Calendario del cielo](docs/screenshots/07_cielo-v11c.png) | ![Tema notte](docs/screenshots/21_cielo_notte-v11c.png) |
+| ![Allineamento polare](docs/screenshots/06_polare-v11.png) | ![Calendario del cielo](docs/screenshots/07_cielo-v11d.png) | ![Tema notte](docs/screenshots/21_cielo_notte-v11d.png) |
 | ![Fuoco stelle](docs/screenshots/05_stelle-v11.png) | ![Foto](docs/screenshots/08_foto-v11.png) | ![Torna alla 6D](docs/screenshots/19_torna_6d-v11.png) |
 
 <p align="center"><img src="docs/screenshots/menu-v11.gif" width="540" alt="Menu Astro con l'anteprima della voce scelta"></p>

@@ -1156,15 +1156,6 @@ static int sky_color(int cls)
     return c[COERCE(cls, 0, 4)];
 }
 
-/* Luna in cielo: tanto piu' chiara quanto piu' schiarisce il cielo (fase e altezza) */
-static int moon_shade(const struct night *n, int i)
-{
-    int q = n->q[i];
-    int d = q ? opt_sqm10 - (q + 100) : 0;               /* decimi di magnitudine persi allo zenit */
-    if (night) return d > 10 ? COLOR_RED : COLOR_DARK_RED;
-    return COLOR_GRAY(COERCE(26 + d * 2, 26, 90));
-}
-
 static void fmt_mag(char *buf, int len, int m10) { snprintf(buf, len, "%d,%d", m10 / 10, m10 % 10); }
 
 /* sorgere e tramonto della Luna dentro la striscia (16 - 8), in ordine di tempo:
@@ -1246,19 +1237,94 @@ static void fmt_day(char *buf, int len, int day1970)
 
 /* striscia della notte dalle 16 alle 8: cielo (giorno -> crepuscoli -> notte), Luna in alto,
    Via Lattea in basso. reveal: fin dove disegnare (entrata da sinistra) */
-static void draw_night_strip(const struct night *n, int x0, int y, int w, int h, int reveal)
+/* quanto la Luna schiarisce il cielo in un campione: decimi di magnitudine (0 se non c'e' o non e' buio) */
+static int sky_lift(const struct night *n, int i)
 {
+    if ((n->s[i] & SK_SUN) != SK_NIGHT || !n->q[i]) return 0;
+    return MAX(0, opt_sqm10 - (n->q[i] + 100));
+}
+
+/* un colore per campione, "piu' scuro = meglio": giorno e crepuscoli come prima,
+   buio vero nero, buio con la Luna grigio tanto piu' chiaro quanto piu' la Luna illumina */
+static int sky_px(const struct night *n, int i)
+{
+    int cls = n->s[i] & SK_SUN, d = sky_lift(n, i);
+    if (cls != SK_NIGHT) return sky_color(cls);
+    if (d <= 2) return COLOR_BLACK;
+    if (night) return COLOR_DARK_RED;
+    return COLOR_GRAY(MIN(50, 12 + d * 3 / 2));
+}
+
+/* la striscia della notte: colore del cielo, stelle (meno con la Luna), centro della Via Lattea in verde.
+   big: puntini piu' fitti e scritte dentro le zone (sera, buio, Luna, alba) */
+static void draw_sky_bar(const struct night *n, int x0, int y, int w, int h, int reveal, int big)
+{
+    int base = COERCE((opt_sqm10 - 180) / 10, 1, 4);      /* stelle col cielo del luogo, senza Luna */
     for (int i = 0; i < SKY_SAMPLES - 1; i++)
     {
         int xa = x0 + w * i / (SKY_SAMPLES - 1), xb = x0 + w * (i + 1) / (SKY_SAMPLES - 1);
         if (xa >= reveal) break;
         xb = MIN(xb, reveal);
         int v = n->s[i];
-        fill(sky_color(v & SK_SUN), xa, y, xb - xa, h);
-        if (v & SK_MOON) fill(moon_shade(n, i), xa, y, xb - xa, 3);
-        if ((v & SK_GC) && (v & SK_SUN) == SK_NIGHT && !(v & SK_MOON)) fill(C_OK, xa, y + h - 3, xb - xa, 3);
+        fill(sky_px(n, i), xa, y, xb - xa, h);
+        if ((v & SK_SUN) == SK_NIGHT)
+        {
+            int dots = COERCE(base - sky_lift(n, i) / 5, 0, 4);   /* la Luna spegne le stelle */
+            if (!big) dots = (i % 3 == 0 && dots >= 2);
+            for (int k = 0; k < dots; k++)
+            {
+                unsigned hsh = (unsigned)(i * 2654435761u + k * 40503u);
+                int band = big ? (h - 4) / 3 : h - 4;            /* nella grande lascia libero il centro per le scritte */
+                int yy = (hsh >> 8) % MAX(1, band);
+                if (big && (hsh & 1)) yy += h - 4 - band;
+                int c = night ? ((hsh >> 4) & 1 ? COLOR_RED : COLOR_DARK_RED) : ((hsh >> 4) & 3 ? COLOR_GRAY(70) : COLOR_WHITE);
+                fill(c, xa + (int)((hsh >> 16) % MAX(1, xb - xa)), y + 2 + yy, 1, 1);
+            }
+        }
+        if (!big && (v & SK_GC) && (v & SK_SUN) == SK_NIGHT && !(v & SK_MOON)) fill(C_OK, xa, y + h - 3, xb - xa, 3);
     }
     frame_rect(C_LINE, x0 - 1, y - 1, w + 2, h + 2, 1);
+    if (!big || reveal < x0 + w) return;
+
+    /* scritte dentro le zone, solo se c'e' spazio */
+    int ty = y + (h - 12) / 2;
+    for (int a = 0; a < SKY_SAMPLES - 1; )
+    {
+        int cls = n->s[a] & SK_SUN;
+        int kind = cls == SK_NIGHT ? (sky_lift(n, a) <= 2 ? 2 : 3) : cls == SK_DAY ? 0 : 1;
+        int b = a + 1;
+        while (b < SKY_SAMPLES - 1)
+        {
+            int c2 = n->s[b] & SK_SUN;
+            int k2 = c2 == SK_NIGHT ? (sky_lift(n, b) <= 2 ? 2 : 3) : c2 == SK_DAY ? 0 : 1;
+            if (k2 != kind) break;
+            b++;
+        }
+        int xa = x0 + w * a / (SKY_SAMPLES - 1), xb = x0 + w * b / (SKY_SAMPLES - 1), ww = xb - xa, cx = (xa + xb) / 2;
+        char lab[24];
+        lab[0] = 0;
+        if (kind == 1) snprintf(lab, sizeof(lab), "%s", a < SKY_SAMPLES / 2 ? "sera" : "alba");
+        if (kind == 2) snprintf(lab, sizeof(lab), "%s", ww >= 110 ? "cielo buio" : "buio");
+        if (kind == 3)
+        {
+            /* Luna: la sua fase disegnata e la scritta */
+            int iw = 18;
+            snprintf(lab, sizeof(lab), ww >= 120 ? "Luna %d%%" : "Luna", (n->moon_illum + 5) / 10);
+            int tw = txt_w(FONT_SMALL, lab);
+            if (ww >= iw + tw + 12)
+            {
+                int x = cx - (iw + tw) / 2;
+                draw_moon(x + 7, y + h / 2, 7, n->moon_illum, n->moon_waxing, -1);
+                txt(FONT_SMALL, C_TEXT, x + iw, ty, lab);
+            }
+            else if (ww >= 18) draw_moon(cx, y + h / 2, 7, n->moon_illum, n->moon_waxing, -1);
+            a = b;
+            continue;
+        }
+        if (lab[0] && ww >= txt_w(FONT_SMALL, lab) + 10)
+            txt_c(FONT_SMALL, kind == 2 ? C_DIM : C_TEXT, cx, ty, lab);
+        a = b;
+    }
 }
 
 static void draw_sky()
@@ -1320,37 +1386,34 @@ static void draw_sky()
     }
 
     /* ---- linea del tempo della notte scelta */
-    const int lx = 104, lw = 592, sy = 170, sh = 22;
+    const int lx = 104, lw = 592, sy = 164, sh = 34, gy = sy + sh + 4;
     int rev = lx + lw * phase(now - sky_t0, 0, anim_ms(520), EZ_IO) / 1000;
     if (rev < lx + lw) anim_keep();
-    txt(FONT_SMALL, C_DIM, 24, sy + 5, "Cielo");
-    txt(FONT_SMALL, C_DIM, 24, sy + 27, "Luna");
-    txt(FONT_SMALL, C_DIM, 24, sy + 40, "Via Lattea");
-    int lane = night ? COLOR_BLACK : COLOR_GRAY(6);
-    fill(lane, lx, sy + 29, lw, 8);
-    fill(lane, lx, sy + 42, lw, 8);
-    if (night) { frame_rect(C_LINE, lx - 1, sy + 28, lw + 2, 10, 1); frame_rect(C_LINE, lx - 1, sy + 41, lw + 2, 10, 1); }
+    txt(FONT_SMALL, C_DIM, 24, sy + (sh - 12) / 2, "Cielo");
+    draw_sky_bar(t, lx, sy, lw, sh, rev, 1);
+    /* centro della Via Lattea: verde quando si fotografa (buio e senza Luna), grigio se e' alto ma c'e' luce */
+    int gca = -1;
     for (int i = 0; i < SKY_SAMPLES - 1; i++)
     {
         int xa = lx + lw * i / (SKY_SAMPLES - 1), xb = lx + lw * (i + 1) / (SKY_SAMPLES - 1);
         if (xa >= rev) break;
         xb = MIN(xb, rev);
-        int v = t->s[i], cls = v & SK_SUN;
-        fill(sky_color(cls), xa, sy, xb - xa, sh);
-        if (cls == SK_NIGHT && (i * 37) % 5 == 0) fill(night ? COLOR_DARK_RED : COLOR_GRAY(60), xa + (i * 13) % 5, sy + 3 + (i * 7) % (sh - 6), 1, 1);
-        if (cls == SK_NIGHT && !(v & SK_MOON)) fill(C_ACCENT, xa, sy + sh + 1, xb - xa, 3);      /* finestra buona */
-        if (v & SK_MOON) fill(moon_shade(t, i), xa, sy + 29, xb - xa, 8);
-        if (v & SK_GC) fill(cls == SK_NIGHT && !(v & SK_MOON) ? C_OK : night ? COLOR_DARK_RED : COLOR_GRAY(30), xa, sy + 42, xb - xa, 8);
+        int v = t->s[i];
+        if (!(v & SK_GC)) continue;
+        int ok = (v & SK_SUN) == SK_NIGHT && !(v & SK_MOON);
+        if (ok) fill(C_OK, xa, gy, xb - xa, 6);                      /* da fotografare: barra piena */
+        else fill(night ? COLOR_DARK_RED : COLOR_GRAY(30), xa, gy + 2, xb - xa, 2);   /* alto ma c'e' luce: solo una linea */
+        if (gca < 0) gca = i;
     }
-    frame_rect(C_LINE, lx - 1, sy - 1, lw + 2, sh + 2, 1);
+    txt(FONT_SMALL, gca >= 0 ? C_DIM : C_LINE, 24, gy - 3, "Via Lattea");
     for (int h = 0; h <= 16; h++)                          /* ore: 16 ... 8 */
     {
         int x = lx + lw * h / 16;
-        fill(C_LINE, x, sy + 52, 1, h % 2 ? 2 : 4);
+        fill(C_LINE, x, gy + 9, 1, h % 2 ? 2 : 4);
         if (h % 2 == 0)
         {
             snprintf(buf, sizeof(buf), "%d", (16 + h) % 24);
-            txt_c(FONT_SMALL, C_DIM, x, sy + 57, buf);
+            txt_c(FONT_SMALL, C_DIM, x, gy + 14, buf);
         }
     }
     if (sky_sel == 0)
@@ -1362,7 +1425,7 @@ static void draw_sky()
         if (since >= 0 && since <= 960)
         {
             int x = lx + lw * since / 960;
-            fill(C_ACCENT, x - 1, sy - 4, 3, 56);
+            fill(C_ACCENT, x - 1, sy - 4, 3, gy + 8 - (sy - 4));
             fill_tri(x - 4, sy - 8, x + 4, sy - 8, x, sy - 3, C_ACCENT);
         }
     }
@@ -1391,7 +1454,7 @@ static void draw_sky()
         draw_moon_icon(146, ry + 11, 8, n->moon_illum, n->moon_waxing);
         snprintf(buf, sizeof(buf), "%d%%", (n->moon_illum + 5) / 10);
         txt_in(FONT_MED, mine ? C_TEXT : C_DIM, 160, ry, buf, er, 24, 0);
-        draw_night_strip(n, mx, ry + 5, mw, 12, mx + mw * er / 1000);
+        draw_sky_bar(n, mx, ry + 5, mw, 12, mx + mw * er / 1000, 0);
         snprintf(buf, sizeof(buf), "%dh%02d", n->moonless_min / 60, n->moonless_min % 60);
         txt_in(FONT_MED, C_TEXT, 512, ry, buf, er, 24, 0);
         if (i == sky_best && er >= 1000) star(512 + txt_w(FONT_MED, buf) + 10, ry + 11, 3, C_ACCENT);

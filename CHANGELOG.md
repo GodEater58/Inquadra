@@ -11,7 +11,7 @@
   - Torna alla 6D: riepilogo, un'icona per ogni tipo di modifica e un pulsante grande
 - **Calendario del cielo: la Luna conta anche per quanto illumina il cielo**
   - per ogni notte: fin dove si vedono le stelle a occhio nudo col cielo buio e con la Luna in cielo, per esempio *Stelle fino a mag 6,1; con la Luna 5,5 (sorge alle 23:06)*. Brillanza del cielo allo zenit col modello di Krisciunas e Schaefer (fase e altezza della Luna), magnitudine limite con la formula usata per gli SQM; confrontato con astropy, scarto 0,0
-  - la striscia della Luna è tanto più chiara quanto più schiarisce il cielo: una falce sottile quasi non si vede, la Luna piena alta sì
+  - **linea del tempo più intuitiva**: una sola barra del cielo dove più scuro vuol dire meglio. Azzurro e blu il giorno e il crepuscolo, nero il cielo buio con le stelline, grigio quando c'è la Luna (più chiaro quanto più illumina, e con meno stelline). Le zone sono scritte dentro la barra: *sera*, *cielo buio*, *Luna 49%* con la sua fase disegnata, *alba*. Sotto, il centro della Via Lattea: barra verde quando si fotografa, linea sottile quando è alto ma c'è luce. Le righe dei 7 giorni usano gli stessi colori, senza legenda da imparare
   - la notte migliore si sceglie con le stelle visibili ora per ora, non solo con le ore senza Luna
   - nuova voce in Opzioni › Luogo e ora: **Cielo del luogo** (da 22,0 *molto buio* a 18,5 *centro città*, 21,0 *campagna* di partenza)
   - quando il centro della Via Lattea non c'è in nessuna delle 7 notti, Iride dice quando torna e a che ora: *torna dal 26/2, ore 04:50-05:20* (da Roma; prima notte con almeno mezz'ora utile, confrontata con astropy: un giorno di scarto). Prima diceva solo *non visibile col buio*
