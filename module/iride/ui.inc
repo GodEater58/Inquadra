@@ -96,6 +96,28 @@ static void fill(int c, int x, int y, int w, int h)
     if (w > 0 && h > 0) bmp_fill(c, x, y, w, h);
 }
 
+/* Riga di pixel gia' pronti (0 = trasparente) scritta direttamente nel buffer di disegno.
+ * Sulla 6D ogni bmp_fill costa circa 10 microsecondi: la Luna a segmenti ne chiedeva migliaia
+ * per fotogramma (la Prova della 6D dava 62 ms al Calendario). */
+#ifdef PUT_ROW_HOOK
+void PUT_ROW_HOOK(int x, int y, const unsigned char *px, int n);
+#endif
+static void put_row(int x, int y, const unsigned char *px, int n)
+{
+    if (y < 0 || y >= SCR_H || n <= 0) return;
+    if (x < 0) { px -= x; n += x; x = 0; }
+    if (x + n > SCR_W) n = SCR_W - x;
+    if (n <= 0) return;
+#ifdef PUT_ROW_HOOK
+    PUT_ROW_HOOK(x, y, px, n);
+#else
+    uint8_t *b = bmp_vram();
+    if (!b) return;
+    uint8_t *d = b + y * BMPPITCH + x;
+    for (int i = 0; i < n; i++) if (px[i]) d[i] = px[i];
+#endif
+}
+
 static void frame_rect(int c, int x, int y, int w, int h, int t)
 {
     for (int i = 0; i < t; i++) bmp_draw_rect(c, x + i, y + i, w - 2 * i, h - 2 * i);

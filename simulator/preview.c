@@ -15,8 +15,10 @@ static int len_idle = 0, len_real = 0, to_idle = 0;
 static long sim_ops = 0;               /* operazioni di disegno: fanno da "tempo" per la prova della 6D */
 static void op(const char *fmt, ...)
 {
-    char line[512];
+    char line[2048];
     va_list ap; va_start(ap, fmt); int n = vsnprintf(line, sizeof(line), fmt, ap); va_end(ap);
+    if (n < 0) return;
+    if (n >= (int)sizeof(line)) n = sizeof(line) - 1;     /* mai oltre il buffer: prima poteva copiare memoria a caso */
     sim_ops++;
     char *buf = to_idle ? ops_idle : ops_real;
     int *len = to_idle ? &len_idle : &len_real;
@@ -63,6 +65,18 @@ static void vram_raster(uint8_t c, int x, int y, int w, int h)
 }
 void bmp_fill(uint8_t c, int x, int y, int w, int h) { op("F\t%d\t%d\t%d\t%d\t%d\n", c, x, y, w, h); vram_raster(c, x, y, w, h); }
 void bmp_draw_rect(int c, int x, int y, int w, int h) { op("R\t%d\t%d\t%d\t%d\t%d\n", c, x, y, w, h); }
+/* riga di pixel scritta direttamente nella memoria video (0 = trasparente) */
+void sim_put_row(int x, int y, const unsigned char *px, int n)
+{
+    static char hex[2 * 720 + 1];
+    static const char hd[] = "0123456789abcdef";
+    n = n > 720 ? 720 : n;
+    for (int i = 0; i < n; i++) { hex[2 * i] = hd[px[i] >> 4]; hex[2 * i + 1] = hd[px[i] & 15]; }
+    hex[2 * n] = 0;
+    op("P\t%d\t%d\t%s\n", x, y, hex);
+    uint8_t *buf = (to_idle ? vram_b : vram_a) + 30 * 960 + y * 960 + x;
+    for (int i = 0; i < n; i++) if (px[i]) buf[i] = px[i];
+}
 static int offshape = 0, offshape_on = 0; static char offshape_txt[96];
 static void shape_check(const char *what, int x0, int y0, int x1, int y1)
 {

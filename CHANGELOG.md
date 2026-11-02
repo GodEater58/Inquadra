@@ -2,6 +2,8 @@
 
 ## 1.2.1 – 2 novembre 2026
 - **Corretta la riga della macchina nella Prova della 6D** (`IRIDEBEN.TXT`): sulla 6D il simbolo "%" dopo la batteria spostava tutti i valori seguenti di un posto, così la temperatura mostrava i MB liberi (30387) e la scheda risultava vuota. Stesso difetto, e stessa correzione, per l'autonomia della batteria nella Prova e nell'intervallometro (ore e minuti sbagliati)
+- **Calendario più leggero**: la Prova della 6D dava 62 ms per fotogramma (circa 16 al secondo). Quasi tutto era il costo di oltre 5.500 piccoli riempimenti: la Luna disegnata a segmenti e le barre delle notti composte campione per campione, stellina per stellina. Ora Luna (quando è già in memoria) e barre si compongono in memoria e vanno sullo schermo una riga alla volta: 49 riempimenti invece di 5.599, disegno identico pixel per pixel. Vale anche per le Lune della Home, del menu Astro e di *Luna da fotografare*
+- La ricerca di quando torna la Via Lattea prova 2 notti per giro invece di 6: stesso tempo totale, ma la schermata non si ferma per quasi un decimo di secondo alla volta
 - Nuovo controllo automatico (`check_formats.py`) che blocca questo tipo di formato prima della compilazione
 
 ## 1.2 – 2 novembre 2026

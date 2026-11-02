@@ -25,6 +25,13 @@ def render(opsfile, bg=None):
             c,x,y,r,fill = map(int,p[1:6]); col = pal(c); col = (col+(255,)) if col else (0,0,0,0)
             if fill: d.ellipse([x-r,y-r,x+r,y+r], fill=col)
             else: d.ellipse([x-r,y-r,x+r,y+r], outline=col)
+        elif t == "P":
+            x,y = int(p[1]), int(p[2]); hx = p[3]
+            for i in range(len(hx)//2):
+                c = int(hx[2*i:2*i+2], 16)
+                if c:
+                    col = pal(c)
+                    d.point((x+i, y), fill=(col+(255,)) if col else (0,0,0,0))
         elif t == "L":
             c,x1,y1,x2,y2 = map(int,p[1:6]); col = pal(c); d.line([x1,y1,x2,y2], fill=(col+(255,)) if col else (0,0,0,0))
         elif t == "T":

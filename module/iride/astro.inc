@@ -1645,7 +1645,7 @@ static int gc_good_night(int d70, int *start, int *end)
 
 static void gc_scan_step()
 {
-    for (int i = 0; i < 6; i++)
+    for (int i = 0; i < 2; i++)                    /* sulla 6D ogni notte provata costa ~15 ms: pochi per giro */
     {
         if (gcn_day > gcn_from + 370) { gcn_state = 3; return; }
         if (gc_good_night(gcn_day, 0, 0))
@@ -1841,31 +1841,47 @@ static int sky_px(const struct night *n, int i)
 
 /* la striscia della notte: colore del cielo, stelle (meno con la Luna), centro della Via Lattea in verde.
    big: puntini piu' fitti e scritte dentro le zone (sera, buio, Luna, alba) */
+#define SKYBAR_W 640
+#define SKYBAR_H 40
+static unsigned char skybar_px[SKYBAR_W * SKYBAR_H];
+
 static void draw_sky_bar(const struct night *n, int x0, int y, int w, int h, int reveal, int big)
 {
     int base = COERCE((sky_sqm0() - 180) / 10, 1, 4);      /* stelle col cielo del luogo, senza Luna */
-    for (int i = 0; i < SKY_SAMPLES - 1; i++)
+    /* la barra si compone in memoria e va sullo schermo una riga alla volta: prima erano un
+       riempimento per campione e uno per stellina, centinaia per riga del Calendario */
+    w = MIN(w, SKYBAR_W); h = MIN(h, SKYBAR_H);
+    int vis = COERCE(reveal - x0, 0, w);
+    if (vis > 0)
     {
-        int xa = x0 + w * i / (SKY_SAMPLES - 1), xb = x0 + w * (i + 1) / (SKY_SAMPLES - 1);
-        if (xa >= reveal) break;
-        xb = MIN(xb, reveal);
-        int v = n->s[i];
-        fill(sky_px(n, i), xa, y, xb - xa, h);
-        if ((v & SK_SUN) == SK_NIGHT)
+        unsigned char *pb = skybar_px;
+        for (int i = 0; i < SKY_SAMPLES - 1; i++)
         {
-            int dots = COERCE(base - sky_lift(n, i) / 5, 0, 4);   /* la Luna spegne le stelle */
-            if (!big) dots = (i % 3 == 0 && dots >= 2);
-            for (int k = 0; k < dots; k++)
+            int xa = w * i / (SKY_SAMPLES - 1), xb = w * (i + 1) / (SKY_SAMPLES - 1);
+            if (xa >= vis) break;
+            xb = MIN(xb, vis);
+            int v = n->s[i];
+            unsigned char c0 = (unsigned char)sky_px(n, i);
+            for (int r = 0; r < h; r++) memset(pb + r * SKYBAR_W + xa, c0, xb - xa);
+            if ((v & SK_SUN) == SK_NIGHT)
             {
-                unsigned hsh = (unsigned)(i * 2654435761u + k * 40503u);
-                int band = big ? (h - 4) / 3 : h - 4;            /* nella grande lascia libero il centro per le scritte */
-                int yy = (hsh >> 8) % MAX(1, band);
-                if (big && (hsh & 1)) yy += h - 4 - band;
-                int c = night ? ((hsh >> 4) & 1 ? COLOR_RED : COLOR_DARK_RED) : ((hsh >> 4) & 3 ? COLOR_GRAY(70) : COLOR_WHITE);
-                fill(c, xa + (int)((hsh >> 16) % MAX(1, xb - xa)), y + 2 + yy, 1, 1);
+                int dots = COERCE(base - sky_lift(n, i) / 5, 0, 4);   /* la Luna spegne le stelle */
+                if (!big) dots = (i % 3 == 0 && dots >= 2);
+                for (int k = 0; k < dots; k++)
+                {
+                    unsigned hsh = (unsigned)(i * 2654435761u + k * 40503u);
+                    int band = big ? (h - 4) / 3 : h - 4;            /* nella grande lascia libero il centro per le scritte */
+                    int yy = (hsh >> 8) % MAX(1, band);
+                    if (big && (hsh & 1)) yy += h - 4 - band;
+                    int c = night ? ((hsh >> 4) & 1 ? COLOR_RED : COLOR_DARK_RED) : ((hsh >> 4) & 3 ? COLOR_GRAY(70) : COLOR_WHITE);
+                    int dx = xa + (int)((hsh >> 16) % MAX(1, xb - xa)), dy = 2 + yy;
+                    if (dx < vis && dy < h) pb[dy * SKYBAR_W + dx] = (unsigned char)c;
+                }
             }
+            if (!big && (v & SK_GC) && (v & SK_SUN) == SK_NIGHT && !(v & SK_MOON))
+                for (int r = MAX(0, h - 3); r < h; r++) memset(pb + r * SKYBAR_W + xa, (unsigned char)C_OK, xb - xa);
         }
-        if (!big && (v & SK_GC) && (v & SK_SUN) == SK_NIGHT && !(v & SK_MOON)) fill(C_OK, xa, y + h - 3, xb - xa, 3);
+        for (int r = 0; r < h; r++) put_row(x0, y + r, pb + r * SKYBAR_W, vis);
     }
     frame_rect(C_LINE, x0 - 1, y - 1, w + 2, h + 2, 1);
     if (!big || reveal < x0 + w) return;

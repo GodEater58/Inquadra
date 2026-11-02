@@ -456,19 +456,18 @@ static void draw_moon(int cx, int cy, int r, int illum, int waxing, int bg)
             }
             w.nc = nc;
         }
+        if (row)
+        {
+            /* con la memoria: la riga si calcola (se serve) e si scrive tutta in una volta */
+            if (!hit)
+                for (int px = -r; px <= r; px++) row[px + r] = south ? moon_px(&w, -px, -py) : moon_px(&w, px, py);
+            put_row(cx - r, cy + py, row, side);
+            continue;
+        }
         int run_c = 0, run_x = 0;
         for (int px = -r; px <= r + 1; px++)
         {
-            int c = 0;
-            if (px <= r)
-            {
-                if (hit) c = row[px + r];
-                else
-                {
-                    c = south ? moon_px(&w, -px, -py) : moon_px(&w, px, py);
-                    if (row) row[px + r] = c;
-                }
-            }
+            int c = px <= r ? (south ? moon_px(&w, -px, -py) : moon_px(&w, px, py)) : 0;
             if (c != run_c)
             {
                 if (run_c) fill(run_c, cx + run_x, cy + py, px - run_x, 1);
