@@ -13,8 +13,13 @@
 - Animazioni più regolari: un fotogramma più lento del solito non le ferma più a metà
 - In Live View Iride si ridisegna ogni 250 ms, così il menu Canon che ML risveglia ogni 2 secondi non si vede sopra
 - Corretto: un testo che finisce con uno spazio poteva far leggere oltre la sua fine
+- **Fuoco sulle stelle, tre correzioni nella misura:**
+  - con la stella molto sfocata l'HFR si fermava a circa 12 (e poteva perfino calare girando nel verso sbagliato): ora l'apertura di misura si allarga da sola e il valore cresce sempre con la sfocatura (provato fino a 26)
+  - la stella veniva cercata anche sotto il pannello in basso, dove non si vede: ora l'area di ricerca è esattamente il riquadro disegnato
+  - un pixel caldo più luminoso di una stella debole poteva "vincere" e far dire "nessuna stella"; due pixel caldi vicini potevano essere presi per una stella. Ora il candidato si sceglie dai pixel intorno e servono almeno 4 pixel di stella
+  - accanto all'HFR compare "meglio" o "peggio" rispetto alle misure precedenti; se la stella è satura il consiglio è di abbassare l'ISO
 - Menu Astro e Foto: lo stato delle voci si ricalcola ogni 300 ms invece che a ogni fotogramma
-- Simulatore: 87 test, con 6000 tasti a caso su tutte le schermate controllati con AddressSanitizer
+- Simulatore: 91 test, con 6000 tasti a caso su tutte le schermate controllati con AddressSanitizer
 
 ## 1.0 – 1 novembre 2026
 - **Descrizioni dei rullini riscritte e verificate** su schede tecniche e prove: due righe per pellicola, carattere e uso ideale. Corrette le imprecisioni: Delta 3200 (ISO reale 1000, a 3200 è già tirata), CineStill 800T (pellicola cinema al tungsteno, aloni rossi, di giorno vira al blu), Ektar (la grana più fine, calca i rossi sulla pelle), Superia (verdi intensi, palette fresca), Velvia (tolleranza minima, meglio in luce morbida), Ektachrome E100 (neutra con tendenza fredda) e le altre. Stesse descrizioni nei preset XMP

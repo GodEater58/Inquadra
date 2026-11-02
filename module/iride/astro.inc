@@ -263,8 +263,41 @@ static int focus_step = 2;
 
 static int luma(const uint8_t *buf, int pitch, int x, int y) { return buf[y * pitch + x * 2 + 1]; }
 
-/* stella piu' luminosa, fondo cielo dalla mediana dell'anello, soglia di rumore dal MAD,
- * centroide pesato, HFR = raggio medio pesato sulla luce (come StarMeter di Iride) */
+/* area di ricerca, in frazioni dello schermo: e' esattamente il riquadro disegnato, sopra il
+   pannello in basso (prima la ricerca arrivava fin sotto il pannello, dove la stella non si vede) */
+#define SR_X0 144
+#define SR_X1 576
+#define SR_Y0 86
+#define SR_Y1 328
+
+/* fondo cielo e soglia di rumore dall'anello tra r e ro intorno a (bx, by):
+   mediana e MAD dell'anello (come StarMeter di Iride) */
+static int ring_stats(const uint8_t *b, int W, int H, int Pt, int bx, int by, int r, int ro, int *bg_out, int *thr_out)
+{
+    static int hist[256], dev[256];
+    memset(hist, 0, sizeof(hist));
+    int cnt = 0;
+    for (int y = MAX(by - ro, 0); y <= MIN(by + ro, H - 1); y++)
+        for (int x = MAX(bx - ro, 0); x <= MIN(bx + ro, W - 1); x++)
+        {
+            int dx = x - bx, dy = y - by, d2 = dx * dx + dy * dy;
+            if (d2 > r * r && d2 <= ro * ro) { hist[luma(b, Pt, x, y)]++; cnt++; }
+        }
+    if (cnt < 8) return 0;
+    int acc = 0, bg = 0;
+    for (bg = 0; bg < 255; bg++) { acc += hist[bg]; if (acc * 2 >= cnt) break; }
+    memset(dev, 0, sizeof(dev));
+    for (int i = 0; i < 256; i++) if (hist[i]) dev[ABS(i - bg)] += hist[i];
+    int mad = 0;
+    for (acc = 0, mad = 0; mad < 255; mad++) { acc += dev[mad]; if (acc * 2 >= cnt) break; }
+    *bg_out = bg;
+    *thr_out = bg + MAX(4, (mad * 3 * 3) / 2);
+    return 1;
+}
+
+/* stella piu' luminosa nel riquadro, centroide pesato, HFR = raggio medio pesato sulla luce.
+ * L'apertura si allarga se la stella e' molto sfocata: prima oltre ~12 px di HFR il valore
+ * smetteva di crescere (e poteva perfino calare), ingannando chi gira la ghiera. */
 static int hfr_measure(int *hfr100, int *peak_out, int *cx_out, int *cy_out, int *r_out)
 {
     struct vram_info *v = get_yuv422_vram();
@@ -273,86 +306,76 @@ static int hfr_measure(int *hfr100, int *peak_out, int *cx_out, int *cy_out, int
     int W = v->width, H = v->height, Pt = v->pitch;
     if (W < 64 || H < 64 || Pt < W * 2) return 0;
 
-    int r = MAX(8, W * 35 / 1000), ring = 5, m = r + ring + 2;
-    int sx0 = MAX(m, W * 2 / 10), sx1 = MIN(W - m, W * 8 / 10);
-    int sy0 = MAX(m, H * 2 / 10), sy1 = MIN(H - m, H * 8 / 10);
+    int sx0 = MAX(1, W * SR_X0 / SCR_W), sx1 = MIN(W - 2, W * SR_X1 / SCR_W);
+    int sy0 = MAX(1, H * SR_Y0 / SCR_H), sy1 = MIN(H - 2, H * SR_Y1 / SCR_H);
 
+    /* candidato: somma 3x3 senza il pixel centrale, cosi' un pixel caldo isolato non vince */
     int best = -1, bx = 0, by = 0;
     for (int y = sy0; y < sy1; y += 2)
         for (int x = sx0; x < sx1; x += 2)
         {
             int s = luma(b, Pt, x - 1, y - 1) + luma(b, Pt, x, y - 1) + luma(b, Pt, x + 1, y - 1)
-                  + luma(b, Pt, x - 1, y)     + luma(b, Pt, x, y)     + luma(b, Pt, x + 1, y)
+                  + luma(b, Pt, x - 1, y)                             + luma(b, Pt, x + 1, y)
                   + luma(b, Pt, x - 1, y + 1) + luma(b, Pt, x, y + 1) + luma(b, Pt, x + 1, y + 1);
             if (s > best) { best = s; bx = x; by = y; }
         }
     if (best < 0) return 0;
 
-    static int hist[256], dev[256];
-    memset(hist, 0, sizeof(hist));
-    int cnt = 0, ro = r + ring;
-    for (int y = by - ro; y <= by + ro; y++)
+    int r = MAX(8, W * 35 / 1000), rmax = MAX(r, W * 125 / 1000);
+    float cx = (float)bx, cy = (float)by;
+    int h = 0, peak = 0, npx = 0;
+    for (int pass = 0; pass < 4; pass++)
     {
-        if (y < 0 || y >= H) continue;
-        for (int x = bx - ro; x <= bx + ro; x++)
+        int bg, thr, ro = r + MAX(5, r / 5);
+        if (!ring_stats(b, W, H, Pt, (int)cx, (int)cy, r, ro, &bg, &thr)) return 0;
+        float rr = (float)(r * r);
+        for (int it = 0; it < 3; it++)
         {
-            if (x < 0 || x >= W) continue;
-            int dx = x - bx, dy = y - by, d2 = dx * dx + dy * dy;
-            if (d2 > r * r && d2 <= ro * ro) { hist[luma(b, Pt, x, y)]++; cnt++; }
+            float sum = 0.0f, sxw = 0.0f, syw = 0.0f;
+            peak = 0;
+            int y0 = MAX(0, (int)cy - r), y1 = MIN(H - 1, (int)cy + r);
+            int x0 = MAX(0, (int)cx - r), x1 = MIN(W - 1, (int)cx + r);
+            for (int y = y0; y <= y1; y++)
+                for (int x = x0; x <= x1; x++)
+                {
+                    float dx = (float)x - cx, dy = (float)y - cy;
+                    if (dx * dx + dy * dy > rr) continue;
+                    int val = luma(b, Pt, x, y);
+                    if (val > peak) peak = val;
+                    if (val <= thr) continue;
+                    int f = val - bg;
+                    sum += (float)f; sxw += (float)(f * x); syw += (float)(f * y);
+                }
+            if (sum <= 0.0f) return 0;
+            cx = sxw / sum;
+            cy = syw / sum;
         }
-    }
-    if (cnt < 8) return 0;
-    int acc = 0, bg = 0;
-    for (bg = 0; bg < 255; bg++) { acc += hist[bg]; if (acc * 2 >= cnt) break; }
-    memset(dev, 0, sizeof(dev));
-    for (int i = 0; i < 256; i++) if (hist[i]) dev[ABS(i - bg)] += hist[i];
-    int mad = 0;
-    for (acc = 0, mad = 0; mad < 255; mad++) { acc += dev[mad]; if (acc * 2 >= cnt) break; }
-    int thr = bg + MAX(4, (mad * 3 * 3) / 2);
+        if (peak - bg < 25) return 0;
 
-    float cx = (float)bx, cy = (float)by, rr = (float)(r * r);
-    int peak = 0;
-    for (int it = 0; it < 3; it++)
-    {
-        float sum = 0.0f, sxw = 0.0f, syw = 0.0f;
-        peak = 0;
+        float sum = 0.0f, sd = 0.0f;
+        npx = 0;
         int y0 = MAX(0, (int)cy - r), y1 = MIN(H - 1, (int)cy + r);
         int x0 = MAX(0, (int)cx - r), x1 = MIN(W - 1, (int)cx + r);
         for (int y = y0; y <= y1; y++)
             for (int x = x0; x <= x1; x++)
             {
-                float dx = (float)x - cx, dy = (float)y - cy;
-                if (dx * dx + dy * dy > rr) continue;
+                float dx = (float)x - cx, dy = (float)y - cy, d2 = dx * dx + dy * dy;
+                if (d2 > rr) continue;
                 int val = luma(b, Pt, x, y);
-                if (val > peak) peak = val;
                 if (val <= thr) continue;
                 int f = val - bg;
-                sum += (float)f; sxw += (float)(f * x); syw += (float)(f * y);
+                sum += (float)f; sd += (float)f * sqrtf(d2);
+                npx++;
             }
-        if (sum <= 0.0f) return 0;
-        cx = sxw / sum;
-        cy = syw / sum;
+        if (sum <= 0.0f || npx < 4) return 0;   /* uno o due pixel caldi non sono una stella */
+        h = (int)(sd / sum * 100.0f);
+        /* la luce arriva fino al bordo dell'apertura: si allarga e si rimisura */
+        int want = MIN(rmax, h * 3 / 100 + 4);
+        if (want <= r + 2) break;
+        r = want;
     }
-    if (peak - bg < 25) return 0;
 
-    float sum = 0.0f, sd = 0.0f;
-    int npx = 0;
-    int y0 = MAX(0, (int)cy - r), y1 = MIN(H - 1, (int)cy + r);
-    int x0 = MAX(0, (int)cx - r), x1 = MIN(W - 1, (int)cx + r);
-    for (int y = y0; y <= y1; y++)
-        for (int x = x0; x <= x1; x++)
-        {
-            float dx = (float)x - cx, dy = (float)y - cy, d2 = dx * dx + dy * dy;
-            if (d2 > rr) continue;
-            int val = luma(b, Pt, x, y);
-            if (val <= thr) continue;
-            int f = val - bg;
-            sum += (float)f; sd += (float)f * sqrtf(d2);
-            npx++;
-        }
-    if (sum <= 0.0f || npx < 2) return 0;   /* un pixel caldo isolato non e' una stella */
-
-    *hfr100 = (int)(sd / sum * 100.0f);
+    *hfr100 = h;
     *peak_out = peak;
     *cx_out = (int)cx;
     *cy_out = (int)cy;
@@ -396,9 +419,9 @@ static void draw_stars()
     snprintf(buf, sizeof(buf), "zoom x%d     passo %d", lv_dispsize == 10 ? 10 : lv_dispsize == 5 ? 5 : 1, focus_step);
     txt(FONT_MED, C_DIM, 16, 50, buf);
 
-    /* cornice dell'area di ricerca */
-    bmp_draw_rect(C_LINE, 144, 96, 432, 228);
-    if (star_x >= 0 && star_y > 96 && star_y < 324)
+    /* cornice dell'area di ricerca (la stessa usata dalla misura) */
+    bmp_draw_rect(C_LINE, SR_X0, SR_Y0, SR_X1 - SR_X0, SR_Y1 - SR_Y0);
+    if (star_x >= 0 && star_y > 46 && star_y < 336)
     {
         draw_circle(star_x, star_y, star_r, C_ACCENT);
         draw_circle(star_x, star_y, star_r + 1, C_ACCENT);
@@ -423,8 +446,17 @@ static void draw_stars()
         snprintf(buf, sizeof(buf), "HFR %s", a);
         int good = hfr_best > 0 && hfr_last * 100 <= hfr_best * 105;
         txt(FONT_LARGE, good ? C_OK : C_TEXT, 16, 344, buf);
-        snprintf(buf, sizeof(buf), "migliore %d.%02d   picco %d%s", hfr_best / 100, hfr_best % 100, hfr_peak,
-            hfr_peak >= 250 ? " satura" : "");
+        /* tendenza rispetto alla media delle 3 misure precedenti */
+        if (hfr_count >= 4)
+        {
+            int prev = 0;
+            for (int k = 2; k <= 4; k++) prev += hfr_hist[(hfr_count - k) % HFR_HIST];
+            prev /= 3;
+            const char *tr = hfr_last * 100 < prev * 97 ? "meglio" : hfr_last * 100 > prev * 103 ? "peggio" : 0;
+            if (tr) txt(FONT_MED, hfr_last < prev ? C_OK : C_WARN, 16 + txt_w(FONT_LARGE, buf) + 14, 352, tr);
+        }
+        if (hfr_peak >= 250) snprintf(buf, sizeof(buf), "migliore %d.%02d   stella satura: abbassa ISO", hfr_best / 100, hfr_best % 100);
+        else snprintf(buf, sizeof(buf), "migliore %d.%02d   picco %d", hfr_best / 100, hfr_best % 100, hfr_peak);
         txt(FONT_MED, hfr_peak >= 250 ? C_WARN : C_DIM, 16, 392, buf);
     }
     int gx = 380, gy = 344, gw = 320, gh = 88;

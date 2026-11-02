@@ -335,6 +335,30 @@ int main(void)
     }
     make_sky(2.0f, 0.0f, 300, 200);
     { int h, p, cx, cy, r; CHECK(!hfr_measure(&h, &p, &cx, &cy, &r), "cielo senza stelle: nessuna misura"); }
+    {
+        /* molto sfocata: l'HFR deve continuare a crescere (prima si fermava a ~12 e poi calava) */
+        float sg[] = { 2, 5, 8, 12, 16, 22 };
+        int prev = 0, mono = 1, h, p, cx, cy, r;
+        for (unsigned i = 0; i < COUNT(sg); i++)
+        {
+            make_sky(sg[i], 200.0f, 360, 220);
+            if (!hfr_measure(&h, &p, &cx, &cy, &r) || h <= prev || fabsf((float)h / 100.0f - sg[i] * 1.2533f) > 0.15f * sg[i] * 1.2533f) mono = 0;
+            prev = h;
+        }
+        CHECK(mono, "HFR cresce sempre con la sfocatura, fino a sigma 22 (ultima %.1f, apertura %d px)", (double)prev / 100.0, r);
+        /* stella sotto il pannello in basso, fuori dal riquadro: non va scelta */
+        make_sky(2.0f, 160.0f, 360, 360);
+        CHECK(!hfr_measure(&h, &p, &cx, &cy, &r), "stella nascosta dal pannello in basso: ignorata");
+        /* due pixel caldi vicini non sono una stella */
+        make_sky(2.0f, 0.0f, 300, 200);
+        lvbuf[200 * 1440 + 400 * 2 + 1] = 255; lvbuf[200 * 1440 + 401 * 2 + 1] = 240;
+        CHECK(!hfr_measure(&h, &p, &cx, &cy, &r), "due pixel caldi vicini: nessuna stella");
+        /* un pixel caldo piu' luminoso di una stella debole: vince la stella */
+        make_sky(1.8f, 34.0f, 300, 180);
+        lvbuf[250 * 1440 + 450 * 2 + 1] = 255;
+        int ok = hfr_measure(&h, &p, &cx, &cy, &r);
+        CHECK(ok && ABS(cx - 300) <= 1 && ABS(cy - 180) <= 1, "pixel caldo piu' luminoso di una stella debole: misurata la stella (%d, %d)", cx, cy);
+    }
 
     /* ---------- salvataggio su scheda */
     P.roll_num = 7; P.lat100 = 4400; P.prof[2].valid = 1; P.prof[2].iso = 96;

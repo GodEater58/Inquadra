@@ -6,7 +6,7 @@ Magic Lantern per 6D 1.1.6 (build ufficiale del 20/06/2025, commit ed3e7c0)
 
 ATTENZIONE
 - Sperimentale. Prime prove su una 6D vera: rullini e nomi dei file funzionano.
-  Il resto: 87 test superati sul simulatore, calcoli astronomici confrontati
+  Il resto: 91 test superati sul simulatore, calcoli astronomici confrontati
   con astropy, compilato contro il firmware 1.1.6.
 - Magic Lantern gira dalla scheda e non modifica la ROM: con una scheda senza
   ML la macchina e' quella di sempre.
@@ -51,7 +51,9 @@ ASTRO       Via Lattea: regola NPF, SET applica tempo, diaframma, ISO, 3900 K.
               Dark, Flat, Bias. Cestino = stop.
             Fuoco stelle: START/STOP accende il Live View (Iride si chiude
               un attimo e torna qui), SET zoom x5/x10, sinistra/destra fuoco,
-              HFR piu' basso = piu' a fuoco. START/STOP di nuovo: LV spento.
+              HFR piu' basso = piu' a fuoco, accanto "meglio" o "peggio".
+              La stella va cercata dentro il riquadro.
+              START/STOP di nuovo: LV spento.
             Allineamento polare: posizione della Polare sul reticolo
               (INFO, SET o sinistra/destra: occhio nudo / cannocchiale
               capovolto) e mappa del cielo a nord con Grande Carro e
