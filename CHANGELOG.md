@@ -19,6 +19,7 @@
 - **Prova della 6D** (Opzioni › Strumenti): misura i tempi di disegno e dei calcoli sulla macchina vera e li salva in `ML/LOGS/IRIDEBEN.TXT`. Gli avvisi mostrati da Iride finiscono anche nel registro `ML/LOGS/IRIDE.CSV`
 - Calendario: gli orari della Via Lattea non escono più dal bordo destro mentre la riga entra
 - Simulatore: 148 test (fuoco automatico con gioco degli ingranaggi da 0 a 4 passi, sessione, dithering, batteria, scheda piena, città e fusi, aiuto); controllo dei fusi con `check_tz.py`
+- Comprende anche le novità della 1.1, che non era uscita come release: sottomenu ridisegnati, Luna disegnata dal vero, Calendario con la luce della Luna e il ritorno della Via Lattea, correzioni del fuoco sulle stelle (dettagli nel [CHANGELOG](https://github.com/GodEater58/Iride-6D/blob/main/CHANGELOG.md))
 
 ## 1.1 – 2 novembre 2026
 - **Sottomenu ridisegnati** con la stessa cura della Home:
