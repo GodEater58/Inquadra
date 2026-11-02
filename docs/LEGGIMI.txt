@@ -1,4 +1,4 @@
-IRIDE 6D 1.0 per Canon EOS 6D (firmware Canon 1.1.6)
+IRIDE 6D 1.1 per Canon EOS 6D (firmware Canon 1.1.6)
 =====================================================
 
 Magic Lantern per 6D 1.1.6 (build ufficiale del 20/06/2025, commit ed3e7c0)
@@ -41,6 +41,9 @@ COSA C'E'
 ---------
 HOME        Astro, Foto, Rullini, Torna alla 6D, Profili, Opzioni.
             Il pallino arancione in alto = ci sono impostazioni da ripristinare.
+            Nei menu Astro e Foto a destra c'e' la voce scelta: a cosa serve
+            e com'e' adesso (pallino verde = attiva). In alto il percorso,
+            per esempio Astro > Via Lattea.
 
 ASTRO       Via Lattea: regola NPF, SET applica tempo, diaframma, ISO, 3900 K.
             Intervallometro: Via Lattea, Deep sky, Star trails, Timelapse,

@@ -93,26 +93,37 @@ static void npf_extra()
     char buf[96], a[12], b[12];
     int t10 = npf_tenths(P.npf_focal, P.npf_ap10);
     int r500 = P.npf_focal > 0 ? 5000 / P.npf_focal : 0;
-    int y = 196;
-    fill(C_PANEL, 24, y, SCR_W - 48, 120);
-    txt(FONT_MED, C_DIM, 44, y + 10, "Tempo massimo (regola NPF)");
-    fmt_tenths(a, sizeof(a), t10);
+    int y = 198;
+    info_card(24, y, SCR_W - 48, 130, "TEMPO MASSIMO CON LE STELLE PUNTIFORMI (NPF)");
+    fmt_tenths(a, sizeof(a), MIN(t10, 9999));
     snprintf(buf, sizeof(buf), "%s s", a);
-    txt(FONT_LARGE, C_ACCENT, 44, y + 44, buf);
-    int x2 = 380;
+    txt(FONT_LARGE, t10 > 300 ? C_WARN : C_ACCENT, 44, y + 32, buf);
+    /* confronto: barra NPF e barra regola del 500 sulla stessa scala */
+    int mx = MAX(MAX(t10, r500 * 10 / 10), 1);
+    int bw = 260;
+    fill(C_PANEL2, 44, y + 80, bw, 8);
+    fill(C_ACCENT, 44, y + 80, bw * MIN(t10, mx) / mx, 8);
+    fill(C_PANEL2, 44, y + 100, bw, 8);
+    fill(C_LINE, 44, y + 100, bw * MIN(r500, mx) / mx, 8);
+    txt(FONT_SMALL, C_DIM, 44 + bw + 10, y + 78, "NPF");
     fmt_tenths(b, sizeof(b), r500);
-    snprintf(buf, sizeof(buf), "Regola del 500: %s s", b);
-    txt(FONT_MED, C_DIM, x2, y + 14, buf);
-    snprintf(buf, sizeof(buf), "ISO %d   bianco 3900 K", P.npf_ap10 <= 20 ? 3200 : 6400);
-    txt(FONT_MED, C_TEXT, x2, y + 48, buf);
-    txt(FONT_MED, C_DIM, x2, y + 82, "RAW, stabilizzatore spento");
-    txt(FONT_MED, C_DIM, 30, 330, lens_info.name[0] ? lens_info.name : "Obiettivo manuale: imposta focale e diaframma");
-    txt(FONT_MED, t10 > 300 ? C_WARN : C_DIM, 30, 362,
-        t10 > 300 ? "Oltre 30 s: imposto 30 s, per di piu' usa Deep sky (posa B)" : "t = (35 x N + 30 x p) / f, con p = 6,54 um");
+    snprintf(buf, sizeof(buf), "regola del 500: %s s", b);
+    txt(FONT_SMALL, C_DIM, 44 + bw + 10, y + 98, buf);
+    int x2 = 420;
+    snprintf(buf, sizeof(buf), "ISO %d", P.npf_ap10 <= 20 ? 3200 : 6400);
+    txt(FONT_MED, C_TEXT, x2 + 60, y + 30, buf);
+    txt(FONT_MED, C_TEXT, x2 + 60, y + 56, "bianco 3900 K");
+    txt(FONT_SMALL, C_DIM, x2, y + 34, "ISO");
+    txt(FONT_SMALL, C_DIM, x2, y + 60, "WB");
+    txt(FONT_SMALL, C_DIM, x2, y + 86, "RAW, stabilizzatore spento");
+    if (t10 > 300) txt(FONT_SMALL, C_WARN, x2, y + 104, "oltre 30 s: imposto 30 s");
+    info_card(24, y + 140, SCR_W - 48, 92, "OBIETTIVO");
+    txt(FONT_MED, C_TEXT, 44, y + 162, lens_info.name[0] ? lens_info.name : "Manuale: imposta focale e diaframma");
+    txt(FONT_SMALL, C_DIM, 44, y + 194, "t = (35 x N + 30 x p) / f      N diaframma, f focale, p pixel 6,54 um");
 }
 
 static const struct form npf_form = { 3, npf_labels, npf_value, npf_change, npf_activate, npf_extra,
-    "^/v riga   </> cambia   SET applica   MENU indietro", 58, 44 };
+    "^/v riga   </> cambia   SET applica   MENU indietro", 58, 44, 0, 0, 0 };
 
 /* ------------------------------------------------------------------ intervallometro */
 
@@ -208,12 +219,39 @@ static void int_activate(int row)
 static void int_extra()
 {
     const struct preset *ps = &presets[COERCE(P.int_preset, 0, NUM_PRESETS - 1)];
-    txt(FONT_MED, C_DIM, 30, 380, ps->note1);
-    txt(FONT_MED, C_DIM, 30, 406, ps->note2);
+    const int x = 456, w = SCR_W - 24 - x;
+    char buf[96];
+    info_card(x, 52, w, 384, "PRESET");
+    txt(FONT_MED_LARGE, C_ACCENT, x + 16, 72, ps->name);
+    /* la sequenza: un rettangolo per scatto, lo spazio e' la pausa */
+    int n = MIN(P.int_count, 12), fw = 12, gap = 2 + MIN(P.int_pause, 10);
+    int fx = x + 16;
+    for (int i = 0; i < n && fx + fw <= x + w - 16; i++, fx += fw + gap)
+        fill(i == 0 ? C_ACCENT : C_DIM, fx, 108, fw, 16);
+    if (P.int_count > n) txt(FONT_SMALL, C_DIM, fx + 2, 110, "...");
+    /* durata: scatti x (posa + pausa) + ritardo */
+    float expo = P.int_bulb > 0 ? (float)P.int_bulb : P.int_preset == PRESET_BIAS ? 0.00025f :
+        lens_info.raw_shutter > 0 ? raw2shutterf(lens_info.raw_shutter) : -1.0f;
+    txt(FONT_SMALL, C_DIM, x + 16, 140, "DURATA");
+    if (expo >= 0.0f)
+    {
+        float tot = (float)P.int_count * expo + (float)(MAX(P.int_count - 1, 0) * P.int_pause)
+                  + (float)delay_steps[COERCE(P.int_delay_idx, 0, (int)COUNT(delay_steps) - 1)];
+        fmt_duration(buf, sizeof(buf), (int)(tot * 10.0f));
+        txt(FONT_LARGE, C_TEXT, x + 16, 156, buf);
+    }
+    else txt(FONT_MED, C_TEXT, x + 16, 160, "dipende dal tempo");
+    if (P.int_preset == 3 || P.int_preset == PRESET_HG)
+    {
+        snprintf(buf, sizeof(buf), "video a 25 fps: %d s", P.int_count / 25);
+        txt(FONT_SMALL, C_DIM, x + 16, 196, buf);
+    }
+    snprintf(buf, sizeof(buf), "%s %s", ps->note1, ps->note2);
+    txt_wrap(FONT_MED, C_DIM, x + 16, 222, w - 30, buf, 25);
 }
 
 static const struct form int_form = { 8, int_labels, int_value, int_change, int_activate, int_extra,
-    "^/v riga   </> cambia   SET avvia   MENU indietro", 52, 40 };
+    "^/v riga   </> cambia   SET avvia   MENU indietro", 52, 48, 0, 420, 0 };
 
 /* ------------------------------------------------------------------ fuoco sulle stelle (HFR) */
 
@@ -583,6 +621,16 @@ static float polar_ha_hours(struct jtime j)
     float ra, dec;
     polaris(j, &ra, &dec);
     return wrap360(lst_deg(j, lon_deg()) - ra) / 15.0f;
+}
+
+/* posizione della Polare sull'orologio, vista a occhio nudo */
+static void polar_clock(int *h, int *m)
+{
+    int d70, mins, off;
+    float ha = polar_ha_hours(jt_now(&d70, &mins, &off));
+    float clock = fmodf(12.0f - ha / 2.0f + 24.0f, 12.0f);
+    *h = (int)clock; *m = (int)((clock - (float)*h) * 60.0f);
+    if (*h == 0) *h = 12;
 }
 
 /* stelle guida intorno al polo (J2000; la precessione non si vede alla scala della mappa) */

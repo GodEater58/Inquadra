@@ -196,26 +196,195 @@ static void home_enter() { hr_to[0] = -1; icon_i = -1; }
 
 /* ------------------------------------------------------------------ menu Astro e Foto */
 
+/* lista a sinistra con le icone, a destra la voce scelta: illustrazione animata,
+   a cosa serve e com'e' adesso */
+struct md_item { void (*icon)(int cx, int cy, int s, int t); const char *desc; };
+
+static const struct md_item astro_md[] = {
+    { ic_milkyway,  "Calcola il tempo piu' lungo prima che le stelle diventino trattini, dalla focale e dal diaframma, e lo imposta con ISO e bianco." },
+    { ic_interval,  "Sequenze automatiche con preset per Via Lattea, deep sky, star trails, timelapse, giorno-notte e i frame di calibrazione." },
+    { ic_starfocus, "Misura la nitidezza di una stella (HFR) in Live View mentre giri il fuoco: piu' basso il numero, piu' e' a fuoco." },
+    { ic_polar,     "Dove mettere la Polare nel cannocchiale polare, con la mappa del cielo a nord per trovarla a occhio." },
+    { ic_calendar,  "Luna, buio e Via Lattea per le prossime 7 notti, ora per ora, con la notte migliore della settimana." },
+    { ic_tag,       "Nomi dei file LGHT, DARK, FLAT o BIAS al posto di IMG_, per ritrovarli nello stacking." },
+};
+static const struct md_item foto_md[] = {
+    { ic_hdr,     "Ogni pressione dello scatto diventa una serie di foto a esposizioni diverse, da unire in HDR." },
+    { ic_fstack,  "Piu' foto con il fuoco spostato tra l'una e l'altra, per avere tutto nitido: macro e paesaggi." },
+    { ic_dual,    "Due ISO nella stessa foto: piu' gamma dinamica nel RAW, da convertire sul PC con cr2hdr." },
+    { ic_ettr,    "Esposizione automatica a destra: la luce piu' alta possibile senza bruciare le alte luci." },
+    { ic_motion,  "Scatta da solo quando qualcosa si muove (fulmini, animali) o quando il soggetto entra a fuoco." },
+    { ic_lvtools, "Peaking, zebra, istogramma, falsi colori, zoom di fuoco ed esposimetro spot nel Live View." },
+    { ic_nd,      "Il tempo giusto con un filtro ND, e lo scatto in posa B quando si superano i 30 secondi." },
+};
+
+static int md_t0 = -100000, md_txt_t0 = -100000;   /* icona grande e testi della voce scelta */
+static void md_enter() { md_t0 = get_ms_clock(); md_txt_t0 = -100000; }
+static void md_select() { md_t0 = md_txt_t0 = get_ms_clock(); }
+
+static void astro_status(int i, char *buf, int len, int *on)
+{
+    char a[12];
+    *on = 0;
+    if (i == 0)
+    {
+        fmt_tenths(a, sizeof(a), npf_tenths(P.npf_focal, P.npf_ap10));
+        char b[12];
+        fmt_tenths(b, sizeof(b), P.npf_ap10);
+        snprintf(buf, len, "%s s con %d mm f/%s", a, P.npf_focal, b);
+    }
+    else if (i == 1) snprintf(buf, len, "%s, %d scatti", presets[COERCE(P.int_preset, 0, NUM_PRESETS - 1)].name, P.int_count);
+    else if (i == 2) { *on = lv; snprintf(buf, len, lv ? "Live View acceso: pronta" : "START/STOP accende il Live View"); }
+    else if (i == 3)
+    {
+        int h, m;
+        polar_clock(&h, &m);
+        snprintf(buf, len, "Polare alle ore %d:%02d", h, m);
+    }
+    else if (i == 4)
+    {
+        int d70, mins, off, wax;
+        struct jtime j = jt_now(&d70, &mins, &off);
+        int ill = moon_illum(j, &wax);
+        snprintf(buf, len, "%s, %d%%", moon_phase_name(ill, wax), (ill + 5) / 10);
+    }
+    else
+    {
+        *on = P.astro_tag != 0;
+        snprintf(buf, len, P.astro_tag ? "Nomi dei file: %s_" : "Nomi dei file normali (IMG_)", tag_names[COERCE(P.astro_tag, 0, NUM_TAGS - 1)]);
+    }
+}
+
+static void foto_status(int i, char *buf, int len, int *on)
+{
+    *on = 0;
+    int v;
+    switch (i)
+    {
+        case 0:
+            v = ml_get(MLF_HDR);
+            *on = v == 1;
+            if (v == INT_MIN) snprintf(buf, len, "modulo di Magic Lantern spento");
+            else if (v == 1) snprintf(buf, len, "attivo: %d scatti da %s", P.hdr_frames, hdr_ev_names[COERCE(P.hdr_step, 0, 3)]);
+            else snprintf(buf, len, "spento");
+            break;
+        case 1: snprintf(buf, len, "%d foto, passo di fuoco %d", P.fs_front + P.fs_behind + 1, P.fs_step); break;
+        case 2:
+            v = ml_get(MLF_DUAL);
+            *on = v == 1;
+            if (v == INT_MIN) snprintf(buf, len, "modulo dual_iso spento");
+            else snprintf(buf, len, v == 1 ? "attivo, recupero ISO %s" : "spento", dual_iso_names[COERCE(P.dual_rec, 0, 2)]);
+            break;
+        case 3:
+            v = ml_get(MLF_ETTR);
+            *on = v == 1;
+            if (v == INT_MIN) snprintf(buf, len, "modulo ettr spento");
+            else snprintf(buf, len, v == 1 ? "attivo: %s" : "spento", ettr_mode_names[COERCE(P.ettr_mode, 0, 3)]);
+            break;
+        case 4:
+        {
+            int md = ml_get(MLF_MD) == 1, tr = ml_get(MLF_TRAP);
+            *on = md || tr > 0;
+            snprintf(buf, len, md ? "scatto su movimento attivo" : tr > 0 && tr != INT_MIN ? "trappola di fuoco attiva" : "spenti");
+            break;
+        }
+        case 5:
+        {
+            int n = 0;
+            for (int k = 0; k < 6; k++) n += ml_get(lv_feats[k]) == 1;
+            *on = n > 0;
+            if (n) snprintf(buf, len, "%d strument%s acces%s", n, n == 1 ? "o" : "i", n == 1 ? "o" : "i");
+            else snprintf(buf, len, "tutti spenti");
+            break;
+        }
+        default:
+        {
+            char d[24];
+            fmt_duration(d, sizeof(d), nd_result_tenths());
+            snprintf(buf, len, "%s: %s diventa %s", nd_names[COERCE(P.nd_idx, 0, NUM_ND - 1)], lens_format_shutter(P.nd_base), d);
+        }
+    }
+}
+
+static void draw_menu_md(const struct menu_row *rows, const struct md_item *it, int n, int s, int rh,
+                         void (*status)(int, char *, int, int *), int value_row)
+{
+    const int lx = 24, lw = 332, y0 = 52, ph = rh - 6;
+    const int box = ph - 12;
+    int now = get_ms_clock();
+    char buf[96];
+    for (int i = 0; i < n; i++) fill(C_PANEL, lx, y0 + i * rh, lw, ph);
+    hl_bar(lx, lw, y0 + s * rh, ph);
+    for (int i = 0; i < n; i++)
+    {
+        int y = y0 + i * rh, mine = i == s;
+        int bx = lx + 14, by = y + 6;
+        fill(C_BG, bx, by, box, box);
+        frame_rect(mine ? C_ACCENT : C_LINE, bx, by, box, box, 1);
+        it[i].icon(bx + box / 2, by + box / 2, box - 6, -1);
+        int tx = bx + box + 14;
+        txt(FONT_MED, mine ? C_TEXT : C_TEXT, tx, y + (ph - 23) / 2, rows[i].title);
+        int on;
+        status(i, buf, sizeof(buf), &on);
+        if (i == value_row)
+        {
+            /* l'etichetta si cambia qui con </> */
+            snprintf(buf, sizeof(buf), "%s", tag_names[COERCE(P.astro_tag, 0, NUM_TAGS - 1)]);
+            int vw = txt_w(FONT_MED, buf), xr = lx + lw - 22, mid = y + ph / 2;
+            arrow(xr, mid, 1, mine ? C_ACCENT : C_LINE);
+            txt(FONT_MED, P.astro_tag ? C_ACCENT : C_DIM, xr - 12 - vw, y + (ph - 23) / 2, buf);
+            arrow(xr - 24 - vw, mid, -1, mine ? C_ACCENT : C_LINE);
+        }
+        else if (on) fill_circle(lx + lw - 20, y + ph / 2, 4, C_OK);
+    }
+
+    /* pannello della voce scelta */
+    const int px = 368, pw = SCR_W - 24 - px;
+    info_card(px, y0, pw, 384, 0);
+    int t = now - md_t0;
+    if (t > 1300 || opt_anim == 2) t = -1;
+    else { anim_keep(); if (opt_anim == 1) t = t * 10 / 6; }
+    int ex = px + pw / 2, ey = y0 + 72, es = 104;
+    fill(C_BG, ex - es / 2 - 6, ey - es / 2 - 6, es + 12, es + 12);
+    frame_rect(C_LINE, ex - es / 2 - 6, ey - es / 2 - 6, es + 12, es + 12, 1);
+    it[s].icon(ex, ey, es, t < 0 ? -1 : t);
+    int e0 = phase(now - md_txt_t0, 0, anim_ms(240), EZ_OUT), e1 = phase(now - md_txt_t0, anim_ms(60), anim_ms(240), EZ_OUT);
+    int e2 = phase(now - md_txt_t0, anim_ms(120), anim_ms(240), EZ_OUT);
+    if (e2 < 1000) anim_keep();
+    txt_in(FONT_MED_LARGE, C_TEXT, px + 18, y0 + 140, rows[s].title, e0, 0, 8);
+    if (e1 >= 1000) txt_wrap(FONT_MED, C_DIM, px + 18, y0 + 174, pw - 34, it[s].desc, 24);
+    else if (e1 > 0)
+    {
+        /* il testo lungo entra tutto insieme: una riga alla volta sarebbe troppo */
+        int dy = (1000 - e1) * 8 / 1000;
+        txt_wrap(FONT_MED, fade_c(C_DIM, e1), px + 18, y0 + 174 + dy, pw - 34, it[s].desc, 24);
+    }
+    int on;
+    status(s, buf, sizeof(buf), &on);
+    fill(C_LINE, px + 18, y0 + 324, pw - 36, 1);
+    txt_in(FONT_SMALL, C_DIM, px + 18, y0 + 332, "ADESSO", e2, 0, 6);
+    if (on && e2 >= 1000) fill_circle(px + 24, y0 + 361, 4, C_OK);
+    txt_in(FONT_MED, on ? C_OK : C_TEXT, px + (on ? 36 : 18), y0 + 350, buf, e2, 0, 6);
+}
+
 static void draw_astro()
 {
     fill(C_BG, 0, 46, SCR_W, 398);
     draw_header("Astro");
-    draw_menu_rows(astro_rows, NUM_ASTRO_ROWS, sel[SCR_ASTRO], 64);
-    char buf[16];
-    snprintf(buf, sizeof(buf), "< %s >", tag_names[COERCE(P.astro_tag, 0, NUM_TAGS - 1)]);
-    txt_r(FONT_MED_LARGE, P.astro_tag ? C_ACCENT : C_DIM, SCR_W - 44, 56 + 5 * 64 + 12, buf);
+    draw_menu_md(astro_rows, astro_md, NUM_ASTRO_ROWS, sel[SCR_ASTRO], 64, astro_status, 5);
     draw_footer(sel[SCR_ASTRO] == 5 ? "</> cambia etichetta   MENU indietro" : "^/v scegli   SET apri   MENU indietro");
 }
 
 static void astro_key(int key, int dx, int dy)
 {
     int s = sel[SCR_ASTRO];
-    if (dy) sel[SCR_ASTRO] = COERCE(s + dy, 0, NUM_ASTRO_ROWS - 1);
+    if (dy) { sel[SCR_ASTRO] = COERCE(s + dy, 0, NUM_ASTRO_ROWS - 1); if (sel[SCR_ASTRO] != s) md_select(); }
     else if ((dx || key == MODULE_KEY_PRESS_SET) && s == 5)
     {
         P.astro_tag = MOD(P.astro_tag + (dx ? dx : 1), NUM_TAGS);
         persist_touch();
         prefix_pending = 1;
+        md_t0 = get_ms_clock();
     }
     else if (key == MODULE_KEY_PRESS_SET) go(astro_rows[s].target, 1);
 }
@@ -224,14 +393,14 @@ static void draw_foto()
 {
     fill(C_BG, 0, 46, SCR_W, 398);
     draw_header("Foto");
-    draw_menu_rows(foto_rows, NUM_FOTO_ROWS, sel[SCR_FOTO], 55);
+    draw_menu_md(foto_rows, foto_md, NUM_FOTO_ROWS, sel[SCR_FOTO], 55, foto_status, -1);
     draw_footer("^/v scegli   SET apri   MENU indietro");
 }
 
 static void foto_key(int key, int dx, int dy)
 {
     int s = sel[SCR_FOTO];
-    if (dy) sel[SCR_FOTO] = COERCE(s + dy, 0, NUM_FOTO_ROWS - 1);
+    if (dy) { sel[SCR_FOTO] = COERCE(s + dy, 0, NUM_FOTO_ROWS - 1); if (sel[SCR_FOTO] != s) md_select(); }
     else if (key == MODULE_KEY_PRESS_SET) go(foto_rows[s].target, 1);
 }
 
@@ -515,18 +684,42 @@ static void draw_profiles()
     fill(C_BG, 0, 46, SCR_W, 398);
     draw_header("Profili");
     int s = sel[SCR_PROFILES];
-    int y0 = 58, rh = 64;
-    for (int i = 0; i < NPROF; i++) fill(C_PANEL, 24, y0 + i * rh, SCR_W - 48, rh - 8);
-    hl_bar(24, SCR_W - 48, y0 + s * rh, rh - 8);
+    const int y0 = 56, rh = 76, ph = rh - 6;
+    for (int i = 0; i < NPROF; i++) fill(C_PANEL, 24, y0 + i * rh, SCR_W - 48, ph);
+    hl_bar(24, SCR_W - 48, y0 + s * rh, ph);
     for (int i = 0; i < NPROF; i++)
     {
         struct profile *p = &P.prof[i];
-        int y = y0 + i * rh;
-        char buf[96];
-        snprintf(buf, sizeof(buf), "%d  %s", i + 1, prof_names[COERCE(p->name, 0, NPROF_NAMES - 1)]);
-        txt(FONT_MED_LARGE, C_TEXT, 46, y + 2, buf);
-        if (p->valid) prof_summary(p, buf, sizeof(buf)); else snprintf(buf, sizeof(buf), "vuoto: INFO per salvare le impostazioni attuali");
-        txt(FONT_MED, p->valid ? C_DIM : C_LINE, 46, y + 32, buf);
+        int y = y0 + i * rh, mine = i == s;
+        char buf[48];
+        /* tondo con il modo di scatto (o il numero se il posto e' vuoto) */
+        int cx = 70, cy = y + ph / 2;
+        fill_circle(cx, cy, 25, p->valid ? (mine ? C_ACCENT : C_LINE) : C_PANEL2);
+        fill_circle(cx, cy, 22, C_BG);
+        if (p->valid) txt_c(FONT_MED_LARGE, mine ? C_ACCENT : C_TEXT, cx, cy - 15, get_shootmode_name_short(p->mode));
+        snprintf(buf, sizeof(buf), "%d", i + 1);
+        if (!p->valid) txt_c(FONT_MED, C_DIM, cx, cy - 12, buf);
+        else txt(FONT_SMALL, C_DIM, 112, y + 15, buf);
+        txt(FONT_MED_LARGE, p->valid ? C_TEXT : C_DIM, p->valid ? 128 : 112, y + 8, prof_names[COERCE(p->name, 0, NPROF_NAMES - 1)]);
+        int x = 112, cyy = y + 42;
+        int bg = mine ? C_BG : C_PANEL2;
+        if (p->valid)
+        {
+            char ap[8];
+            fmt_tenths(ap, sizeof(ap), p->aperture ? RAW2VALUE(aperture, p->aperture) : 0);
+            x += chip(x, cyy, lens_format_shutter(p->shutter), bg, C_TEXT) + 6;
+            snprintf(buf, sizeof(buf), "f/%s", ap);
+            x += chip(x, cyy, buf, bg, C_TEXT) + 6;
+            snprintf(buf, sizeof(buf), "ISO %s", p->iso ? lens_format_iso(p->iso) : "Auto");
+            x += chip(x, cyy, buf, bg, C_TEXT) + 6;
+            chip(x, cyy, style_name(p->style), bg, C_ACCENT);
+        }
+        else
+        {
+            const char *e = "vuoto: INFO salva qui le impostazioni attuali";
+            frame_rect(C_LINE, x, cyy, txt_w(FONT_SMALL, e) + 16, 20, 1);
+            txt(FONT_SMALL, C_DIM, x + 8, cyy + 4, e);
+        }
     }
     draw_footer("SET carica   INFO salva   Q cancella   </> nome   MENU");
 }
@@ -607,8 +800,9 @@ static void opt_activate(int row)
     opt_change(row, 1, 0);
 }
 
+static const char *const opt_heads[] = { "ASPETTO", 0, 0, "APERTURA DI IRIDE", 0, 0, "SCATTO", 0, "LUOGO E ORA", 0, 0, "STRUMENTI" };
 static const struct form opt_form = { 12, opt_labels, opt_value, opt_change, opt_activate, 0,
-    "^/v riga   </> cambia (ghiera superiore x100)   MENU indietro", 49, 32 };
+    "^/v riga   </> cambia (ghiera superiore x100)   MENU indietro", 54, 42, opt_heads, 0, 0 };
 
 /* ------------------------------------------------------------------ diagnostica tasti */
 
@@ -702,46 +896,94 @@ static void draw_keys()
 
 /* ------------------------------------------------------------------ Torna alla 6D */
 
+/* iconcine dell'elenco "Torna alla 6D" (quadrato di 26 px centrato in cx, cy) */
+enum { RI_EXPO, RI_STYLE, RI_SLIDERS, RI_ML, RI_FILE, RI_ROLL };
+static void restore_icon(int kind, int cx, int cy)
+{
+    switch (kind)
+    {
+        case RI_EXPO:       /* ghiera dei modi */
+            fill_circle(cx, cy, 11, C_DIM); fill_circle(cx, cy, 8, C_BG);
+            for (int i = 0; i < 8; i++) { float a = (float)i * 0.785f; fill(C_DIM, cx + (int)(9.5f * cosf(a)), cy + (int)(9.5f * sinf(a)), 2, 2); }
+            fill(C_ACCENT, cx - 1, cy - 8, 3, 6);
+            break;
+        case RI_STYLE:      /* tavolozza */
+            fill_circle(cx, cy, 11, C_DIM); fill_circle(cx + 5, cy + 5, 4, C_BG);
+            fill_circle(cx - 4, cy - 4, 2, tc(COLOR_RED)); fill_circle(cx + 3, cy - 5, 2, tc(COLOR_YELLOW)); fill_circle(cx - 5, cy + 3, 2, tc(COLOR_LIGHT_BLUE));
+            break;
+        case RI_SLIDERS:    /* cursori */
+            for (int i = 0; i < 3; i++) { int x = cx - 8 + i * 8; fill(C_LINE, x, cy - 10, 2, 20); fill(C_ACCENT, x - 3, cy - 4 + (i == 1 ? -5 : i * 4), 8, 4); }
+            break;
+        case RI_ML:         /* Magic Lantern */
+            frame_rect(C_DIM, cx - 12, cy - 9, 24, 18, 1);
+            txt_c(FONT_SMALL, C_TEXT, cx, cy - 6, "ML");
+            break;
+        case RI_FILE:       /* nome del file */
+            fill(C_DIM, cx - 8, cy - 11, 12, 22); fill(C_DIM, cx - 8, cy - 7, 16, 18);
+            fill_tri(cx + 4, cy - 11, cx + 4, cy - 7, cx + 8, cy - 7, C_LINE);
+            fill(C_BG, cx - 5, cy - 2, 10, 2); fill(C_BG, cx - 5, cy + 3, 8, 2);
+            break;
+        default:            /* rullino */
+            fill(C_DIM, cx - 3, cy - 12, 6, 3);
+            fill(C_ACCENT, cx - 7, cy - 9, 14, 20);
+            fill(C_BG, cx - 7, cy - 3, 14, 6);
+            fill(C_LINE, cx + 7, cy - 4, 6, 8);
+            break;
+    }
+}
+
 static void draw_restore()
 {
     fill(C_BG, 0, 46, SCR_W, 398);
     draw_header("Torna alla 6D");
-    int y = 62;
-    if (!restore_pending_count())
+    int n = restore_pending_count();
+    if (!n)
     {
-        txt(FONT_LARGE, C_OK, 30, 140, "Tutto e' gia' originale");
-        txt(FONT_MED, C_DIM, 30, 188, "Iride non ha cambiato nessuna impostazione della 6D.");
+        draw_check(360, 170, 40, 1000);
+        txt_c(FONT_LARGE, C_TEXT, 360, 230, "Tutto e' gia' originale");
+        txt_c(FONT_MED, C_DIM, 360, 276, "Iride non ha cambiato nessuna impostazione della 6D.");
         draw_footer("MENU indietro");
         return;
     }
-    txt(FONT_MED, C_DIM, 30, y, "Rimetto com'era prima di Iride:");
-    y += 40;
     char buf[96];
+    /* riepilogo */
+    info_card(24, 54, SCR_W - 48, 62, 0);
+    snprintf(buf, sizeof(buf), "%d", n);
+    txt(FONT_LARGE, C_ACCENT, 44, 68, buf);
+    int nx = 44 + txt_w(FONT_LARGE, buf) + 14;
+    txt(FONT_MED, C_TEXT, nx, 64, n == 1 ? "modifica fatta da Iride" : "modifiche fatte da Iride");
+    txt(FONT_SMALL, C_DIM, nx, 92, "Rimetto tutto com'era prima, in un colpo solo:");
+    /* elenco */
+    int y = 126;
+    const int rh = 38;
+    #define RITEM(icon, text) do { if (y < 366) { fill(C_PANEL, 24, y, SCR_W - 48, rh - 6); \
+        fill(C_BG, 32, y + 3, 26, 26); restore_icon(icon, 45, y + 16); txt(FONT_MED, C_TEXT, 72, y + 4, text); y += rh; } } while (0)
     if (P.snap_valid)
     {
         snprintf(buf, sizeof(buf), "ISO, tempo, diaframma, bianco e anteprima (ghiera %s)", get_shootmode_name_short(P.snap_mode));
-        fill_circle(40, y + 11, 4, C_ACCENT); txt(FONT_MED, C_TEXT, 54, y, buf); y += 32;
+        RITEM(RI_EXPO, buf);
         snprintf(buf, sizeof(buf), "Stile immagine %s", style_name(P.snap_style));
-        fill_circle(40, y + 11, 4, C_ACCENT); txt(FONT_MED, C_TEXT, 54, y, buf); y += 32;
+        RITEM(RI_STYLE, buf);
     }
-    for (int i = 0; i < NSTYLE && y < 360; i++)
+    for (int i = 0; i < NSTYLE; i++)
         if (P.ps_touched & (1 << i))
         {
             snprintf(buf, sizeof(buf), "Cursori dello stile %s", style_name(style_id(i)));
-            fill_circle(40, y + 11, 4, C_ACCENT); txt(FONT_MED, C_TEXT, 54, y, buf); y += 32;
+            RITEM(RI_SLIDERS, buf);
         }
     int nml = 0;
     for (int f = 0; f < MLF_COUNT; f++) if (P.ml_touched & (1 << f)) nml++;
     if (nml)
     {
-        snprintf(buf, sizeof(buf), "%d impostazioni di Magic Lantern (HDR, overlay...)", nml);
-        fill_circle(40, y + 11, 4, C_ACCENT); txt(FONT_MED, C_TEXT, 54, y, buf); y += 32;
+        snprintf(buf, sizeof(buf), "%d impostazion%s di Magic Lantern (HDR, overlay...)", nml, nml == 1 ? "e" : "i");
+        RITEM(RI_ML, buf);
     }
-    if (P.astro_tag) { fill_circle(40, y + 11, 4, C_ACCENT); txt(FONT_MED, C_TEXT, 54, y, "Nomi dei file: di nuovo IMG_"); y += 32; }
-    if (roll_active()) { fill_circle(40, y + 11, 4, C_ACCENT); txt(FONT_MED, C_TEXT, 54, y, "Rullino in pausa (non si perde)"); y += 32; }
-    fill(C_SEL, 24, 380, SCR_W - 48, 46);
-    fill(C_ACCENT, 24, 380, 6, 46);
-    txt(FONT_MED_LARGE, C_ACCENT, 46, 388, "SET  ripristina tutto");
+    if (P.astro_tag) RITEM(RI_FILE, "Nomi dei file: di nuovo IMG_");
+    if (roll_active()) RITEM(RI_ROLL, "Rullino in pausa (non si perde)");
+    #undef RITEM
+    /* pulsante */
+    fill(C_ACCENT, 24, 384, SCR_W - 48, 48);
+    txt_c(FONT_MED_LARGE, C_BG, 360, 394, "SET   ripristina tutto");
     draw_footer("SET conferma   MENU annulla");
 }
 
@@ -798,8 +1040,8 @@ struct screen_def
 
 static const struct screen_def screens[SCR_COUNT] = {
     [SCR_HOME]     = { "6D",                  SCR_HOME,  0,            draw_home,     home_key,     home_enter,  0, 0 },
-    [SCR_ASTRO]    = { "Astro",               SCR_HOME,  0,            draw_astro,    astro_key,    0,           0, 0 },
-    [SCR_FOTO]     = { "Foto",                SCR_HOME,  0,            draw_foto,     foto_key,     0,           0, 0 },
+    [SCR_ASTRO]    = { "Astro",               SCR_HOME,  0,            draw_astro,    astro_key,    md_enter,    0, 0 },
+    [SCR_FOTO]     = { "Foto",                SCR_HOME,  0,            draw_foto,     foto_key,     md_enter,    0, 0 },
     [SCR_NPF]      = { "Via Lattea",          SCR_ASTRO, &npf_form,    0,             0,            npf_enter,   0, 0 },
     [SCR_INTERVAL] = { "Intervallometro",     SCR_ASTRO, &int_form,    0,             0,            0,           0, 0 },
     [SCR_STARS]    = { "Fuoco stelle",        SCR_ASTRO, 0,            draw_stars,    stars_key,    stars_enter, stars_tick, 250 },
@@ -820,6 +1062,16 @@ static const struct screen_def screens[SCR_COUNT] = {
     [SCR_KEYS]     = { "Diagnostica tasti",   SCR_OPTIONS, 0,          draw_keys,     0,            keys_enter,  keys_tick, 250 },
 };
 
+/* titolo della schermata madre per il percorso nell'intestazione (NULL se non serve) */
+static const char *parent_title(const char *section)
+{
+    if (screen == SCR_HOME) return 0;
+    int p = screens[screen].parent;
+    if (p == SCR_HOME || p == screen) return 0;
+    const char *t = screens[p].title;
+    return streq(t, section) ? 0 : t;
+}
+
 static void render(int dir)
 {
     const struct screen_def *sd = &screens[screen];
@@ -827,9 +1079,9 @@ static void render(int dir)
     if (sd->form)
     {
         fill(C_BG, 0, 46, SCR_W, 398);
-        draw_header(sd->title);
         draw_form(sd->form, sel[screen]);
         if (sd->form->extra) sd->form->extra();
+        draw_header(sd->title);          /* dopo: copre le righe che scorrono fuori */
         draw_footer(sd->form->hint);
     }
     else if (sd->draw) sd->draw();

@@ -1,5 +1,15 @@
 # Novità
 
+## 1.1 – 2 novembre 2026
+- **Sottomenu ridisegnati** con la stessa cura della Home:
+  - Astro e Foto: a sinistra le voci con un'icona ciascuna, a destra la voce scelta con un'illustrazione animata, a cosa serve e com'è adesso (per esempio "12.2 s con 24 mm f/2.8", "Polare alle ore 12:52", "attivo: 5 scatti da 1,5 EV"); pallino verde sulle funzioni accese
+  - intestazione con il percorso: *Astro › Via Lattea*
+  - impostazioni su pannelli, valori con frecce disegnate, azioni come pulsanti (pieni quando sono scelti)
+  - schede con i conti fatti: regola NPF a confronto con la regola del 500, durata della sequenza e del video nell'intervallometro, gli scatti dell'HDR dal più scuro al più chiaro, i piani di fuoco dello stack, il tempo con il filtro ND, le righe del Dual ISO, l'istogramma dell'ETTR
+  - Opzioni divise in sezioni (Aspetto, Apertura di Iride, Scatto, Luogo e ora, Strumenti) con scorrimento morbido e barra laterale
+  - Profili come schede: modo di scatto nel tondo, tempo, diaframma, ISO e stile come etichette
+  - Torna alla 6D: riepilogo, un'icona per ogni tipo di modifica e un pulsante grande
+
 ## 1.0 – 1 novembre 2026
 - **Descrizioni dei rullini riscritte e verificate** su schede tecniche e prove: due righe per pellicola, carattere e uso ideale. Corrette le imprecisioni: Delta 3200 (ISO reale 1000, a 3200 è già tirata), CineStill 800T (pellicola cinema al tungsteno, aloni rossi, di giorno vira al blu), Ektar (la grana più fine, calca i rossi sulla pelle), Superia (verdi intensi, palette fresca), Velvia (tolleranza minima, meglio in luce morbida), Ektachrome E100 (neutra con tendenza fredda) e le altre. Stesse descrizioni nei preset XMP
 - **Animazioni nuove in tutta l'interfaccia** (tutte a tempo, saltabili con un tasto, più corte con *rapide*, assenti con *spente*):

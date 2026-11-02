@@ -59,15 +59,35 @@ static void hdr_activate(int row) { hdr_change(row, 1, 0); }
 static void hdr_extra()
 {
     char buf[80];
-    int span = (P.hdr_frames - 1) * hdr_ev8[COERCE(P.hdr_step, 0, 3)];
-    snprintf(buf, sizeof(buf), "Copertura totale: %d.%d EV", span / 8, (span % 8) * 10 / 8);
-    txt(FONT_MED, C_TEXT, 30, 252, buf);
-    txt(FONT_MED, C_DIM, 30, 290, "Con il bracketing attivo ogni pressione a fondo");
-    txt(FONT_MED, C_DIM, 30, 316, "dello scatto diventa una serie. Ghiera su M o Av.");
+    int step8 = hdr_ev8[COERCE(P.hdr_step, 0, 3)];
+    int span = (P.hdr_frames - 1) * step8;
+    info_card(24, 250, SCR_W - 48, 186, "COPERTURA");
+    snprintf(buf, sizeof(buf), "%d.%d EV", span / 8, (span % 8) * 10 / 8);
+    txt(FONT_LARGE, C_ACCENT, 44, 270, buf);
+    /* gli scatti nell'ordine in cui escono, dal piu' scuro al piu' chiaro */
+    int n = P.hdr_frames, seq = COERCE(P.hdr_seq, 0, 2);
+    int half = (n - 1) / 2;
+    for (int i = 0; i < n; i++)
+    {
+        int k;                                           /* passi dallo scatto normale */
+        if (seq == 0) k = -i;
+        else if (seq == 2) k = i;
+        else k = i == 0 ? 0 : (i % 2 ? -((i + 1) / 2) : i / 2);
+        int lim = seq == 1 ? MAX(half, 1) : MAX(n - 1, 1);
+        int lum = 50 + k * 45 / lim;
+        int bx = 230 + i * 50;
+        fill(night ? (k >= 0 ? COLOR_RED : COLOR_DARK_RED) : COLOR_GRAY(COERCE(lum, 6, 96)), bx, 274, 40, 30);
+        frame_rect(k == 0 ? C_ACCENT : C_LINE, bx, 274, 40, 30, 1);
+        int ev10 = k * step8 * 10 / 8;
+        if (k == 0) snprintf(buf, sizeof(buf), "0");
+        else snprintf(buf, sizeof(buf), "%s%d.%d", k > 0 ? "+" : "-", ABS(ev10) / 10, ABS(ev10) % 10);
+        txt_c(FONT_SMALL, k == 0 ? C_ACCENT : C_DIM, bx + 20, 310, buf);
+    }
+    txt_wrap(FONT_MED, C_DIM, 44, 342, SCR_W - 96, "Con il bracketing attivo ogni pressione a fondo dello scatto diventa una serie. Ghiera su M o Av, treppiede consigliato.", 25);
 }
 
 static const struct form hdr_form = { 4, hdr_labels, hdr_value, hdr_change, hdr_activate, hdr_extra,
-    "^/v riga   </> cambia   SET attiva   MENU indietro", 58, 46 };
+    "^/v riga   </> cambia   SET attiva   MENU indietro", 58, 46, 0, 0, 0 };
 
 /* ------------------------------------------------------------------ focus stacking */
 
@@ -102,13 +122,27 @@ static void fs_activate(int row)
 
 static void fs_extra()
 {
-    txt(FONT_MED, C_DIM, 30, 250, "Treppiede, Live View, obiettivo in AF.");
-    txt(FONT_MED, C_DIM, 30, 276, "Metti a fuoco sul punto centrale: Iride scatta le foto");
-    txt(FONT_MED, C_DIM, 30, 302, "davanti e dietro spostando il fuoco. MENU per fermare.");
+    char buf[48];
+    info_card(24, 250, SCR_W - 48, 186, "PIANI DI FUOCO");
+    snprintf(buf, sizeof(buf), "%d foto", P.fs_front + P.fs_behind + 1);
+    txt(FONT_LARGE, C_ACCENT, 44, 270, buf);
+    /* un piano per foto: davanti (vicino), quello messo a fuoco, dietro (lontano) */
+    int n = P.fs_front + P.fs_behind + 1, cx = 470, span = 400;
+    int gap = n > 1 ? MIN(span / (n - 1), 6 * P.fs_step + 6) : 0;
+    int x0 = cx - gap * P.fs_front;
+    for (int i = 0; i < n; i++)
+    {
+        int x = x0 + i * gap, mid = i == P.fs_front;
+        if (x < 220 || x > SCR_W - 44) continue;
+        fill(mid ? C_ACCENT : C_DIM, x, mid ? 270 : 278, mid ? 3 : 2, mid ? 44 : 28);
+    }
+    txt(FONT_SMALL, C_DIM, 230, 320, "vicino");
+    txt_r(FONT_SMALL, C_DIM, SCR_W - 44, 320, "lontano");
+    txt_wrap(FONT_MED, C_DIM, 44, 342, SCR_W - 96, "Treppiede, Live View, obiettivo in AF. Metti a fuoco sul punto centrale: Iride scatta le foto davanti e dietro spostando il fuoco. MENU per fermare.", 25);
 }
 
 static const struct form fs_form = { 4, fs_labels, fs_value, fs_change, fs_activate, fs_extra,
-    "^/v riga   </> cambia   SET avvia   MENU indietro", 58, 46 };
+    "^/v riga   </> cambia   SET avvia   MENU indietro", 58, 46, 0, 0, 0 };
 
 /* ------------------------------------------------------------------ Dual ISO */
 
@@ -139,14 +173,20 @@ static void dual_activate(int row) { dual_change(row, 1, 0); }
 
 static void dual_extra()
 {
-    txt(FONT_MED, C_DIM, 30, 170, "Le righe del sensore escono a due ISO diversi:");
-    txt(FONT_MED, C_DIM, 30, 196, "fino a 3 stop di gamma dinamica in piu' nel RAW.");
-    txt(FONT_MED, C_DIM, 30, 236, "Solo RAW, da convertire sul PC con cr2hdr.");
-    txt(FONT_MED, C_DIM, 30, 262, "ISO base basso (100) e ISO di recupero alto.");
+    char buf[48];
+    info_card(24, 158, SCR_W - 48, 226, "DUE ISO NELLA STESSA FOTO");
+    /* righe del sensore alternate: ISO base e ISO di recupero */
+    for (int i = 0; i < 8; i++)
+        fill(i % 4 < 2 ? (night ? COLOR_DARK_RED : COLOR_GRAY(22)) : (night ? COLOR_RED : COLOR_GRAY(70)), 44, 186 + i * 12, 150, 12);
+    frame_rect(C_LINE, 44, 186, 150, 96, 1);
+    txt(FONT_MED, C_TEXT, 210, 190, "ISO base (es. 100)");
+    snprintf(buf, sizeof(buf), "ISO di recupero %s", dual_iso_names[COERCE(P.dual_rec, 0, 2)]);
+    txt(FONT_MED, C_ACCENT, 210, 240, buf);
+    txt_wrap(FONT_MED, C_DIM, 44, 300, SCR_W - 96, "Le righe del sensore escono a due ISO diversi: fino a 3 stop di gamma dinamica in piu' nel RAW. Solo RAW, da convertire sul PC con cr2hdr.", 25);
 }
 
 static const struct form dual_form = { 2, dual_labels, dual_value, dual_change, dual_activate, dual_extra,
-    "^/v riga   </> cambia   SET attiva   MENU indietro", 58, 46 };
+    "^/v riga   </> cambia   SET attiva   MENU indietro", 58, 46, 0, 0, 0 };
 
 /* ------------------------------------------------------------------ ETTR */
 
@@ -176,13 +216,24 @@ static void ettr_activate(int row) { ettr_change(row, 1, 0); }
 
 static void ettr_extra()
 {
-    txt(FONT_MED, C_DIM, 30, 170, "Esposizione automatica \"a destra\": la luce piu' alta");
-    txt(FONT_MED, C_DIM, 30, 196, "possibile senza bruciare le alte luci del RAW.");
-    txt(FONT_MED, C_DIM, 30, 236, "Ghiera su M. Ideale con paesaggi e notturni.");
+    info_card(24, 158, SCR_W - 48, 238, "ESPOSIZIONE A DESTRA");
+    /* istogramma spinto verso destra, fino al limite delle alte luci */
+    static const unsigned char hist[24] = { 2, 3, 4, 6, 8, 10, 13, 17, 22, 28, 34, 40, 46, 52, 58, 62, 64, 60, 52, 42, 32, 22, 12, 4 };
+    int hx = 44, hy = 280, hw = 300;
+    for (int i = 0; i < 24; i++)
+    {
+        int x = hx + 60 + i * 9;
+        fill(C_DIM, x, hy - hist[i], 8, hist[i]);
+    }
+    fill(C_LINE, hx, hy, hw + 40, 1);
+    fill(C_WARN, hx + hw + 30, hy - 74, 2, 74);
+    txt(FONT_SMALL, C_WARN, hx + hw + 38, hy - 74, "alte luci");
+    txt(FONT_SMALL, C_DIM, hx, hy + 6, "ombre");
+    txt_wrap(FONT_MED, C_DIM, 44, 312, SCR_W - 96, "La luce piu' alta possibile senza bruciare le alte luci del RAW: meno rumore nelle ombre. Ghiera su M, ideale con paesaggi e notturni.", 25);
 }
 
 static const struct form ettr_form = { 2, ettr_labels, ettr_value, ettr_change, ettr_activate, ettr_extra,
-    "^/v riga   </> cambia   SET attiva   MENU indietro", 58, 46 };
+    "^/v riga   </> cambia   SET attiva   MENU indietro", 58, 46, 0, 0, 0 };
 
 /* ------------------------------------------------------------------ movimento e trappola di fuoco */
 
@@ -227,14 +278,22 @@ static void motion_activate(int row) { motion_change(row, 1, 0); }
 
 static void motion_extra()
 {
-    txt(FONT_MED, C_DIM, 30, 260, "Movimento: scatta da solo quando qualcosa cambia");
-    txt(FONT_MED, C_DIM, 30, 286, "nel Live View (fulmini, animali). Livello basso = piu' sensibile.");
-    txt(FONT_MED, C_DIM, 30, 324, "Trappola di fuoco: scatta quando il soggetto");
-    txt(FONT_MED, C_DIM, 30, 350, "entra a fuoco (obiettivo in MF).");
+    int w = (SCR_W - 48 - 12) / 2;
+    info_card(24, 250, w, 186, "MOVIMENTO");
+    /* fulmine */
+    fill_tri(70, 286, 54, 318, 66, 318, C_ACCENT);
+    fill_tri(66, 314, 82, 314, 58, 350, C_ACCENT);
+    txt_wrap(FONT_MED, C_DIM, 100, 280, w - 92, "Scatta da solo quando qualcosa cambia nel Live View: fulmini, animali. Livello basso = piu' sensibile.", 25);
+    info_card(24 + w + 12, 250, w, 186, "TRAPPOLA DI FUOCO");
+    int cx = 24 + w + 12 + 44, cy = 318;
+    draw_circle(cx, cy, 18, C_ACCENT);
+    draw_circle(cx, cy, 8, C_DIM);
+    fill(C_ACCENT, cx - 24, cy, 10, 2); fill(C_ACCENT, cx + 15, cy, 10, 2);
+    txt_wrap(FONT_MED, C_DIM, 24 + w + 12 + 76, 280, w - 92, "Scatta quando il soggetto entra a fuoco. Obiettivo in MF.", 25);
 }
 
 static const struct form motion_form = { 4, motion_labels, motion_value, motion_change, motion_activate, motion_extra,
-    "^/v riga   </> cambia   SET attiva   MENU indietro", 58, 46 };
+    "^/v riga   </> cambia   SET attiva   MENU indietro", 58, 46, 0, 0, 0 };
 
 /* ------------------------------------------------------------------ strumenti del Live View */
 
@@ -265,8 +324,14 @@ static void lv_activate(int row)
     say(C_OK, "Strumenti del Live View spenti");
 }
 
-static const struct form lv_form = { 7, lv_labels, lv_value, lv_change, lv_activate, 0,
-    "^/v riga   SET o </> accendi/spegni   MENU indietro", 58, 46 };
+static void lv_extra()
+{
+    info_card(24, 384, SCR_W - 48, 52, 0);
+    txt(FONT_MED, C_DIM, 44, 398, "Si vedono nel Live View. Iride accende da sola il disegno di ML.");
+}
+
+static const struct form lv_form = { 7, lv_labels, lv_value, lv_change, lv_activate, lv_extra,
+    "^/v riga   SET o </> accendi/spegni   MENU indietro", 58, 46, 0, 0, 0 };
 
 /* ------------------------------------------------------------------ filtri ND */
 
@@ -292,14 +357,6 @@ static int nd_result_tenths()
     return (int)(base * powf(2.0f, stops) * 10.0f + 0.5f);
 }
 
-static void fmt_duration(char *buf, int len, int t10)
-{
-    if (t10 < 10) { snprintf(buf, len, "1/%d s", (int)(10.0f / (float)MAX(t10, 1) + 0.5f)); return; }
-    int s = t10 / 10;
-    if (s < 60) { snprintf(buf, len, "%d.%d s", s, t10 % 10); return; }
-    if (s < 3600) { snprintf(buf, len, "%d min %02d s", s / 60, s % 60); return; }
-    snprintf(buf, len, "%d h %02d min", s / 3600, (s % 3600) / 60);
-}
 
 static const char *const nd_labels[] = { "Tempo senza filtro", "Filtro", "Tempo col filtro", "Applica / scatta" };
 
@@ -349,13 +406,26 @@ static void nd_activate(int row)
 
 static void nd_extra()
 {
-    txt(FONT_MED, C_DIM, 30, 260, "Misura senza filtro, poi monta il filtro:");
-    txt(FONT_MED, C_DIM, 30, 286, "fino a 30 s Iride imposta il tempo, oltre scatta");
-    txt(FONT_MED, C_DIM, 30, 312, "in posa B col conto alla rovescia. Cestino = stop.");
+    char buf[48];
+    int t10 = nd_result_tenths();
+    info_card(24, 250, SCR_W - 48, 186, "CON IL FILTRO");
+    /* tempo senza -> filtro -> tempo con il filtro */
+    txt(FONT_SMALL, C_DIM, 44, 272, "SENZA");
+    txt(FONT_MED_LARGE, C_TEXT, 44, 290, lens_format_shutter(P.nd_base));
+    int fx = 300, fy = 302;
+    fill(C_LINE, 170, fy, 100, 2); arrow(272, fy + 1, 1, C_LINE);
+    fill_circle(fx, fy, 26, C_LINE);
+    fill_circle(fx, fy, 21, night ? COLOR_BLACK : COLOR_GRAY(16));
+    txt_c(FONT_SMALL, C_TEXT, fx, fy - 6, nd_names[COERCE(P.nd_idx, 0, NUM_ND - 1)]);
+    fill(C_LINE, 330, fy, 100, 2); arrow(432, fy + 1, 1, C_LINE);
+    txt(FONT_SMALL, C_DIM, 450, 272, t10 > 300 ? "CON (POSA B)" : "CON");
+    fmt_duration(buf, sizeof(buf), t10);
+    txt(FONT_MED_LARGE, C_ACCENT, 450, 290, buf);
+    txt_wrap(FONT_MED, C_DIM, 44, 346, SCR_W - 96, "Misura senza filtro, poi monta il filtro: fino a 30 s Iride imposta il tempo, oltre scatta in posa B col conto alla rovescia. Cestino = stop.", 25);
 }
 
 static const struct form nd_form = { 4, nd_labels, nd_value, nd_change, nd_activate, nd_extra,
-    "^/v riga   </> cambia   SET applica   MENU indietro", 58, 46 };
+    "^/v riga   </> cambia   SET applica   MENU indietro", 58, 46, 0, 0, 0 };
 
 /* ------------------------------------------------------------------ menu Foto */
 
@@ -364,7 +434,7 @@ static const struct menu_row foto_rows[] = {
     { "Focus stacking", "Fuoco spostato tra uno scatto e l'altro", SCR_FSTACK },
     { "Dual ISO", "Piu' gamma dinamica nel RAW", SCR_DUAL },
     { "ETTR", "Esposizione automatica a destra", SCR_ETTR },
-    { "Movimento e trappola di fuoco", "Scatta da solo: fulmini, animali, fuoco", SCR_MOTION },
+    { "Movimento e trappola", "Scatta da solo: fulmini, animali, fuoco", SCR_MOTION },
     { "Strumenti Live View", "Peaking, zebra, istogramma, falsi colori", SCR_LVTOOLS },
     { "Filtri ND", "Tempo col filtro e posa B automatica", SCR_ND },
 };

@@ -9,11 +9,13 @@ Un'interfaccia a tutto schermo, animata, con menu dedicati ad **astrofotografia*
 
 | | | |
 |---|---|---|
-<p align="center"><img src="docs/screenshots/animazioni-v10.gif" width="540" alt="Avvio, Home, scaffale dei rullini e dialogo"></p>
+<p align="center"><img src="docs/screenshots/animazioni-v11.gif" width="540" alt="Avvio, Home, scaffale dei rullini e dialogo"></p>
 
-| ![Home](docs/screenshots/01_home-v06.png) | ![Astro](docs/screenshots/02_astro-v06.png) | ![Rullini](docs/screenshots/14_rullini-v10.png) |
-| ![Allineamento polare](docs/screenshots/06_polare-v10.png) | ![Calendario del cielo](docs/screenshots/07_cielo-v10.png) | ![Tema notte](docs/screenshots/21_cielo_notte-v10.png) |
-| ![Fuoco stelle](docs/screenshots/05_stelle-v08.png) | ![Foto](docs/screenshots/08_foto-v06.png) | ![Torna alla 6D](docs/screenshots/19_torna_6d-v06.png) |
+| ![Home](docs/screenshots/01_home-v06.png) | ![Astro](docs/screenshots/02_astro-v11.png) | ![Rullini](docs/screenshots/14_rullini-v10.png) |
+| ![Allineamento polare](docs/screenshots/06_polare-v11.png) | ![Calendario del cielo](docs/screenshots/07_cielo-v11.png) | ![Tema notte](docs/screenshots/21_cielo_notte-v11.png) |
+| ![Fuoco stelle](docs/screenshots/05_stelle-v11.png) | ![Foto](docs/screenshots/08_foto-v11.png) | ![Torna alla 6D](docs/screenshots/19_torna_6d-v11.png) |
+
+<p align="center"><img src="docs/screenshots/menu-v11.gif" width="540" alt="Menu Astro con l'anteprima della voce scelta"></p>
 
 ## Funzioni
 
@@ -24,7 +26,7 @@ Un'interfaccia a tutto schermo, animata, con menu dedicati ad **astrofotografia*
 | 🎞️ **Rullini** | 16 pellicole (colore, dia, B/N, cine) · push/pull · 12/24/36 pose · pausa e ripresa · contatore nella barra del Live View · registro su scheda · avviso se la macchina è in solo RAW · [preset per LightCraft e Lightroom](presets/) |
 | 💾 **Profili** | 5 posti per le impostazioni preferite |
 | 🔁 **Torna alla 6D** | Rimette tutto com'era prima di Iride: stile immagine e cursori, ISO, tempo, diaframma, bianco, anteprima, impostazioni di Magic Lantern, nomi dei file |
-| ✨ **Interfaccia** | Animazioni senza sfarfallio (doppio buffer): diaframma all'avvio, riquadri della Home che entrano e icone che si animano, zoom dal riquadro alla schermata, dialoghi che salgono come fogli, barra di selezione elastica, interruttori e valori che scorrono, avvisi che entrano e si spengono · caricamento e riavvolgimento del rullino con contapose a rullo · tema notte rosso, compare all'accensione, si apre col cestino (o col tasto luce) · diagnostica dei tasti |
+| ✨ **Interfaccia** | Sottomenu con anteprima della voce scelta (icona animata, a cosa serve, com'è adesso), percorso nell'intestazione, schede con i conti già fatti, Opzioni in sezioni · animazioni senza sfarfallio (doppio buffer): diaframma all'avvio, riquadri della Home che entrano e icone che si animano, zoom dal riquadro alla schermata, dialoghi che salgono come fogli, barra di selezione elastica, interruttori e valori che scorrono, avvisi che entrano e si spengono · caricamento e riavvolgimento del rullino con contapose a rullo · tema notte rosso, compare all'accensione, si apre col cestino (o col tasto luce) · diagnostica dei tasti |
 
 ### Tasto luce
 

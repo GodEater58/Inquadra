@@ -71,6 +71,16 @@ static void fmt_hm(char *buf, int len, int minutes)
     snprintf(buf, len, "%02d:%02d", minutes / 60, minutes % 60);
 }
 
+/* durata da decimi di secondo: 1/250 s, 12.5 s, 2 min 08 s, 1 h 05 min */
+static void fmt_duration(char *buf, int len, int t10)
+{
+    if (t10 < 10) { snprintf(buf, len, "1/%d s", (int)(10.0f / (float)MAX(t10, 1) + 0.5f)); return; }
+    int s = t10 / 10;
+    if (s < 60) { snprintf(buf, len, "%d.%d s", s, t10 % 10); return; }
+    if (s < 3600) { snprintf(buf, len, "%d min %02d s", s / 60, s % 60); return; }
+    snprintf(buf, len, "%d h %02d min", s / 3600, (s % 3600) / 60);
+}
+
 /* ------------------------------------------------------------------ forme */
 
 static void fill(int c, int x, int y, int w, int h)
@@ -189,7 +199,8 @@ static int glide(struct glider *g, int target, int full)
 /* barra di selezione elastica: il bordo davanti arriva subito, quello dietro la segue */
 static int hl_to = -1, hl_lead, hl_tail, hl_fl, hl_ft, hl_t0;
 
-static void hl_reset() { hl_to = -1; }
+static struct glider form_scroll = { -1, 0, 0, 0 };
+static void hl_reset() { hl_to = -1; form_scroll.vis = -1; }
 
 /* restituisce l'altezza della barra (riga h piu' lo stiramento) e in *top la sua cima;
    in *lead la posizione del bordo che guida (per la tacca colorata) */
@@ -377,8 +388,18 @@ static void draw_header(const char *section)
 {
     fill(C_BG, 0, 0, SCR_W, 46);
     txt(FONT_LARGE, C_ACCENT, 16, 6, "IRIDE");
-    int w = txt_w(FONT_LARGE, "IRIDE");
-    txt(FONT_MED, C_DIM, 16 + w + 14, 12, section);
+    int hx = 16 + txt_w(FONT_LARGE, "IRIDE") + 14;
+    /* nei sottomenu il percorso: Astro > Via Lattea */
+    const char *pt = parent_title(section);
+    if (pt)
+    {
+        txt(FONT_MED, C_DIM, hx, 12, pt);
+        hx += txt_w(FONT_MED, pt) + 9;
+        draw_line(hx, 18, hx + 5, 23, C_DIM); draw_line(hx, 28, hx + 5, 23, C_DIM);
+        draw_line(hx + 1, 18, hx + 6, 23, C_DIM); draw_line(hx + 1, 28, hx + 6, 23, C_DIM);
+        hx += 16;
+    }
+    txt(FONT_MED, screen == SCR_HOME ? C_DIM : C_TEXT, hx, 12, section);
 
     char buf[48];
     int x = SCR_W - 16;
@@ -795,36 +816,166 @@ struct form
     void (*extra)(void);
     const char *hint;
     int y0, row_h;
+    const char *const *heads;   /* titolo di sezione sopra la riga (NULL = nessuno) */
+    int w;                      /* larghezza delle righe (0 = tutto lo schermo) */
+    int y1;                     /* fondo dell'area (0 = 438): oltre, la lista scorre */
 };
 
-/* righe etichetta + valore, con barra di selezione elastica; il valore appena cambiato
-   entra scorrendo e gli interruttori fanno correre il pallino */
+/* ------------------------------------------------------------------ piccoli elementi */
+
+/* freccina piena verso sinistra (dir < 0) o destra, centro (x, y) */
+static void arrow(int x, int y, int dir, int c)
+{
+    if (dir < 0) fill_tri(x + 3, y - 5, x + 3, y + 5, x - 3, y, c);
+    else fill_tri(x - 3, y - 5, x - 3, y + 5, x + 3, y, c);
+}
+
+/* scheda informativa: fondo, tacca colorata a sinistra, titolino in maiuscolo */
+static void info_card(int x, int y, int w, int h, const char *title)
+{
+    fill(C_PANEL, x, y, w, h);
+    if (night) frame_rect(C_LINE, x, y, w, h, 1);
+    fill(C_ACCENT, x, y, 3, h);
+    if (title) txt(FONT_SMALL, C_DIM, x + 16, y + 9, title);
+}
+
+/* testo a capo per parole dentro w pixel; restituisce la y dopo l'ultima riga */
+static int txt_wrap(int font, int c, int x, int y, int w, const char *s, int lh)
+{
+    char line[96];
+    while (*s)
+    {
+        while (*s == ' ') s++;
+        int n = 0, cut = 0;
+        while (s[n] && n < (int)sizeof(line) - 1)
+        {
+            line[n] = s[n];
+            line[n + 1] = 0;
+            if (txt_w(font, line) > w) break;
+            if (s[n] == ' ') cut = n;
+            n++;
+        }
+        if (s[n] && cut > 0) n = cut;              /* spezza sull'ultimo spazio */
+        if (n == 0) n = 1;
+        memcpy(line, s, n);
+        line[n] = 0;
+        txt(font, c, x, y, line);
+        y += lh;
+        s += n;
+    }
+    return y;
+}
+
+/* etichetta a pastiglia: fondo pieno, testo piccolo; restituisce la larghezza */
+static int chip(int x, int y, const char *s, int bg, int fg)
+{
+    int w = txt_w(FONT_SMALL, s) + 14;
+    fill(bg, x, y, w, 20);
+    txt(FONT_SMALL, fg, x + 7, y + 4, s);
+    return w;
+}
+
+/* ------------------------------------------------------------------ moduli */
+
+#define FORM_HEAD 28
+
+
+/* righe a pannello con barra di selezione elastica; valori "< x >" con frecce disegnate,
+   azioni come pulsanti, sezioni con titolo; se le righe non ci stanno, la lista scorre
+   morbida tenendo in vista la riga scelta */
 static void draw_form(const struct form *f, int s)
 {
     int y0 = f->y0 ? f->y0 : 58;
+    int y1 = f->y1 ? f->y1 : 438;
     int rh = f->row_h ? f->row_h : 42;
-    hl_bar(24, SCR_W - 48, y0 + s * rh, rh - 4);
-    int ev = anim_e(val_t0, 200, EZ_OUT), ep = anim_e(val_t0, 260, EZ_BACK);
-    for (int i = 0; i < f->n; i++)
+    int x0 = 24, w = f->w ? f->w : SCR_W - 48, xr = x0 + w - 20;
+    int ry[24], yy = 0;
+    for (int i = 0; i < f->n && i < 24; i++)
     {
-        int y = y0 + i * rh;
+        if (f->heads && f->heads[i]) yy += FORM_HEAD;
+        ry[i] = yy;
+        yy += rh;
+    }
+    int content = yy, view = y1 - y0;
+    int scroll = content > view;
+    int off = 0;
+    if (scroll)
+    {
+        int top = ry[s] - (f->heads && f->heads[s] ? FORM_HEAD : 0);
+        int target = COERCE(top + rh / 2 - view / 2, 0, content - view);
+        off = glide(&form_scroll, target, 260);
+    }
+    int ev = anim_e(val_t0, 200, EZ_OUT), ep = anim_e(val_t0, 260, EZ_BACK);
+
+    /* pannelli e titoli di sezione */
+    for (int i = 0; i < f->n && i < 24; i++)
+    {
+        int y = y0 + ry[i] - off;
+        if (y > y1 || y + rh < y0 - FORM_HEAD) continue;
+        fill(C_PANEL, x0, y, w, rh - 4);
+        if (f->heads && f->heads[i])
+        {
+            int hy = y - FORM_HEAD + 8;
+            txt(FONT_SMALL, C_ACCENT, x0 + 4, hy, f->heads[i]);
+            int tw = txt_w(FONT_SMALL, f->heads[i]) + 12;
+            fill(C_LINE, x0 + 4 + tw, hy + 6, w - 8 - tw, 1);
+        }
+    }
+    /* barra elastica (coordinate della lista, poi spostata dello scorrimento) */
+    {
+        int top, lead;
+        int hh = hl_span(y0 + ry[s], rh - 4, &top, &lead);
+        fill(C_SEL, x0, top - off, w, hh);
+        fill(C_ACCENT, x0, lead - off, 6, rh - 4);
+    }
+    for (int i = 0; i < f->n && i < 24; i++)
+    {
+        int y = y0 + ry[i] - off;
+        if (y > y1 || y + rh < y0) continue;
         char buf[64] = "";
         int kind = VK_TEXT;
         if (f->value) f->value(i, buf, sizeof(buf), &kind);
-        int ty = y + (rh - 4 - 23) / 2;
-        txt(FONT_MED, kind == VK_INFO ? C_DIM : C_TEXT, 44, ty, f->labels[i]);
+        int ty = y + (rh - 4 - 23) / 2, mid = y + (rh - 4) / 2;
         int mine = i == s;
+        txt(FONT_MED, kind == VK_INFO ? C_DIM : C_TEXT, x0 + 20, ty, f->labels[i]);
         if (kind == VK_ON || kind == VK_OFF)
-            draw_pill(kind == VK_ON, SCR_W - 44, y + (rh - 4 - 26) / 2, mine ? ep : 1000);
+            draw_pill(kind == VK_ON, xr, y + (rh - 4 - 26) / 2, mine ? ep : 1000);
         else if (kind == VK_ACTION)
-            txt_r(FONT_MED, C_ACCENT, SCR_W - 44, ty, buf[0] ? buf : "SET");
+        {
+            /* pulsante: bordo arancione, pieno quando e' la riga scelta */
+            const char *t = buf[0] ? buf : "SET";
+            int bw = txt_w(FONT_MED, t) + 26, bh = MIN(rh - 12, 30), by = mid - bh / 2;
+            if (mine) fill(C_ACCENT, xr - bw, by, bw, bh);
+            else frame_rect(C_ACCENT, xr - bw, by, bw, bh, 1);
+            txt(FONT_MED, mine ? C_BG : C_ACCENT, xr - bw + 13, by + (bh - 23) / 2, t);
+        }
         else if (buf[0])
         {
             int c = kind == VK_WARN ? C_WARN : (mine ? C_ACCENT : C_TEXT);
-            if (mine && ev < 1000 && val_dir)
-                txt_in(FONT_MED, c, SCR_W - 44 - txt_w(FONT_MED, buf), ty, buf, ev, val_dir * 18, 0);
-            else txt_r(FONT_MED, c, SCR_W - 44, ty, buf);
+            int n = strlen(buf);
+            int arrows = n > 4 && buf[0] == '<' && buf[1] == ' ' && buf[n - 1] == '>' && buf[n - 2] == ' ';
+            int vx = xr;
+            if (arrows)
+            {
+                buf[n - 2] = 0;
+                memmove(buf, buf + 2, n - 3);
+                arrow(xr - 3, mid, 1, mine ? C_ACCENT : C_LINE);
+                vx = xr - 16;
+            }
+            int vw = txt_w(FONT_MED, buf);
+            if (mine && ev < 1000 && val_dir) txt_in(FONT_MED, c, vx - vw, ty, buf, ev, val_dir * 18, 0);
+            else txt(FONT_MED, c, vx - vw, ty, buf);
+            if (arrows) arrow(vx - vw - 13, mid, -1, mine ? C_ACCENT : C_LINE);
         }
+    }
+    if (scroll)
+    {
+        /* maschere sopra e sotto l'area, e barra di scorrimento */
+        fill(C_BG, 0, 46, SCR_W, y0 - 46);
+        fill(C_BG, 0, y1, SCR_W, 444 - y1);
+        int tx = x0 + w + 6, th = view * view / content;
+        fill(C_PANEL2, tx, y0, 3, view);
+        fill(C_DIM, tx, y0 + (view - th) * off / MAX(content - view, 1), 3, th);
     }
 }
 

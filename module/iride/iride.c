@@ -35,7 +35,7 @@
 #include <lvinfo.h>
 #include <math.h>
 
-#define IRIDE_VERSION "1.0"
+#define IRIDE_VERSION "1.1"
 
 /* ------------------------------------------------------------------ compatibilita' API */
 
@@ -235,12 +235,14 @@ static volatile int job_running = JOB_NONE;
 static volatile int job_abort = 0;
 
 static void say(int color, const char *text);
+static const char *parent_title(const char *section);
 static void go(int s, int dir);
 static void lv_task(void *unused);
 static int persist_touch_ms = 0;
 static void persist_touch() { persist_dirty = 1; persist_touch_ms = get_ms_clock(); }
 
 #include "ui.inc"
+#include "icons.inc"
 #include "store.inc"
 #include "film.inc"
 #include "astro.inc"

@@ -4,7 +4,7 @@ Le transizioni tra schermate (zoom dal riquadro della Home, foglio del dialogo) 
 spostano la memoria video: qui sono ricomposte con la stessa geometria e la stessa curva
 partendo dalle schermate ferme.
 
-Uso: python3 gif.py CARTELLA_USCITA   ->  caricamento.gif, animazioni.gif
+Uso: python3 gif.py CARTELLA_USCITA   ->  caricamento.gif, animazioni.gif, menu.gif
 """
 import os
 import sys
@@ -124,6 +124,10 @@ def main():
     add(sheet(dlg, down[-1], down=True), hold=400)
     add(zoom(down[-1], home[-1], tile, back=True), hold=1200)
     save(os.path.join(out, "animazioni.gif"), frames, durs)
+
+    # menu Astro con l'anteprima della voce scelta
+    fr = seq("g_astro_a", 26) + seq("g_astro_b", 30) + seq("g_astro_c", 30)
+    save(os.path.join(out, "menu.gif"), fr, [40] * 25 + [700] + [40] * 29 + [700] + [40] * 29 + [1500])
 
 
 if __name__ == "__main__":

@@ -606,6 +606,8 @@ int main(void)
     sel[SCR_FOTO] = 0; screenshot(SCR_FOTO, "08_foto");
     sel[SCR_HDR] = 1; screenshot(SCR_HDR, "09_hdr");
     sel[SCR_FSTACK] = 3; screenshot(SCR_FSTACK, "10_focus_stack");
+    sel[SCR_DUAL] = 1; screenshot(SCR_DUAL, "10b_dual_iso");
+    sel[SCR_ETTR] = 0; screenshot(SCR_ETTR, "10c_ettr");
     sel[SCR_LVTOOLS] = 0; ml_set(MLF_PEAK, 1); ml_set(MLF_HIST, 1); screenshot(SCR_LVTOOLS, "11_strumenti_lv");
     P.nd_base = 80; P.nd_idx = 7; sel[SCR_ND] = 3; screenshot(SCR_ND, "12_filtri_nd");
     sel[SCR_MOTION] = 0; screenshot(SCR_MOTION, "13_movimento");
@@ -618,6 +620,8 @@ int main(void)
     sel[SCR_PROFILES] = 1; screenshot(SCR_PROFILES, "17_profili");
     sel[SCR_OPTIONS] = 0; screenshot(SCR_OPTIONS, "18_opzioni");
     snap_take(); screenshot(SCR_RESTORE, "19_torna_6d");
+    { int th = opt_theme; opt_theme = 1; screenshot(SCR_ASTRO, "02b_astro_notte"); screenshot(SCR_HDR, "09b_hdr_notte");
+      screenshot(SCR_OPTIONS, "18b_opzioni_notte"); screenshot(SCR_PROFILES, "17b_profili_notte"); opt_theme = th; }
     opt_theme = 2; screenshot(SCR_POLAR, "20_polare_notte");
     screenshot(SCR_SKY, "21_cielo_notte");
     opt_theme = 0;
@@ -714,6 +718,17 @@ int main(void)
         CHECK(sky_sel == 2, "calendario: ^/v sceglie la notte (%d)", sky_sel);
         sky_sel = 0;
 
+        /* menu Astro e Foto: illustrazione grande di ogni voce, a meta' animazione e ferma */
+        static const int tmd[] = { 300, 1500 };
+        for (int m = 0; m < 2; m++)
+            for (int i = 0; i < (m ? NUM_FOTO_ROWS : NUM_ASTRO_ROWS); i++)
+            {
+                char nm[32]; snprintf(nm, sizeof(nm), "z_md%d_%d", m, i);
+                screen = m ? SCR_FOTO : SCR_ASTRO; sel[screen] = i; hl_reset(); md_select();
+                frames_at(nm, tmd, COUNT(tmd));
+            }
+        sel[SCR_ASTRO] = 1; sel[SCR_FOTO] = 0;
+
         /* Torna alla 6D: barra, spunta, poi la Home con l'avviso */
         struct persist saved = P;
         snap_take(); screen = SCR_RESTORE; hl_reset(); render(0);
@@ -739,6 +754,11 @@ int main(void)
         handle_key(MODULE_KEY_PRESS_RIGHT); frames_at("g_scaffale_dx", g40, 10);
         handle_key(MODULE_KEY_PRESS_DOWN); frames_at("g_scaffale_giu", g40, 13);
         conf_mode = CONF_LOAD; sel[SCR_CONFIRM] = 2; screen = SCR_CONFIRM; hl_reset(); frames_at("g_dialogo", g40, 1);
+        /* menu Astro: si scende di due voci, l'anteprima a destra cambia */
+        screen = SCR_ASTRO; sel[SCR_ASTRO] = 0; hl_reset(); md_enter(); frames_at("g_astro_a", g40, 26);
+        handle_key(MODULE_KEY_PRESS_DOWN); md_select(); frames_at("g_astro_b", g40, 30);
+        handle_key(MODULE_KEY_PRESS_DOWN); handle_key(MODULE_KEY_PRESS_DOWN); frames_at("g_astro_c", g40, 30);
+        sel[SCR_ASTRO] = 1;
         shelf_cat = CAT_COLOR; shelf_enter();
     }
 
