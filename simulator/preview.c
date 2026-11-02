@@ -2,6 +2,7 @@
 #include <math.h>
 #include <sys/mman.h>
 #include "../module/iride/iride.c"
+static void sky_full(void) { while (!sky_ready) sky_tick(); while (sky_tick()) ; }   /* notti e ricerca della Via Lattea */
 #include "widths.h"
 
 /* ================================================================ disegno registrato */
@@ -600,13 +601,42 @@ int main(void)
             c[0], c[1], c[2], c[3], c[4], off, (double)polar_ha_hours(j), (double)sun, (double)moon, ill / 1000.0, (double)gc, i + 1 < COUNT(cases) ? "," : "");
     }
     fprintf(jf, "]\n"); fclose(jf);
-    sky_enter(); while (!sky_ready) sky_tick();
+    sky_enter(); sky_full();
     jf = fopen("out/nights.json", "w"); fprintf(jf, "[\n");
     for (int i = 0; i < SKY_NIGHTS; i++)
-        fprintf(jf, " {\"day1970\":%d,\"sunset\":%d,\"dusk\":%d,\"dawn\":%d,\"sunrise\":%d,\"moonrise\":%d,\"moonset\":%d,\"moon_illum\":%d,\"moonless\":%d,\"gc_start\":%d,\"gc_end\":%d}%s\n",
+        fprintf(jf, " {\"day1970\":%d,\"sunset\":%d,\"dusk\":%d,\"dawn\":%d,\"sunrise\":%d,\"moonrise\":%d,\"moonset\":%d,\"moon_illum\":%d,\"moonless\":%d,\"gc_start\":%d,\"gc_end\":%d,\"nelm_dark\":%d,\"nelm_moon\":%d,\"nelm_moon_max\":%d,\"sqm\":%d}%s\n",
             nights[i].day1970, nights[i].sunset, nights[i].dusk, nights[i].dawn, nights[i].sunrise, nights[i].moonrise, nights[i].moonset, nights[i].moon_illum, nights[i].moonless_min,
-            nights[i].gc_start, nights[i].gc_end, i + 1 < SKY_NIGHTS ? "," : "");
+            nights[i].gc_start, nights[i].gc_end, nights[i].nelm_dark, nights[i].nelm_moon, nights[i].nelm_moon_max, opt_sqm10, i + 1 < SKY_NIGHTS ? "," : "");
     fprintf(jf, "]\n"); fclose(jf);
+    jf = fopen("out/gcnext.json", "w");
+    fprintf(jf, "{\"state\":%d,\"from\":%d,\"day1970\":%d,\"start\":%d,\"end\":%d}\n", gcn_state, gcn_from, gcn_day, gcn_start, gcn_end);
+    fclose(jf);
+
+    /* luce della Luna: valori noti del modello di Krisciunas & Schaefer */
+    {
+        struct skymodel m0, m1, m2;
+        int keep = opt_sqm10; opt_sqm10 = 210;
+        sky_model(&m0, 0); sky_model(&m1, 1000); sky_model(&m2, 500);
+        float q0 = sky_sqm(&m0, -10.0f), qf = sky_sqm(&m1, 60.0f), qq = sky_sqm(&m2, 60.0f), qlow = sky_sqm(&m1, 5.0f);
+        CHECK(fabsf(q0 - 21.0f) < 0.01f && sky_nelm10(q0) == 61, "cielo senza Luna: SQM 21,0 -> mag limite 6,1 (%.2f, %d)", (double)q0, sky_nelm10(q0));
+        CHECK(qf > 17.4f && qf < 18.2f && sky_nelm10(qf) >= 36 && sky_nelm10(qf) <= 42, "Luna piena alta 60 gradi: cielo ~17,8, stelle fino a ~4 (%.2f, %d)", (double)qf, sky_nelm10(qf));
+        CHECK(qq > qf + 1.5f && qq < q0, "primo quarto: a meta' strada tra piena e buio (%.2f)", (double)qq);
+        CHECK(qlow > qf, "Luna piena bassa schiarisce meno di quella alta (%.2f > %.2f)", (double)qlow, (double)qf);
+        opt_sqm10 = 190; sky_model(&m0, 0);
+        CHECK(sky_nelm10(sky_sqm(&m0, -10.0f)) < 61, "cielo di citta': meno stelle");
+        opt_sqm10 = keep;
+    }
+    /* la Via Lattea torna (Roma, da novembre): fine febbraio - inizio marzo, prima dell'alba */
+    {
+        int y, mo, d;
+        civil_from_days(gcn_day, &y, &mo, &d);
+        CHECK(gcn_state == 2 && ((mo == 2 && d >= 20) || (mo == 3 && d <= 12)) && gcn_start < 720 && gcn_end - gcn_start >= 30,
+              "centro Via Lattea torna il %d/%d alle %02d:%02d-%02d:%02d", d, mo, gcn_start / 60, gcn_start % 60, gcn_end / 60, gcn_end % 60);
+        int la = P.lat100; P.lat100 = 6000;
+        sky_enter(); sky_full();
+        CHECK(gcn_state == 3, "a 60 gradi nord il centro non sale mai sopra 10 gradi");
+        P.lat100 = la; sky_enter(); sky_full();
+    }
 
     /* ---------- schermate */
     camera_reset();
@@ -627,7 +657,7 @@ int main(void)
     screenshot(SCR_STARS, "05_stelle");
     { FILE *g = fopen("out/05_lv.pgm", "wb"); fprintf(g, "P5 720 480 255\n"); for (int y = 0; y < 480; y++) for (int x = 0; x < 720; x++) fputc(lvbuf[y * 1440 + x * 2 + 1], g); fclose(g); }
     screenshot(SCR_POLAR, "06_polare");
-    sky_enter(); while (!sky_ready) sky_tick(); screenshot(SCR_SKY, "07_cielo");
+    sky_enter(); sky_full(); screenshot(SCR_SKY, "07_cielo");
 
     /* Luna dettagliata: fasi a confronto e controlli sulla luce */
     {
@@ -649,7 +679,7 @@ int main(void)
         { int on = night; night = 1; draw_moon(600, 360, 110, 430, 1, 0); night = on; }
         shot("23b_luna_grande");
         sky_ready = 0; sky_progress = SKY_NIGHTS / 2; bmp_draw_to_idle(0); clrscr(); draw_sky(); shot("23c_luna_calcolo");
-        sky_enter(); while (!sky_ready) sky_tick();
+        sky_enter(); sky_full();
         uint8_t *vr = vram_a + 30 * 960;
         #define VP(x, y) vr[(y) * 960 + (x)]
         /* piena: tutto il disco acceso; nuova: tutto spento */
@@ -715,6 +745,11 @@ int main(void)
     opt_theme = 2; screenshot(SCR_POLAR, "20_polare_notte");
     screenshot(SCR_SKY, "21_cielo_notte");
     opt_theme = 0;
+    /* estate: Via Lattea e Luna nella stessa notte; Opzioni col cielo del luogo */
+    set_time(2027, 7, 12, 22, 30); sky_enter(); sky_full(); sky_sel = 0; screenshot(SCR_SKY, "21b_cielo_estate");
+    sky_sel = 4; screenshot(SCR_SKY, "21c_cielo_estate_luna");
+    set_time(2026, 11, 1, 22, 47); sky_enter(); sky_full(); sky_sel = 0;
+    sel[SCR_OPTIONS] = 11; screenshot(SCR_OPTIONS, "18c_opzioni_cielo"); sel[SCR_OPTIONS] = 0;
     /* caricamento animato: un fotogramma a meta' */
     { screen = SCR_SHELF; theme_apply(); P.roll_push = 0; P.roll_film = 3;
       static int tl[24];
@@ -803,7 +838,7 @@ int main(void)
         handle_key(MODULE_KEY_INFO); frames_at("z_polare_vista", tq, COUNT(tq));
         P.polar_view = 0;
         static const int tk[] = { 0, 80, 180, 300, 450, 700 };
-        screen = SCR_SKY; sky_enter(); while (!sky_ready) sky_tick(); frames_at("z_cielo", tk, COUNT(tk));
+        screen = SCR_SKY; sky_enter(); sky_full(); frames_at("z_cielo", tk, COUNT(tk));
         handle_key(MODULE_KEY_PRESS_DOWN); handle_key(MODULE_KEY_PRESS_DOWN); frames_at("z_cielo_notte_scelta", tk, COUNT(tk));
         CHECK(sky_sel == 2, "calendario: ^/v sceglie la notte (%d)", sky_sel);
         sky_sel = 0;
@@ -870,7 +905,7 @@ int main(void)
         handle_key(MODULE_KEY_INFO); frames_at("g_pol_c", g40, 14);
         P.polar_view = 0;
         /* calendario: entrata e scelta delle notti */
-        screen = SCR_SKY; sky_enter(); while (!sky_ready) sky_tick(); hl_reset(); sky_ready_t0 = sky_t0 = clock_ms;
+        screen = SCR_SKY; sky_enter(); sky_full(); hl_reset(); sky_ready_t0 = sky_t0 = clock_ms;
         frames_at("g_sky_a", g40, 22);
         handle_key(MODULE_KEY_PRESS_DOWN); frames_at("g_sky_b", g40, 16);
         handle_key(MODULE_KEY_PRESS_DOWN); handle_key(MODULE_KEY_PRESS_DOWN); frames_at("g_sky_c", g40, 16);

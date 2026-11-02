@@ -759,7 +759,19 @@ static void profiles_key(int key, int dx, int dy)
 
 static const char *const opt_labels[] = { "Tema", "Animazioni", "Schermata iniziale", "Apri all'accensione",
     "Cestino apre Iride", "Tasto luce LCD", "Anteprima col rullino", "Avviso posa", "Latitudine", "Longitudine",
-    "Fuso orario", "Diagnostica tasti" };
+    "Fuso orario", "Cielo del luogo", "Diagnostica tasti" };
+
+/* buio del cielo di casa (mag/arcsec^2 come un SQM): serve a stimare le stelle visibili con la Luna */
+static const short sqm_steps[] = { 220, 215, 210, 205, 200, 195, 190, 185 };
+static const char *const sqm_names[] = { "molto buio", "buio", "campagna", "campagna vicino citta'",
+    "periferia", "periferia luminosa", "citta'", "centro citta'" };
+static int sqm_index()
+{
+    int best = 0;
+    for (int i = 0; i < (int)COUNT(sqm_steps); i++)
+        if (ABS(sqm_steps[i] - opt_sqm10) < ABS(sqm_steps[best] - opt_sqm10)) best = i;
+    return best;
+}
 
 static void opt_value(int row, char *buf, int len, int *kind)
 {
@@ -781,7 +793,13 @@ static void opt_value(int row, char *buf, int len, int *kind)
             if (P.tz_mode == 0) snprintf(buf, len, "< Italia (ora legale auto) >");
             else snprintf(buf, len, "< UTC+%d fisso >", P.tz_mode - 1);
             break;
-        case 11: *kind = VK_ACTION; snprintf(buf, len, ">"); break;
+        case 11:
+        {
+            int i = sqm_index();
+            snprintf(buf, len, "< %d,%d %s >", sqm_steps[i] / 10, sqm_steps[i] % 10, sqm_names[i]);
+            break;
+        }
+        case 12: *kind = VK_ACTION; snprintf(buf, len, ">"); break;
     }
 }
 
@@ -800,17 +818,18 @@ static void opt_change(int row, int dir, int big)
         case 8: P.lat100 = COERCE(P.lat100 + dir * (big ? 100 : 1), -9000, 9000); persist_touch(); break;
         case 9: P.lon100 = COERCE(P.lon100 + dir * (big ? 100 : 1), -18000, 18000); persist_touch(); break;
         case 10: P.tz_mode = MOD(P.tz_mode + dir, 5); persist_touch(); break;
+        case 11: opt_sqm10 = sqm_steps[COERCE(sqm_index() - dir, 0, (int)COUNT(sqm_steps) - 1)]; break;   /* destra = piu' buio */
     }
 }
 
 static void opt_activate(int row)
 {
-    if (row == 11) { go(SCR_KEYS, 1); return; }
+    if (row == 12) { go(SCR_KEYS, 1); return; }
     opt_change(row, 1, 0);
 }
 
-static const char *const opt_heads[] = { "ASPETTO", 0, 0, "APERTURA DI IRIDE", 0, 0, "SCATTO", 0, "LUOGO E ORA", 0, 0, "STRUMENTI" };
-static const struct form opt_form = { 12, opt_labels, opt_value, opt_change, opt_activate, 0,
+static const char *const opt_heads[] = { "ASPETTO", 0, 0, "APERTURA DI IRIDE", 0, 0, "SCATTO", 0, "LUOGO E ORA", 0, 0, 0, "STRUMENTI" };
+static const struct form opt_form = { 13, opt_labels, opt_value, opt_change, opt_activate, 0,
     "^/v riga   </> cambia (ghiera superiore x100)   MENU indietro", 54, 42, opt_heads, 0, 0 };
 
 /* ------------------------------------------------------------------ diagnostica tasti */

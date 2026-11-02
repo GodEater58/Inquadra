@@ -875,7 +875,10 @@ struct night
     int dark_min, moonless_min;
     int moon_illum, moon_waxing;
     int gc_start, gc_end, gc_max_alt;     /* finestra del centro della Via Lattea, buio e senza Luna */
+    int nelm_dark, nelm_moon, nelm_moon_max;   /* magnitudine limite x10: senza Luna, con la Luna (peggiore e migliore); -1 se mai */
+    int score;                            /* qualita' della notte per la scelta della migliore */
     unsigned char s[SKY_SAMPLES];         /* stato del cielo ogni 10 minuti */
+    unsigned char q[SKY_SAMPLES];         /* brillanza allo zenit col buio o con la Luna (SQM x10 - 100), 0 = non calcolata */
 };
 static struct night nights[SKY_NIGHTS];
 static int sky_ready = 0, sky_progress = 0, sky_scroll = 0;
@@ -885,6 +888,45 @@ static struct glider sky_moon_g = { -1, 0, 0, 0 };
 /* centro galattico (Sgr A*), equinozio 2026.5 */
 #define GC_RA  (17.789203f * 15.0f)
 #define GC_DEC (-29.016482f)
+
+/* ---- quanto la Luna schiarisce il cielo
+ * Brillanza allo zenit col modello di Krisciunas & Schaefer (PASP 103, 1991):
+ * luce lunare diffusa (Rayleigh + Mie) secondo fase e altezza della Luna, sommata
+ * al cielo buio del luogo (opzione in mag/arcsec^2, come un SQM). Poi la
+ * magnitudine limite a occhio nudo: NELM = 7.93 - 5 log10(10^(4.316 - SQM/5) + 1). */
+#define SKY_EXT 0.20f                     /* estinzione in V (mag per massa d'aria), cielo limpido di pianura */
+
+struct skymodel { float b0, istar, tz; };
+
+static void sky_model(struct skymodel *m, int illum)
+{
+    float alpha = acosf(COERCE(2.0f * illum / 1000.0f - 1.0f, -1.0f, 1.0f)) * RAD2DEG;   /* angolo di fase, 0 = piena */
+    float a2 = alpha * alpha;
+    m->b0 = 34.08f * expf(20.7233f - 0.92104f * (opt_sqm10 / 10.0f));                     /* nanoLambert */
+    m->istar = powf(10.0f, -0.4f * (3.84f + 0.026f * alpha + 4e-9f * a2 * a2));
+    m->tz = 1.0f - powf(10.0f, -0.4f * SKY_EXT);                                          /* massa d'aria 1 allo zenit */
+}
+
+/* brillanza allo zenit in mag/arcsec^2 con la Luna all'altezza data (gradi) */
+static float sky_sqm(const struct skymodel *m, float moon_alt)
+{
+    float b = m->b0;
+    if (moon_alt > 0.0f)
+    {
+        float rho = 90.0f - moon_alt;                     /* distanza Luna-zenit = distanza zenitale della Luna */
+        float sz = sinf(rho * DEG2RAD), cr = cosf(rho * DEG2RAD);
+        float xm = 1.0f / sqrtf(1.0f - 0.96f * sz * sz);
+        float fm = rho >= 10.0f ? powf(10.0f, 6.15f - rho / 40.0f) : 6.2e7f / (MAX(rho, 1.0f) * MAX(rho, 1.0f));
+        float f = 229086.8f * (1.06f + cr * cr) + fm;     /* 10^5.36 (1.06 + cos^2) + Mie */
+        b += f * m->istar * powf(10.0f, -0.4f * SKY_EXT * xm) * m->tz;
+    }
+    return (20.7233f - logf(b / 34.08f)) / 0.92104f;
+}
+
+static int sky_nelm10(float sqm)
+{
+    return (int)((7.93f - 5.0f * log10f(powf(10.0f, 4.316f - sqm / 5.0f) + 1.0f)) * 10.0f + 0.5f);
+}
 
 static void sky_compute_night(int n, int day1970)
 {
@@ -902,6 +944,14 @@ static void sky_compute_night(int n, int day1970)
         int doy = doe - (365 * yoe + yoe / 4 - yoe / 100), mp = (5 * doy + 2) / 153;
         d = doy - (153 * mp + 2) / 5 + 1; m = mp + (mp < 10 ? 3 : -9); y = yoe + era * 400 + (m <= 2);
     }
+    /* fase della Luna a mezzanotte: serve per tutta la notte */
+    {
+        struct jtime jm = jt_from_local(day1970, 1440, utc_offset_min(y, m, d, 0));
+        nt->moon_illum = moon_illum(jm, &nt->moon_waxing);
+    }
+    struct skymodel sm;
+    sky_model(&sm, nt->moon_illum);
+    nt->nelm_dark = nt->nelm_moon = nt->nelm_moon_max = -1;
     float prev_sun = 0.0f, prev_moon = 0.0f;
     for (int k = 0; k <= 144; k++)
     {
@@ -931,10 +981,24 @@ static void sky_compute_night(int n, int day1970)
         }
         prev_sun = sun;
         prev_moon = moon;
+        int sqm10 = 0;
+        if (sun < -18.0f || moon > 0.0f)
+        {
+            float q = sky_sqm(&sm, moon);
+            sqm10 = COERCE((int)(q * 10.0f + 0.5f), 101, 255 + 100);
+            if (k < 144 && sun < -18.0f)
+            {
+                int ne = sky_nelm10(q);
+                if (moon > 0.0f) { nt->nelm_moon = nt->nelm_moon < 0 ? ne : MIN(nt->nelm_moon, ne); nt->nelm_moon_max = MAX(nt->nelm_moon_max, ne); }
+                else nt->nelm_dark = MAX(nt->nelm_dark, ne);
+                nt->score += MAX(0, ne - 40);                /* decimi di magnitudine sopra la 4: ~21 per 10 minuti di cielo buio */
+            }
+        }
         if (k >= 24 && k <= 120)
         {
             int cls = sun > -0.833f ? SK_DAY : sun > -6.0f ? SK_CIVIL : sun > -12.0f ? SK_NAUT : sun > -18.0f ? SK_ASTRO : SK_NIGHT;
             nt->s[k - 24] = cls | (moon_up ? SK_MOON : 0) | (gc > 10.0f ? SK_GC : 0);
+            nt->q[k - 24] = sqm10 ? sqm10 - 100 : 0;
         }
         if (k < 144 && sun < -18.0f)
         {
@@ -950,16 +1014,86 @@ static void sky_compute_night(int n, int day1970)
                 }
             }
         }
-        if (k == 72) nt->moon_illum = moon_illum(j, &nt->moon_waxing);   /* mezzanotte */
     }
 }
 
 static int gc_window(const struct night *n) { return n->gc_start < 0 ? 0 : MOD(n->gc_end - n->gc_start, 1440); }
 
+/* ---- quando torna il centro della Via Lattea, se nelle 7 notti non c'e' */
+static int gcn_state = 0;                 /* 0 non serve, 1 cerco, 2 trovato, 3 da qui non sale */
+static int gcn_day, gcn_from, gcn_start, gcn_end;
+
+static void civil_from_days(int d70, int *y, int *m, int *d)
+{
+    int z = d70 + 719468, era = (z >= 0 ? z : z - 146096) / 146097;
+    int doe = z - era * 146097, yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+    int doy = doe - (365 * yoe + yoe / 4 - yoe / 100), mp = (5 * doy + 2) / 153;
+    *d = doy - (153 * mp + 2) / 5 + 1; *m = mp + (mp < 10 ? 3 : -9); *y = yoe + era * 400 + (*m <= 2);
+}
+
+/* centro galattico sopra 10 gradi col buio astronomico, nella notte che inizia il giorno d70:
+   prima finestra, con il passo dato in minuti (la Luna qui non conta: e' la stagione) */
+static int gc_dark_window(int d70, int step, int *start, int *end)
+{
+    int y, m, d;
+    civil_from_days(d70, &y, &m, &d);
+    float lat = lat_deg(), lon = lon_deg();
+    int first = -1, last = -1;
+    for (int mins = 960; mins <= 1920; mins += step)        /* dalle 16 alle 8: il buio sta qui */
+    {
+        struct jtime j = jt_from_local(d70, mins, utc_offset_min(y, m, d, (mins / 60) % 24));
+        float lst = lst_deg(j, lon), ra, dec;
+        int ok = 0;
+        sun_pos(j, &ra, &dec, 0);
+        if (altitude(ra, dec, lst, lat) < -18.0f) ok = altitude(GC_RA, GC_DEC, lst, lat) > 10.0f;
+        if (ok) { if (first < 0) first = mins; last = mins; }
+        else if (first >= 0) break;
+    }
+    if (first < 0) return 0;
+    if (start) *start = first % 1440;
+    if (end) *end = (last + step) % 1440;
+    return 1;
+}
+
+/* un pezzo di ricerca per giro: salti di 3 giorni, poi il primo giorno esatto.
+   "Torna" = prima notte con almeno mezz'ora utile (la prima in assoluto dura pochi minuti) */
+#define GC_MIN_WINDOW 30
+static int gc_good_night(int d70, int *start, int *end)
+{
+    int a, b;
+    if (!gc_dark_window(d70, 10, &a, &b) || MOD(b - a, 1440) < GC_MIN_WINDOW) return 0;
+    if (start) *start = a;
+    if (end) *end = b;
+    return 1;
+}
+
+static void gc_scan_step()
+{
+    for (int i = 0; i < 6; i++)
+    {
+        if (gcn_day > gcn_from + 370) { gcn_state = 3; return; }
+        if (gc_good_night(gcn_day, 0, 0))
+        {
+            int d = gcn_day;
+            for (int b = 0; b < 2 && d - 1 >= gcn_from && gc_good_night(d - 1, 0, 0); b++) d--;
+            gc_good_night(d, &gcn_start, &gcn_end);
+            gcn_day = d;
+            gcn_state = 2;
+            return;
+        }
+        gcn_day += 3;
+    }
+}
+
 /* calcolo a pezzi: una notte per giro, cosi' l'interfaccia resta fluida */
 static int sky_tick()
 {
-    if (sky_ready) return 0;
+    if (sky_ready)
+    {
+        if (gcn_state != 1) return 0;
+        gc_scan_step();
+        return 1;
+    }
     int d70, mins, off;
     jt_now(&d70, &mins, &off);
     if (mins < 720) d70 -= 1;   /* prima di mezzogiorno vale ancora la notte appena passata */
@@ -971,17 +1105,26 @@ static int sky_tick()
         int best = 0, score = -1;
         for (int i = 0; i < SKY_NIGHTS; i++)
         {
-            int sc = nights[i].moonless_min + 2 * gc_window(&nights[i]);
+            /* cielo buio pesato con le stelle visibili; il centro della Via Lattea vale il doppio;
+               a pari merito vince la notte con meno Luna */
+            int sc = nights[i].score + 4 * gc_window(&nights[i]) + nights[i].moonless_min / 10;
             if (sc > score) { score = sc; best = i; }
         }
         sky_best = best;
+        /* il centro della Via Lattea manca in tutte le 7 notti: si cerca quando torna */
+        int any = 0;
+        for (int i = 0; i < SKY_NIGHTS; i++)
+            for (int k = 0; k < SKY_SAMPLES; k++)
+                if ((nights[i].s[k] & SK_GC) && (nights[i].s[k] & SK_SUN) == SK_NIGHT) any = 1;
+        gcn_state = any ? 0 : 1;
+        gcn_from = gcn_day = nights[SKY_NIGHTS - 1].day1970 + 1;
         sky_ready = 1;
         sky_ready_t0 = sky_t0 = get_ms_clock();
     }
     return 1;
 }
 
-static void sky_enter() { sky_ready = 0; sky_progress = 0; sky_scroll = 0; sky_sel = 0; sky_moon_g.vis = -1; }
+static void sky_enter() { sky_ready = 0; sky_progress = 0; sky_scroll = 0; sky_sel = 0; sky_moon_g.vis = -1; gcn_state = 0; }
 
 static void sky_key(int key, int dx, int dy)
 {
@@ -1013,15 +1156,20 @@ static int sky_color(int cls)
     return c[COERCE(cls, 0, 4)];
 }
 
-/* Luna in cielo: chiara se e' piu' di mezza */
-static int moon_color(int illum)
+/* Luna in cielo: tanto piu' chiara quanto piu' schiarisce il cielo (fase e altezza) */
+static int moon_shade(const struct night *n, int i)
 {
-    if (night) return COLOR_DARK_RED;
-    return illum > 500 ? COLOR_GRAY(80) : COLOR_GRAY(58);
+    int q = n->q[i];
+    int d = q ? opt_sqm10 - (q + 100) : 0;               /* decimi di magnitudine persi allo zenit */
+    if (night) return d > 10 ? COLOR_RED : COLOR_DARK_RED;
+    return COLOR_GRAY(COERCE(26 + d * 2, 26, 90));
 }
 
-/* sorgere e tramonto della Luna dentro la striscia (16 - 8), in ordine di tempo */
-static void moon_line(const struct night *t, char *buf, int len)
+static void fmt_mag(char *buf, int len, int m10) { snprintf(buf, len, "%d,%d", m10 / 10, m10 % 10); }
+
+/* sorgere e tramonto della Luna dentro la striscia (16 - 8), in ordine di tempo:
+   frase intera (long) o breve, da mettere tra parentesi */
+static void moon_text(const struct night *t, char *buf, int len, int brief)
 {
     char a[8], b[8];
     int pr = t->moonrise >= 0 ? MOD(t->moonrise - SKY_T0, 1440) : 9999;
@@ -1033,12 +1181,57 @@ static void moon_line(const struct night *t, char *buf, int len)
     if (in_s) fmt_hm(b, sizeof(b), t->moonset);
     if (in_r && in_s)
     {
-        if (pr < ps) snprintf(buf, len, "Luna: sorge %s, tramonta %s", a, b);
-        else snprintf(buf, len, "Luna: tramonta %s, risorge %s", b, a);
+        if (pr < ps) snprintf(buf, len, brief ? "sorge %s, tramonta %s" : "Luna: sorge %s, tramonta %s", a, b);
+        else snprintf(buf, len, brief ? "tramonta %s, risorge %s" : "Luna: tramonta %s, risorge %s", b, a);
     }
-    else if (in_r) snprintf(buf, len, "Luna: sorge alle %s, poi resta fino al mattino", a);
-    else if (in_s) snprintf(buf, len, "Luna: in cielo fino alle %s", b);
-    else snprintf(buf, len, any ? "Luna: in cielo tutta la notte" : "Luna: sotto l'orizzonte tutta la notte");
+    else if (in_r) snprintf(buf, len, brief ? "sorge alle %s" : "Luna: sorge alle %s, poi resta fino al mattino", a);
+    else if (in_s) snprintf(buf, len, brief ? "fino alle %s" : "Luna: in cielo fino alle %s", b);
+    else snprintf(buf, len, any ? (brief ? "tutta la notte" : "Luna: in cielo tutta la notte") : (brief ? "assente" : "Luna: sotto l'orizzonte tutta la notte"));
+}
+
+/* fin dove si vedono le stelle a occhio nudo: col cielo buio e con la Luna */
+static void stars_line(const struct night *t, char *buf, int len)
+{
+    char a[8], b[8], tm[40];
+    if (t->nelm_dark < 0 && t->nelm_moon < 0) { moon_text(t, buf, len, 0); return; }     /* niente buio astronomico */
+    if (t->nelm_moon < 0)
+    {
+        fmt_mag(a, sizeof(a), t->nelm_dark);
+        snprintf(buf, len, "Senza Luna col buio: stelle fino a mag %s", a);
+        return;
+    }
+    if (t->nelm_dark < 0)
+    {
+        fmt_mag(a, sizeof(a), t->nelm_moon); fmt_mag(b, sizeof(b), t->nelm_moon_max);
+        if (t->nelm_moon_max - t->nelm_moon >= 3) snprintf(buf, len, "Luna tutta la notte: stelle fino a mag %s - %s", a, b);
+        else snprintf(buf, len, "Luna tutta la notte: stelle fino a mag %s", a);
+        return;
+    }
+    fmt_mag(a, sizeof(a), t->nelm_dark); fmt_mag(b, sizeof(b), t->nelm_moon);
+    moon_text(t, tm, sizeof(tm), 1);
+    snprintf(buf, len, "Stelle fino a mag %s; con la Luna %s (%s)", a, b, tm);
+    if (txt_w(FONT_MED, buf) > SCR_W - 24 - 124) snprintf(buf, len, "Stelle fino a mag %s; con la Luna %s", a, b);
+}
+
+/* la riga del centro della Via Lattea quando nella notte scelta non c'e' */
+static void gc_missing_line(int gc_dark, char *buf, int len)
+{
+    char a[8], b[8];
+    int y, m, d;
+    if (gc_dark) { snprintf(buf, len, "Centro Via Lattea: col buio c'e' la Luna"); return; }
+    switch (gcn_state)
+    {
+        case 1: snprintf(buf, len, "Centro Via Lattea: cerco quando torna..."); return;
+        case 3: snprintf(buf, len, "Centro Via Lattea: da qui non sale sopra 10 gradi"); return;
+        case 2:
+            civil_from_days(gcn_day, &y, &m, &d);
+            fmt_hm(a, sizeof(a), gcn_start); fmt_hm(b, sizeof(b), gcn_end);
+            snprintf(buf, len, "Centro Via Lattea: torna dal %d/%d, ore %s-%s %s", d, m, a, b,
+                gcn_start < 720 ? "prima dell'alba" : "dopo il tramonto");
+            if (txt_w(FONT_MED, buf) > SCR_W - 24 - 124) snprintf(buf, len, "Centro Via Lattea: torna dal %d/%d, ore %s-%s", d, m, a, b);
+            return;
+    }
+    snprintf(buf, len, "Centro Via Lattea: non visibile col buio");
 }
 
 static void fmt_day(char *buf, int len, int day1970)
@@ -1062,7 +1255,7 @@ static void draw_night_strip(const struct night *n, int x0, int y, int w, int h,
         xb = MIN(xb, reveal);
         int v = n->s[i];
         fill(sky_color(v & SK_SUN), xa, y, xb - xa, h);
-        if (v & SK_MOON) fill(moon_color(n->moon_illum), xa, y, xb - xa, 3);
+        if (v & SK_MOON) fill(moon_shade(n, i), xa, y, xb - xa, 3);
         if ((v & SK_GC) && (v & SK_SUN) == SK_NIGHT && !(v & SK_MOON)) fill(C_OK, xa, y + h - 3, xb - xa, 3);
     }
     frame_rect(C_LINE, x0 - 1, y - 1, w + 2, h + 2, 1);
@@ -1112,7 +1305,7 @@ static void draw_sky()
     int gc_dark = 0;
     for (int i = 0; i < SKY_SAMPLES; i++)
         if ((t->s[i] & SK_GC) && (t->s[i] & SK_SUN) == SK_NIGHT) gc_dark = 1;
-    moon_line(t, buf, sizeof(buf));
+    stars_line(t, buf, sizeof(buf));
     txt_in(FONT_MED, C_DIM, 124, 111, buf, e2, 0, 8);
     if (t->gc_start >= 0)
     {
@@ -1120,7 +1313,11 @@ static void draw_sky()
         snprintf(buf, sizeof(buf), "Centro Via Lattea %s - %s, alto fino a %d gradi", a, b, t->gc_max_alt);
         txt_in(FONT_MED, C_OK, 124, 133, buf, e3, 0, 8);
     }
-    else txt_in(FONT_MED, C_DIM, 124, 133, gc_dark ? "Centro Via Lattea: col buio c'e' la Luna" : "Centro Via Lattea: non visibile col buio", e3, 0, 8);
+    else
+    {
+        gc_missing_line(gc_dark, buf, sizeof(buf));
+        txt_in(FONT_MED, C_DIM, 124, 133, buf, e3, 0, 8);
+    }
 
     /* ---- linea del tempo della notte scelta */
     const int lx = 104, lw = 592, sy = 170, sh = 22;
@@ -1142,7 +1339,7 @@ static void draw_sky()
         fill(sky_color(cls), xa, sy, xb - xa, sh);
         if (cls == SK_NIGHT && (i * 37) % 5 == 0) fill(night ? COLOR_DARK_RED : COLOR_GRAY(60), xa + (i * 13) % 5, sy + 3 + (i * 7) % (sh - 6), 1, 1);
         if (cls == SK_NIGHT && !(v & SK_MOON)) fill(C_ACCENT, xa, sy + sh + 1, xb - xa, 3);      /* finestra buona */
-        if (v & SK_MOON) fill(moon_color(t->moon_illum), xa, sy + 29, xb - xa, 8);
+        if (v & SK_MOON) fill(moon_shade(t, i), xa, sy + 29, xb - xa, 8);
         if (v & SK_GC) fill(cls == SK_NIGHT && !(v & SK_MOON) ? C_OK : night ? COLOR_DARK_RED : COLOR_GRAY(30), xa, sy + 42, xb - xa, 8);
     }
     frame_rect(C_LINE, lx - 1, sy - 1, lw + 2, sh + 2, 1);
@@ -1200,8 +1397,8 @@ static void draw_sky()
         if (i == sky_best && er >= 1000) star(512 + txt_w(FONT_MED, buf) + 10, ry + 11, 3, C_ACCENT);
         if (n->gc_start >= 0)
         {
-            fmt_hm(a, sizeof(a), n->gc_start); fmt_hm(b, sizeof(b), n->gc_end);
-            snprintf(buf, sizeof(buf), "%s-%s", a, b);
+            /* senza zeri iniziali, cosi' sta nella colonna */
+            snprintf(buf, sizeof(buf), "%d:%02d-%d:%02d", n->gc_start / 60, n->gc_start % 60, n->gc_end / 60, n->gc_end % 60);
             txt_in(FONT_MED, C_OK, 590, ry, buf, er, 24, 0);
         }
         else txt_in(FONT_MED, mine ? C_TEXT : C_DIM, 610, ry, "-", er, 24, 0);

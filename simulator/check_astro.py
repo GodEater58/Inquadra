@@ -76,3 +76,54 @@ for n in nights[:7]:
     print("notte", n['day1970'], "Luna sorge %02d:%02d vs %02d:%02d, tramonta %02d:%02d vs %02d:%02d" % (
         n['moonrise']//60, n['moonrise']%60, rise//60, rise%60, n['moonset']//60, n['moonset']%60, sett//60, sett%60))
 print("errore massimo orari Luna: %d min" % max(merrs))
+
+# centro della Via Lattea: quando torna col buio (sole < -18, centro > 10 gradi), passo 10 minuti
+g = json.load(open('out/gcnext.json'))
+if g['state'] == 2:
+    off = 60                                   # inverno: ora solare
+    days = np.arange(g['from'], g['day1970'] + 3)
+    first = None
+    for dd in days:
+        day = Time('1970-01-01', scale='utc') + int(dd)*u.day
+        ts = day + (12*60 - off)*u.min + np.arange(0, 24*60, 10)*u.min
+        aa = AltAz(obstime=ts, location=loc)
+        s = get_sun(ts).transform_to(aa).alt.deg
+        c = gc.transform_to(aa).alt.deg
+        ok = (s < -18) & (c > 10)
+        if ok.any():
+            k = np.argmax(ok); kl = k
+            while kl + 1 < len(ok) and ok[kl + 1]: kl += 1
+            if (kl - k + 1) * 10 >= 30:            # almeno mezz'ora, come in macchina
+                first = (int(dd), local_minutes(ts[k], off), local_minutes(ts[kl], off) + 10)
+                break
+    print("centro Via Lattea torna: C giorno %d %02d:%02d-%02d:%02d | astropy giorno %s %02d:%02d-%02d:%02d" % (
+        g['day1970'], g['start']//60, g['start']%60, g['end']//60, g['end']%60,
+        first[0], first[1]//60, first[1]%60, (first[2]%1440)//60, first[2]%60))
+
+# luce della Luna: stessa formula (Krisciunas & Schaefer) con la Luna di astropy
+def ks_sqm(sqm0, alt, ill, k=0.20):
+    alpha = np.degrees(np.arccos(np.clip(2*ill - 1, -1, 1)))
+    b = 34.08*np.exp(20.7233 - 0.92104*sqm0)
+    rho = 90 - alt
+    xm = 1/np.sqrt(1 - 0.96*np.sin(np.radians(rho))**2)
+    f = 10**5.36*(1.06 + np.cos(np.radians(rho))**2) + 10**(6.15 - rho/40)
+    istar = 10**(-0.4*(3.84 + 0.026*alpha + 4e-9*alpha**4))
+    bm = f*istar*10**(-0.4*k*xm)*(1 - 10**(-0.4*k))
+    b = b + np.where(alt > 0, bm, 0)
+    return (20.7233 - np.log(b/34.08))/0.92104
+def nelm(q): return 7.93 - 5*np.log10(10**(4.316 - q/5) + 1)
+ne = []
+for n in nights[:7]:
+    day = Time('1970-01-01', scale='utc') + n['day1970']*u.day
+    off = 60
+    ts = day + (12*60 - off)*u.min + np.arange(0, 24*60, 10)*u.min
+    aa = AltAz(obstime=ts, location=loc)
+    s = get_sun(ts).transform_to(aa).alt.deg
+    m = get_body('moon', ts, loc).transform_to(aa).alt.deg
+    q = ks_sqm(n['sqm']/10, m, n['moon_illum']/1000)
+    dark = s < -18
+    nd = nelm(q[dark & (m <= 0)]); nm = nelm(q[dark & (m > 0)])
+    rd = round(nd.max()*10) if len(nd) else -1; rm = round(nm.min()*10) if len(nm) else -1
+    ne += [abs(n['nelm_dark'] - rd) if rd >= 0 and n['nelm_dark'] >= 0 else 0, abs(n['nelm_moon'] - rm) if rm >= 0 and n['nelm_moon'] >= 0 else 0]
+    print("notte", n['day1970'], "mag limite senza Luna C %d ref %d | con Luna C %d ref %d" % (n['nelm_dark'], rd, n['nelm_moon'], rm))
+print("errore massimo magnitudine limite: %.1f" % (max(ne)/10))

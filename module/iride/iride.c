@@ -109,6 +109,7 @@ static CONFIG_INT("iride.boot",     opt_boot_open, 1);    /* Iride appare all'ac
 static CONFIG_INT("iride.anim",     opt_anim, 0);         /* 0 complete, 1 rapide, 2 spente */
 static CONFIG_INT("iride.theme",    opt_theme, 2);        /* 0 normale, 1 notte, 2 notte in Astro */
 static CONFIG_INT("iride.splash",   opt_splash, 1);
+static CONFIG_INT("iride.sqm",      opt_sqm10, 210);      /* cielo buio del luogo, mag/arcsec^2 x10 */
 
 /* ------------------------------------------------------------------ stato salvato su scheda */
 
@@ -643,4 +644,5 @@ MODULE_CONFIGS_START()
     MODULE_CONFIG(opt_anim)
     MODULE_CONFIG(opt_theme)
     MODULE_CONFIG(opt_splash)
+    MODULE_CONFIG(opt_sqm10)
 MODULE_CONFIGS_END()

@@ -9,6 +9,13 @@
   - Opzioni divise in sezioni (Aspetto, Apertura di Iride, Scatto, Luogo e ora, Strumenti) con scorrimento morbido e barra laterale
   - Profili come schede: modo di scatto nel tondo, tempo, diaframma, ISO e stile come etichette
   - Torna alla 6D: riepilogo, un'icona per ogni tipo di modifica e un pulsante grande
+- **Calendario del cielo: la Luna conta anche per quanto illumina il cielo**
+  - per ogni notte: fin dove si vedono le stelle a occhio nudo col cielo buio e con la Luna in cielo, per esempio *Stelle fino a mag 6,1; con la Luna 5,5 (sorge alle 23:06)*. Brillanza del cielo allo zenit col modello di Krisciunas e Schaefer (fase e altezza della Luna), magnitudine limite con la formula usata per gli SQM; confrontato con astropy, scarto 0,0
+  - la striscia della Luna è tanto più chiara quanto più schiarisce il cielo: una falce sottile quasi non si vede, la Luna piena alta sì
+  - la notte migliore si sceglie con le stelle visibili ora per ora, non solo con le ore senza Luna
+  - nuova voce in Opzioni › Luogo e ora: **Cielo del luogo** (da 22,0 *molto buio* a 18,5 *centro città*, 21,0 *campagna* di partenza)
+  - quando il centro della Via Lattea non c'è in nessuna delle 7 notti, Iride dice quando torna e a che ora: *torna dal 26/2, ore 04:50-05:20* (da Roma; prima notte con almeno mezz'ora utile, confrontata con astropy: un giorno di scarto). Prima diceva solo *non visibile col buio*
+  - colonna Via Lattea senza zeri iniziali, così gli orari non escono dalla riga
 - **Luna disegnata dal vero** nel Calendario del cielo (e più grande), nel calcolo iniziale e nell'icona del menu Astro:
   - mari e crateri nelle loro posizioni selenografiche, come si vedono dall'Italia (nord in alto, Mare Crisium a destra): Imbrium, Serenitatis, Tranquillitatis, Procellarum, Frigoris e gli altri, Tycho, Copernico, Platone, Clavius e altri 45 crateri con nome, più un centinaio di crateri minori sugli altipiani del sud
   - luce come sulla Luna vera: la Luna piena è piatta, il bordo di una falce è brillante e la luce cala verso il terminatore; vicino al terminatore si vedono il rilievo dei crateri e il bordo frastagliato

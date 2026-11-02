@@ -12,7 +12,7 @@ Un'interfaccia a tutto schermo, animata, con menu dedicati ad **astrofotografia*
 <p align="center"><img src="docs/screenshots/animazioni-v11.gif" width="540" alt="Avvio, Home, scaffale dei rullini e dialogo"></p>
 
 | ![Home](docs/screenshots/01_home-v06.png) | ![Astro](docs/screenshots/02_astro-v11.png) | ![Rullini](docs/screenshots/14_rullini-v10.png) |
-| ![Allineamento polare](docs/screenshots/06_polare-v11.png) | ![Calendario del cielo](docs/screenshots/07_cielo-v11b.png) | ![Tema notte](docs/screenshots/21_cielo_notte-v11b.png) |
+| ![Allineamento polare](docs/screenshots/06_polare-v11.png) | ![Calendario del cielo](docs/screenshots/07_cielo-v11c.png) | ![Tema notte](docs/screenshots/21_cielo_notte-v11c.png) |
 | ![Fuoco stelle](docs/screenshots/05_stelle-v11.png) | ![Foto](docs/screenshots/08_foto-v11.png) | ![Torna alla 6D](docs/screenshots/19_torna_6d-v11.png) |
 
 <p align="center"><img src="docs/screenshots/menu-v11.gif" width="540" alt="Menu Astro con l'anteprima della voce scelta"></p>
@@ -21,7 +21,7 @@ Un'interfaccia a tutto schermo, animata, con menu dedicati ad **astrofotografia*
 
 | Area | Cosa fa |
 |---|---|
-| 🌌 **Astro** | Via Lattea con regola NPF (applica tempo, diaframma, ISO, bianco) · intervallometro con preset Via Lattea, Deep sky, Star trails, Timelapse, Giorno-notte, Dark, Flat, Bias · fuoco sulle stelle con misura HFR in Live View · allineamento polare su reticolo con mappa del cielo a nord (Grande Carro e Cassiopea) · calendario di 7 notti con linea del tempo della notte (crepuscoli, Luna, centro della Via Lattea), sorgere e tramonto della Luna e notte migliore · nomi file LGHT/DARK/FLAT/BIAS per lo stacking |
+| 🌌 **Astro** | Via Lattea con regola NPF (applica tempo, diaframma, ISO, bianco) · intervallometro con preset Via Lattea, Deep sky, Star trails, Timelapse, Giorno-notte, Dark, Flat, Bias · fuoco sulle stelle con misura HFR in Live View · allineamento polare su reticolo con mappa del cielo a nord (Grande Carro e Cassiopea) · calendario di 7 notti con linea del tempo della notte (crepuscoli, Luna, centro della Via Lattea), stelle visibili col cielo buio e con la Luna, quando torna il centro della Via Lattea e notte migliore · nomi file LGHT/DARK/FLAT/BIAS per lo stacking |
 | 📷 **Foto** | Bracketing HDR · focus stacking · Dual ISO · ETTR · scatto su movimento e trappola di fuoco · strumenti del Live View (peaking, zebra, istogramma, falsi colori, zoom, spot) · filtri ND con posa B automatica |
 | 🎞️ **Rullini** | 16 pellicole (colore, dia, B/N, cine) · push/pull · 12/24/36 pose · pausa e ripresa · contatore nella barra del Live View · registro su scheda · avviso se la macchina è in solo RAW · [preset per LightCraft e Lightroom](presets/) |
 | 💾 **Profili** | 5 posti per le impostazioni preferite |
