@@ -9,6 +9,12 @@
   - Opzioni divise in sezioni (Aspetto, Apertura di Iride, Scatto, Luogo e ora, Strumenti) con scorrimento morbido e barra laterale
   - Profili come schede: modo di scatto nel tondo, tempo, diaframma, ISO e stile come etichette
   - Torna alla 6D: riepilogo, un'icona per ogni tipo di modifica e un pulsante grande
+- **Corretto lo sfarfallio** dello zoom tra la Home e le schermate: il rettangolo veniva prima riempito di grigio sullo schermo visibile e poi ridisegnato. Ora ogni riga viene composta a parte e scritta una volta sola
+- Animazioni più regolari: un fotogramma più lento del solito non le ferma più a metà
+- In Live View Iride si ridisegna ogni 250 ms, così il menu Canon che ML risveglia ogni 2 secondi non si vede sopra
+- Corretto: un testo che finisce con uno spazio poteva far leggere oltre la sua fine
+- Menu Astro e Foto: lo stato delle voci si ricalcola ogni 300 ms invece che a ogni fotogramma
+- Simulatore: 87 test, con 6000 tasti a caso su tutte le schermate controllati con AddressSanitizer
 
 ## 1.0 – 1 novembre 2026
 - **Descrizioni dei rullini riscritte e verificate** su schede tecniche e prove: due righe per pellicola, carattere e uso ideale. Corrette le imprecisioni: Delta 3200 (ISO reale 1000, a 3200 è già tirata), CineStill 800T (pellicola cinema al tungsteno, aloni rossi, di giorno vira al blu), Ektar (la grana più fine, calca i rossi sulla pelle), Superia (verdi intensi, palette fresca), Velvia (tolleranza minima, meglio in luce morbida), Ektachrome E100 (neutra con tendenza fredda) e le altre. Stesse descrizioni nei preset XMP

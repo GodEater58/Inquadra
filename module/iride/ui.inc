@@ -100,9 +100,11 @@ static void frame_rect(int c, int x, int y, int w, int h, int t)
 
 /* ------------------------------------------------------------------ animazioni a tempo (mai bloccanti) */
 
-static int anim_until = 0;
-static void anim_keep() { anim_until = get_ms_clock() + 40; }
-static int anim_active() { return opt_anim != 2 && get_ms_clock() < anim_until; }
+static int anim_until = 0, anim_again = 0;
+/* un'animazione e' in corso: il prossimo giro ridisegna di sicuro, anche se questo fotogramma
+   ha impiegato piu' di 40 ms (prima un fotogramma lento poteva fermare l'animazione a meta') */
+static void anim_keep() { anim_until = get_ms_clock() + 40; anim_again = 1; }
+static int anim_active() { return opt_anim != 2 && (anim_again || get_ms_clock() < anim_until); }
 
 static int anim_ms(int full)
 {
@@ -293,45 +295,60 @@ static int tr_sheet(uint8_t *real, uint8_t *idle, int dir, int prev, int e)
 
 /* zoom: il rettangolo cresce dal riquadro (o ci rientra) con un bordo arancione e dentro
    c'e' la schermata intera rimpicciolita (proporzioni giuste, fondo come il riquadro).
-   src: l'area centrale della schermata che si vede dentro (pitch = SCR_W se copia, NULL = ritaglio) */
+   src: l'area centrale della schermata che si vede dentro (pitch = SCR_W se copia, NULL = ritaglio).
+   Si scrive direttamente sullo schermo visibile: ogni riga viene composta a parte e copiata
+   una volta sola, cosi' nessun pixel passa per un colore intermedio (niente sfarfallio). */
 static void tr_zoom(uint8_t *real, uint8_t *idle, const uint8_t *src, int pitch, int dir, int e)
 {
-    const int H = TR_Y1 - TR_Y0;
+    const int H = TR_Y1 - TR_Y0, t = 3;
     int p = dir > 0 ? e : 1000 - e;              /* 0 = riquadro, 1000 = schermo intero */
     int x = lerp(zoom_x, 0, p), y = lerp(zoom_y, TR_Y0, p);
     int w = lerp(zoom_w, SCR_W, p), h = lerp(zoom_h, H, p);
     x = COERCE(x, 0, SCR_W - 1); y = COERCE(y, TR_Y0, TR_Y1 - 1);
-    w = COERCE(w, 1, SCR_W - x); h = COERCE(h, 1, TR_Y1 - y);
-    if (dir < 0)
-        for (int yy = TR_Y0; yy < TR_Y1; yy++)
-        {
-            uint8_t *r = real + yy * BMPPITCH, *i = idle + yy * BMPPITCH;
-            if (yy < y || yy >= y + h) memcpy(r, i, SCR_W);
-            else { memcpy(r, i, x); memcpy(r + x + w, i + x + w, SCR_W - x - w); }
-        }
+    w = COERCE(w, 2 * t + 1, SCR_W - x); h = COERCE(h, 2 * t + 1, TR_Y1 - y);
+    w = MIN(w, SCR_W - x); h = MIN(h, TR_Y1 - y);
+    int tw = 0, th = 0, ox = 0, oy = 0;
+    static short xm[SCR_W];
+    static uint8_t row[SCR_W];
     if (src)
     {
         /* stessa scala in orizzontale e in verticale: niente schermata schiacciata */
         int k = MIN(w * 1000 / SCR_W, h * 1000 / H);
-        int tw = COERCE(SCR_W * k / 1000, 1, w), th = COERCE(H * k / 1000, 1, h);
-        int ox = x + (w - tw) / 2, oy = y + (h - th) / 2;
-        if (tw < w || th < h) vram_fill(real, C_SEL, x, y, w, h);
-        static short xm[SCR_W];
+        tw = COERCE(SCR_W * k / 1000, 1, w); th = COERCE(H * k / 1000, 1, h);
+        ox = x + (w - tw) / 2; oy = y + (h - th) / 2;
         for (int i = 0; i < tw; i++) xm[i] = i * SCR_W / tw;
-        for (int j = 0; j < th; j++)
-        {
-            const uint8_t *sr = src + (j * H / th) * pitch;
-            uint8_t *dr = real + (oy + j) * BMPPITCH + ox;
-            for (int i = 0; i < tw; i++) dr[i] = sr[xm[i]];
-        }
     }
-    else if (dir > 0)
-        for (int yy = y; yy < y + h; yy++) memcpy(real + yy * BMPPITCH + x, idle + yy * BMPPITCH + x, w);
-    const int t = 3;
-    vram_fill(real, C_ACCENT, x, y, w, t);
-    vram_fill(real, C_ACCENT, x, y + h - t, w, t);
-    vram_fill(real, C_ACCENT, x, y, t, h);
-    vram_fill(real, C_ACCENT, x + w - t, y, t, h);
+    for (int yy = TR_Y0; yy < TR_Y1; yy++)
+    {
+        uint8_t *r = real + yy * BMPPITCH, *i = idle + yy * BMPPITCH;
+        if (yy < y || yy >= y + h)
+        {
+            if (dir < 0) memcpy(r, i, SCR_W);    /* rientrando: fuori c'e' gia' la nuova */
+            continue;                             /* aprendo: fuori resta la vecchia */
+        }
+        if (yy < y + t || yy >= y + h - t) memset(row + x, C_ACCENT, w);
+        else
+        {
+            if (!src) memcpy(row + x, dir > 0 ? i + x : r + x, w);
+            else if (yy < oy || yy >= oy + th) memset(row + x, C_SEL, w);
+            else
+            {
+                memset(row + x, C_SEL, ox - x);
+                memset(row + ox + tw, C_SEL, x + w - ox - tw);
+                const uint8_t *sr = src + ((yy - oy) * H / th) * pitch;
+                for (int q = 0; q < tw; q++) row[ox + q] = sr[xm[q]];
+            }
+            memset(row + x, C_ACCENT, t);
+            memset(row + x + w - t, C_ACCENT, t);
+        }
+        if (dir < 0)
+        {
+            memcpy(row, i, x);
+            memcpy(row + x + w, i + x + w, SCR_W - x - w);
+            memcpy(r, row, SCR_W);
+        }
+        else memcpy(r + x, row + x, w);
+    }
 }
 
 static void frame_show(int dir)
@@ -846,6 +863,7 @@ static int txt_wrap(int font, int c, int x, int y, int w, const char *s, int lh)
     while (*s)
     {
         while (*s == ' ') s++;
+        if (!*s) break;
         int n = 0, cut = 0;
         while (s[n] && n < (int)sizeof(line) - 1)
         {

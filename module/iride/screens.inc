@@ -219,8 +219,9 @@ static const struct md_item foto_md[] = {
 };
 
 static int md_t0 = -100000, md_txt_t0 = -100000;   /* icona grande e testi della voce scelta */
-static void md_enter() { md_t0 = get_ms_clock(); md_txt_t0 = -100000; }
-static void md_select() { md_t0 = md_txt_t0 = get_ms_clock(); }
+static int md_stat_t = -100000;                      /* stato delle voci: ricalcolato ogni 300 ms */
+static void md_enter() { md_t0 = get_ms_clock(); md_txt_t0 = -100000; md_stat_t = -100000; }
+static void md_select() { md_t0 = md_txt_t0 = get_ms_clock(); md_stat_t = -100000; }
 
 static void astro_status(int i, char *buf, int len, int *on)
 {
@@ -313,6 +314,14 @@ static void draw_menu_md(const struct menu_row *rows, const struct md_item *it, 
     const int box = ph - 12;
     int now = get_ms_clock();
     char buf[96];
+    /* lo stato chiede valori a Magic Lantern e fa conti astronomici: non a ogni fotogramma */
+    static char st_txt[8][72];
+    static unsigned char st_on[8];
+    if (now - md_stat_t > 300)
+    {
+        md_stat_t = now;
+        for (int i = 0; i < n && i < 8; i++) { int on; status(i, st_txt[i], sizeof(st_txt[i]), &on); st_on[i] = on; }
+    }
     for (int i = 0; i < n; i++) fill(C_PANEL, lx, y0 + i * rh, lw, ph);
     hl_bar(lx, lw, y0 + s * rh, ph);
     for (int i = 0; i < n; i++)
@@ -324,8 +333,7 @@ static void draw_menu_md(const struct menu_row *rows, const struct md_item *it, 
         it[i].icon(bx + box / 2, by + box / 2, box - 6, -1);
         int tx = bx + box + 14;
         txt(FONT_MED, mine ? C_TEXT : C_TEXT, tx, y + (ph - 23) / 2, rows[i].title);
-        int on;
-        status(i, buf, sizeof(buf), &on);
+        int on = st_on[MIN(i, 7)];
         if (i == value_row)
         {
             /* l'etichetta si cambia qui con </> */
@@ -359,8 +367,8 @@ static void draw_menu_md(const struct menu_row *rows, const struct md_item *it, 
         int dy = (1000 - e1) * 8 / 1000;
         txt_wrap(FONT_MED, fade_c(C_DIM, e1), px + 18, y0 + 174 + dy, pw - 34, it[s].desc, 24);
     }
-    int on;
-    status(s, buf, sizeof(buf), &on);
+    int on = st_on[MIN(s, 7)];
+    snprintf(buf, sizeof(buf), "%s", st_txt[MIN(s, 7)]);
     fill(C_LINE, px + 18, y0 + 324, pw - 36, 1);
     txt_in(FONT_SMALL, C_DIM, px + 18, y0 + 332, "ADESSO", e2, 0, 6);
     if (on && e2 >= 1000) fill_circle(px + 24, y0 + 361, 4, C_OK);
@@ -385,6 +393,7 @@ static void astro_key(int key, int dx, int dy)
         persist_touch();
         prefix_pending = 1;
         md_t0 = get_ms_clock();
+        md_stat_t = -100000;
     }
     else if (key == MODULE_KEY_PRESS_SET) go(astro_rows[s].target, 1);
 }

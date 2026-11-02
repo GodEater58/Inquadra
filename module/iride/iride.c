@@ -344,12 +344,14 @@ static void app_task(void *unused)
         if (lv && now - last_poke >= 500) { last_poke = now; menu_redraw(); }
 
         /* ridisegno completo periodico (invisibile, doppio buffer): cancella qualsiasi disegno
-           arrivato da fuori (Canon, ML) - spesso nei primi secondi, poi ogni secondo */
-        if (now - last_full >= (now - open_ms < 3000 ? 150 : 1000)) dirty = 1;
+           arrivato da fuori (Canon, ML) - spesso nei primi secondi e in Live View, dove ogni
+           2 s ML risveglia il menu Canon sotto, altrimenti ogni secondo */
+        if (now - last_full >= (now - open_ms < 3000 ? 150 : lv ? 250 : 1000)) dirty = 1;
 
         if (dirty || anim_active())
         {
             dirty = 0;
+            anim_again = 0;
             last_full = now;
             theme_apply();
             render(transition);

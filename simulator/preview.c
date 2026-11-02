@@ -795,6 +795,33 @@ int main(void)
         }
     CHECK(crashes == 0, "tutte le %d schermate x 2 temi x %d tasti disegnate senza errori", SCR_COUNT, (int)COUNT(keys));
 
+    /* ---------- tasti a caso su tutte le schermate (anche transizioni e animazioni):
+       con -fsanitize=address,undefined trova letture/scritture fuori posto */
+    {
+        struct persist saved = P;
+        int lvs = lv;
+        unsigned rng = 12345;
+        int fk[] = { MODULE_KEY_PRESS_UP, MODULE_KEY_PRESS_DOWN, MODULE_KEY_PRESS_LEFT, MODULE_KEY_PRESS_RIGHT,
+                     MODULE_KEY_WHEEL_LEFT, MODULE_KEY_WHEEL_RIGHT, MODULE_KEY_WHEEL_UP, MODULE_KEY_WHEEL_DOWN,
+                     MODULE_KEY_PRESS_SET, MODULE_KEY_MENU, MODULE_KEY_INFO, MODULE_KEY_Q };
+        int screens_seen = 0, seen[SCR_COUNT] = { 0 };
+        screen = SCR_HOME; hl_reset(); transition = 0;
+        for (int i = 0; i < 6000; i++)
+        {
+            rng = rng * 1103515245u + 12345u;
+            int k = fk[(rng >> 16) % COUNT(fk)];
+            if (k == MODULE_KEY_MENU && screen == SCR_HOME) k = MODULE_KEY_PRESS_SET;
+            handle_key(k);
+            clock_ms += 5 + (int)((rng >> 8) % 70);
+            if (i % 700 == 0) { opt_theme = (opt_theme + 1) % 3; opt_anim = (opt_anim + 1) % 3; lv = !lv; }
+            theme_apply(); render(transition); transition = 0;
+            if (screens[screen].tick) screens[screen].tick();
+            if (!seen[screen]) { seen[screen] = 1; screens_seen++; }
+        }
+        CHECK(screens_seen >= SCR_COUNT - 2, "6000 tasti a caso: %d schermate visitate, nessun errore", screens_seen);
+        P = saved; lv = lvs; opt_theme = 0; opt_anim = 0; msg[0] = 0;
+    }
+
     /* ---------- costo di disegno: lettere per fotogramma (indicatore di velocita') */
     long maxg = 0; int maxs = 0;
     for (int s = 0; s < SCR_COUNT; s++) { screen = s; glyphs = 0; render(0); if (glyphs > maxg) { maxg = glyphs; maxs = s; } }
