@@ -1,5 +1,8 @@
 # Novità
 
+## 1.2.3 – 3 novembre 2026
+- **Manovella di riavvolgimento ridisegnata**: prima era una linea arancione con un pallino. Ora è come sulle reflex a pellicola: perno, pomello zigrinato con le righe che girano, braccio metallico con l'impugnatura dritta (tappo arancione). Gira in piano vista un po' dall'alto, passa dietro il pomello nella metà lontana, si apre prima di girare e si richiude a fine riavvolgimento; nei giri veloci lascia due sagome sfumate
+
 ## 1.2.2 – 2 novembre 2026
 - **Calendario più leggero**: la Prova della 6D dava 62 ms per fotogramma (circa 16 al secondo). Quasi tutto era il costo di oltre 5.500 piccoli riempimenti: la Luna disegnata a segmenti e le barre delle notti composte campione per campione, stellina per stellina. Ora Luna (quando è già in memoria) e barre si compongono in memoria e vanno sullo schermo una riga alla volta: 49 riempimenti invece di 5.599, disegno identico pixel per pixel. Vale anche per le Lune della Home, del menu Astro e di *Luna da fotografare*
 - La ricerca di quando torna la Via Lattea prova 2 notti per giro invece di 6: stesso tempo totale, ma la schermata non si ferma per quasi un decimo di secondo alla volta

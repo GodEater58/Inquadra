@@ -666,16 +666,78 @@ static void draw_drum(int turn_milli, int wound)
     fill(tc(COLOR_GRAY(42)), cx - r - 6, top + h, 2 * r + 12, 8);
 }
 
-/* manovella di riavvolgimento sul coperchio del rullino */
-static void draw_crank(int top, int turn_milli)
+/* manovella di riavvolgimento sul coperchio del rullino, come sulle reflex a pellicola:
+ * perno, pomello zigrinato, braccio che si apre e gira in piano (visto un po' dall'alto,
+ * quindi su un'ellisse) e impugnatura dritta all'estremita'. Dietro il pomello il braccio
+ * passa sotto; quando gira veloce lascia due sagome sfumate. */
+static void crank_bar(int x0, int y0, int x1, int y1, int c, int t)
 {
+    int dx = x1 - x0, dy = y1 - y0, n = MAX(ABS(dx), ABS(dy));
+    if (n == 0) { fill(c, x0 - t / 2, y0 - t / 2, t, t); return; }
+    for (int i = 0; i <= n; i++) fill(c, x0 + dx * i / n - t / 2, y0 + dy * i / n - t / 2, t, t);
+}
+
+static void crank_handle(int ex, int ey, int c_body, int c_hi, int c_cap)
+{
+    fill(c_body, ex - 3, ey - 11, 7, 12);               /* impugnatura */
+    fill(c_hi, ex - 2, ey - 10, 2, 10);                 /* riflesso */
+    fill(c_cap, ex - 3, ey - 13, 7, 2);                 /* tappo */
+    fill(c_cap, ex - 2, ey - 14, 5, 1);
+}
+
+static void draw_crank(int top, int turn_milli, int open)
+{
+    static int prev_turn = 0;
+    int speed = ABS(turn_milli - prev_turn);            /* millesimi di giro dall'ultimo fotogramma */
+    prev_turn = turn_milli;
+    int cx = SC_CAN_X, hy = top - 11;                   /* centro del pomello */
+    int len = lerp(9, 27, open);
     float a = (float)turn_milli * 0.0062832f;
-    int px = SC_CAN_X, py = top + 3;
-    int ex = px + (int)(30.0f * cosf(a)), ey = py + (int)(9.0f * sinf(a));
-    draw_line(px, py, ex, ey, C_ACCENT);
-    draw_line(px, py + 1, ex, ey + 1, C_ACCENT);
-    fill_circle(ex, ey, 6, C_ACCENT);
-    fill_circle(px, py, 3, tc(COLOR_GRAY(70)));
+    int metal = tc(COLOR_GRAY(58)), metal_d = tc(COLOR_GRAY(30)), metal_l = tc(COLOR_GRAY(74));
+    int knob = tc(COLOR_GRAY(22)), knob_l = tc(COLOR_GRAY(40));
+
+    /* sagome del braccio nei giri veloci */
+    if (open >= 1000 && speed > 25)
+        for (int g = 2; g >= 1; g--)
+        {
+            float ag = a - (float)g * 0.45f;
+            int gx = cx + (int)((float)len * cosf(ag)), gy = hy + (int)(8.0f * sinf(ag));
+            crank_bar(cx, hy - 2, gx, gy - 2, tc(COLOR_GRAY(g == 2 ? 12 : 18)), 2);
+            fill(tc(COLOR_GRAY(g == 2 ? 12 : 18)), gx - 1, gy - 11, 3, 10);
+        }
+
+    int ex = cx + (int)((float)len * cosf(a)), ey = hy + (int)(8.0f * sinf(a));
+    int behind = sinf(a) < 0.0f;
+
+    /* perno che esce dal rullino */
+    fill(metal_d, cx - 3, hy + 3, 7, top - hy - 2);
+    fill(metal, cx - 2, hy + 3, 2, top - hy - 2);
+
+    if (behind && open > 0)
+    {
+        crank_bar(cx, hy - 1, ex, ey - 1, metal_d, 4);
+        crank_bar(cx, hy - 2, ex, ey - 2, metal, 2);
+        crank_handle(ex, ey - 1, knob, knob_l, metal_d);
+    }
+    /* pomello zigrinato: cilindro con le righe che girano */
+    fill(knob, cx - 10, hy - 3, 21, 8);
+    for (int k = 0; k < 7; k++)
+    {
+        float ak = a + (float)k * 0.8976f;
+        if (cosf(ak) > 0.0f) continue;                  /* solo le righe sul davanti */
+        int rx = cx + (int)(9.0f * sinf(ak));
+        fill(knob_l, rx, hy - 2, 1, 6);
+    }
+    fill(metal_d, cx - 9, hy - 5, 19, 2);               /* faccia di sopra */
+    fill(metal, cx - 7, hy - 6, 15, 1);
+    fill(tc(COLOR_GRAY(12)), cx - 10, hy + 5, 21, 1);   /* ombra sul coperchio */
+    if (!behind && open > 0)
+    {
+        crank_bar(cx, hy - 3, ex, ey - 1, metal_d, 4);
+        crank_bar(cx, hy - 4, ex, ey - 2, metal_l, 2);
+        crank_handle(ex, ey - 1, knob, knob_l, C_ACCENT);
+    }
+    fill_circle(cx, hy - 4, 2, behind ? metal_l : metal);   /* rivetto del braccio */
 }
 
 /* sportello che si chiude (da destra) con finestrella promemoria e contapose.
@@ -842,7 +904,9 @@ static void anim_rewind(const struct film *fm, int shots)
         if (e_tail < 1000) draw_strip(fm, x0, x1, -e_rew * 440 / 1000, 0, 1);
         draw_drum(-e_rew * 6, wound0 * (1000 - e_rew) / 1000);
         draw_canister(fm, SC_CAN_X, top, 100, 0);
-        if (e_out < 1000) draw_crank(top, e_rew * 9);
+        /* la manovella si apre prima di girare e si richiude quando la coda e' dentro */
+        int open = MIN(phase(tv, 0, 220, EZ_BACK), 1000 - phase(tv, 1260, 240, EZ_IO));
+        if (e_out < 1000) draw_crank(top, e_rew * 9, COERCE(open, 0, 1000));
         if (e_in < 1000) fill(C_BG, 0, 46 + 398 * e_in / 1000, SCR_W, 398 - 398 * e_in / 1000);
         draw_header("Rullini");
 
