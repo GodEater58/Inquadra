@@ -1061,6 +1061,11 @@ int main(void)
       anim_load(&films[3]); shot("22_caricamento");
       static const int tr[] = { 80, 300, 600, 900, 1150, 1300, 1420, 1600, 1750, 2000, 2440 };
       capture("anim_riavvolgi", tr, COUNT(tr));
+      anim_rewind(&films[1], 24); cap_on = 0;
+      /* fotogrammi fitti per la GIF del riavvolgimento */
+      static int trg[40];
+      for (int i = 0; i < 40; i++) trg[i] = i * 62;
+      capture("g_riavvolgi", trg, COUNT(trg));
       anim_rewind(&films[1], 24); cap_on = 0; }
 
     { int t0 = clock_ms; splash(); anim_rewind(&films[1], 12); frame_show(1); frame_show(-1);

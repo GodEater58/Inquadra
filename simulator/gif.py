@@ -101,6 +101,10 @@ def main():
     fr = seq("anim_carica", 24) + [end] + out_fr
     save(os.path.join(out, "caricamento.gif"), fr, [118] * 24 + [1400] + [40] * (len(out_fr) - 1) + [1500])
 
+    # riavvolgimento: la manovella gira e il rullino esce
+    fr = seq("g_riavvolgi", 40)
+    save(os.path.join(out, "riavvolgimento.gif"), fr, [62] * 39 + [1500])
+
     # avvio, Home, scaffale, dialogo e ritorno
     frames, durs = [], []
 

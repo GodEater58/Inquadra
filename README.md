@@ -44,6 +44,7 @@ Ogni rullino è disegnato in macchina, con grafiche originali: perno, coperchi z
 Sotto lo scaffale due righe per pellicola: il carattere e l'uso ideale (verificati su schede tecniche e prove: per esempio la Delta 3200 è una ISO 1000 reale esposta a 3200, la CineStill 800T è una pellicola cinema al tungsteno che di giorno vira al blu).
 
 <p align="center"><img src="docs/screenshots/caricamento-v12.gif" width="540" alt="Caricamento di un rullino"></p>
+<p align="center"><img src="docs/screenshots/riavvolgimento-v12.gif" width="540" alt="Riavvolgimento con la manovella"></p>
 
 ### Rullini e RAW
 
