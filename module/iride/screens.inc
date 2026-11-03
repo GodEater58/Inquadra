@@ -1349,9 +1349,8 @@ static void draw_help()
     const char *t = help_text(screen);
     if (!t) return;
     int x = 10, y = 52, w = SCR_W - 20, h = 386;
-    fill(C_BG, x, y, w, h);
-    bmp_draw_rect(C_ACCENT, x, y, w, h);
-    bmp_draw_rect(C_ACCENT, x + 1, y + 1, w - 2, h - 2);
+    fill_r(C_BG, x, y, w, h, R_CARD);
+    ring_r(C_ACCENT, x, y, w, h, R_CARD, 2);
     char buf[64];
     snprintf(buf, sizeof(buf), "Aiuto: %s", screens[screen].title);
     txt(FONT_MED, C_ACCENT, x + 18, y + 12, buf);

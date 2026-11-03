@@ -1,5 +1,8 @@
 # Novità
 
+## 1.3.1 – 3 novembre 2026
+- **Angoli arrotondati anche dove mancavano**: riquadro dell'aiuto (INFO), barre del cielo nel Calendario (estremità tonde e cornice), grafico dell'HFR e riquadro di ricerca della stella in *Fuoco stelle*, grafico di *Dove puntare* e il segno dell'ora scelta, vano della scena dei rullini, campioni di esposizione dell'HDR, righe del Dual ISO
+
 ## 1.3 – 3 novembre 2026
 - **Carattere piccolo nuovo**: le scritte piccole (etichette, titoli di sezione, schede, profili) usavano il Terminus 12 di Magic Lantern, a spaziatura fissa, che accanto ai caratteri grandi sembrava "da terminale". Ora sono in Inter Medium 13 px, proporzionale, con i bordi sfumati su 4 livelli: sui grigi i pixel di bordo prendono il grigio giusto letto dallo schermo; su arancione e sui rossi del tema notte restano netti. Generato da `tools/font/make_font.py` (Inter, SIL Open Font License)
 - **Angoli arrotondati** su righe delle impostazioni e dei menu, barra di selezione, riquadri della Home e cornice che li sceglie, schede, etichette, pulsanti, barre di avanzamento; gli interruttori ON/OFF sono a pillola

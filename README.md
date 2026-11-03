@@ -9,17 +9,17 @@ Un'interfaccia a tutto schermo, animata, con menu dedicati ad **astrofotografia*
 
 | | | |
 |---|---|---|
-<p align="center"><img src="docs/screenshots/animazioni-v13.gif" width="540" alt="Avvio, Home, scaffale dei rullini e dialogo"></p>
+<p align="center"><img src="docs/screenshots/animazioni-v131.gif" width="540" alt="Avvio, Home, scaffale dei rullini e dialogo"></p>
 
-| ![Home](docs/screenshots/01_home-v13.png) | ![Astro](docs/screenshots/02_astro-v13.png) | ![Rullini](docs/screenshots/14_rullini-v13.png) |
-| ![Allineamento polare](docs/screenshots/06_polare-v13.png) | ![Calendario del cielo](docs/screenshots/07_cielo-v13.png) | ![Tema notte](docs/screenshots/21_cielo_notte-v13.png) |
-| ![Fuoco stelle](docs/screenshots/05_stelle-v13.png) | ![Foto](docs/screenshots/08_foto-v13.png) | ![Torna alla 6D](docs/screenshots/19_torna_6d-v13.png) |
-| ![Fuoco automatico](docs/screenshots/05b_fuoco_auto-v13.png) | ![Luna da fotografare](docs/screenshots/25_luna_foto-v13.png) | ![Dove puntare la Via Lattea](docs/screenshots/26_dove_puntare-v13.png) |
-| ![Intervallometro da campo](docs/screenshots/04_intervallometro-v13.png) | ![Luogo e fuso](docs/screenshots/18d_opzioni_luogo-v13.png) | ![Aiuto con INFO](docs/screenshots/05c_aiuto-v13.png) |
-| ![Live View al buio](docs/screenshots/11b_lv_al_buio-v13.png) | ![Luce cinerea](docs/screenshots/25b_luna_cinerea-v13.png) | ![Prova della 6D](docs/screenshots/24_prova-v13.png) |
-| ![Profili](docs/screenshots/17_profili-v13.png) | ![Opzioni](docs/screenshots/18_opzioni-v13.png) | ![Filtri ND](docs/screenshots/12_filtri_nd-v13.png) |
+| ![Home](docs/screenshots/01_home-v131.png) | ![Astro](docs/screenshots/02_astro-v131.png) | ![Rullini](docs/screenshots/14_rullini-v131.png) |
+| ![Allineamento polare](docs/screenshots/06_polare-v131.png) | ![Calendario del cielo](docs/screenshots/07_cielo-v131.png) | ![Tema notte](docs/screenshots/21_cielo_notte-v131.png) |
+| ![Fuoco stelle](docs/screenshots/05_stelle-v131.png) | ![Foto](docs/screenshots/08_foto-v131.png) | ![Torna alla 6D](docs/screenshots/19_torna_6d-v131.png) |
+| ![Fuoco automatico](docs/screenshots/05b_fuoco_auto-v131.png) | ![Luna da fotografare](docs/screenshots/25_luna_foto-v131.png) | ![Dove puntare la Via Lattea](docs/screenshots/26_dove_puntare-v131.png) |
+| ![Intervallometro da campo](docs/screenshots/04_intervallometro-v131.png) | ![Luogo e fuso](docs/screenshots/18d_opzioni_luogo-v131.png) | ![Aiuto con INFO](docs/screenshots/05c_aiuto-v131.png) |
+| ![Live View al buio](docs/screenshots/11b_lv_al_buio-v131.png) | ![Luce cinerea](docs/screenshots/25b_luna_cinerea-v131.png) | ![Prova della 6D](docs/screenshots/24_prova-v131.png) |
+| ![Profili](docs/screenshots/17_profili-v131.png) | ![Opzioni](docs/screenshots/18_opzioni-v131.png) | ![Filtri ND](docs/screenshots/12_filtri_nd-v131.png) |
 
-<p align="center"><img src="docs/screenshots/menu-v13.gif" width="540" alt="Menu Astro con l'anteprima della voce scelta"></p>
+<p align="center"><img src="docs/screenshots/menu-v131.gif" width="540" alt="Menu Astro con l'anteprima della voce scelta"></p>
 
 ## Funzioni
 
@@ -44,8 +44,8 @@ La 6D riceve il tasto luce del display superiore come evento `0x20`, e Magic Lan
 Ogni rullino è disegnato in macchina, con grafiche originali: perno, coperchi zigrinati, cilindro ombreggiato, fessura di velluto, codice DX e codice a barre.
 Sotto lo scaffale due righe per pellicola: il carattere e l'uso ideale (verificati su schede tecniche e prove: per esempio la Delta 3200 è una ISO 1000 reale esposta a 3200, la CineStill 800T è una pellicola cinema al tungsteno che di giorno vira al blu).
 
-<p align="center"><img src="docs/screenshots/caricamento-v13.gif" width="540" alt="Caricamento di un rullino"></p>
-<p align="center"><img src="docs/screenshots/riavvolgimento-v13.gif" width="540" alt="Riavvolgimento con la manovella"></p>
+<p align="center"><img src="docs/screenshots/caricamento-v131.gif" width="540" alt="Caricamento di un rullino"></p>
+<p align="center"><img src="docs/screenshots/riavvolgimento-v131.gif" width="540" alt="Riavvolgimento con la manovella"></p>
 
 ### Rullini e RAW
 

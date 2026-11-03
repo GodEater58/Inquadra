@@ -333,7 +333,7 @@ static void draw_mwplan()
     const float az0 = 90.0f, az1 = 270.0f, altmax = 45.0f;
     #define MWX(az) (px + (int)(((az) - az0) * (float)pw / (az1 - az0)))
     #define MWY(alt) (py + ph - (int)((alt) * (float)ph / altmax))
-    fill(night ? COLOR_BLACK : COLOR_GRAY(4), px, py, pw, ph);
+    fill_r(night ? COLOR_BLACK : COLOR_GRAY(4), px, py, pw, ph, R_ROW);
     for (int g = 10; g <= 40; g += 10)
     {
         fill(C_PANEL2, px, MWY((float)g), pw, 1);
@@ -405,7 +405,7 @@ static void draw_mwplan()
         if (al > 0.0f && az >= az0 && az <= az1)
         {
             int x = MWX(az), y = MWY(al);
-            frame_rect(C_ACCENT, x - 9, y - 9, 19, 19, 2);
+            ring_r(C_ACCENT, x - 9, y - 9, 19, 19, 5, 2);
             txt_c(FONT_SMALL, C_ACCENT, x, y - 26, a);
         }
     }

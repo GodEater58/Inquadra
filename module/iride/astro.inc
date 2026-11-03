@@ -709,7 +709,7 @@ static void draw_stars()
     txt(FONT_MED, C_DIM, 16, 50, buf);
 
     /* cornice dell'area di ricerca (la stessa usata dalla misura) */
-    bmp_draw_rect(C_LINE, SR_X0, SR_Y0, SR_X1 - SR_X0, SR_Y1 - SR_Y0);
+    ring_r(C_LINE, SR_X0, SR_Y0, SR_X1 - SR_X0, SR_Y1 - SR_Y0, R_CARD, 1);
     if (star_x >= 0 && star_y > 46 && star_y < 336)
     {
         draw_circle(star_x, star_y, star_r, C_ACCENT);
@@ -749,7 +749,7 @@ static void draw_stars()
         txt(FONT_MED, hfr_peak >= 250 ? C_WARN : C_DIM, 16, 392, buf);
     }
     int gx = 380, gy = 344, gw = 320, gh = 88;
-    bmp_draw_rect(C_LINE, gx - 2, gy - 2, gw + 4, gh + 4);
+    ring_r(C_LINE, gx - 2, gy - 2, gw + 4, gh + 4, R_ROW, 1);
     if (af_state == AF_RUN || ((af_state == AF_DONE || af_state == AF_FAIL) && af_n > 1))
     {
         /* la curva a V: posizione del fuoco in orizzontale, HFR in verticale */
@@ -1881,9 +1881,20 @@ static void draw_sky_bar(const struct night *n, int x0, int y, int w, int h, int
             if (!big && (v & SK_GC) && (v & SK_SUN) == SK_NIGHT && !(v & SK_MOON))
                 for (int r = MAX(0, h - 3); r < h; r++) memset(pb + r * SKYBAR_W + xa, (unsigned char)C_OK, xb - xa);
         }
+        /* estremita' arrotondate: i pixel fuori dagli angoli restano trasparenti */
+        int rr = MIN(h / 2, big ? 6 : 4);
+        for (int i = 0; i < rr; i++)
+        {
+            int ins = rc_inset(rr, i);
+            for (int k = 0; k < ins; k++)
+            {
+                pb[i * SKYBAR_W + k] = pb[(h - 1 - i) * SKYBAR_W + k] = 0;
+                if (w - 1 - k < vis) pb[i * SKYBAR_W + w - 1 - k] = pb[(h - 1 - i) * SKYBAR_W + w - 1 - k] = 0;
+            }
+        }
         for (int r = 0; r < h; r++) put_row(x0, y + r, pb + r * SKYBAR_W, vis);
     }
-    frame_rect(C_LINE, x0 - 1, y - 1, w + 2, h + 2, 1);
+    ring_r(C_LINE, x0 - 1, y - 1, w + 2, h + 2, MIN((h + 2) / 2, big ? 7 : 5), 1);
     if (!big || reveal < x0 + w) return;
 
     /* scritte dentro le zone, solo se c'e' spazio */

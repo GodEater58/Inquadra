@@ -76,8 +76,8 @@ static void hdr_extra()
         int lim = seq == 1 ? MAX(half, 1) : MAX(n - 1, 1);
         int lum = 50 + k * 45 / lim;
         int bx = 230 + i * 50;
-        fill(night ? (k >= 0 ? COLOR_RED : COLOR_DARK_RED) : COLOR_GRAY(COERCE(lum, 6, 96)), bx, 274, 40, 30);
-        frame_rect(k == 0 ? C_ACCENT : C_LINE, bx, 274, 40, 30, 1);
+        fill_r(k == 0 ? C_ACCENT : C_LINE, bx, 274, 40, 30, R_CHIP + 1);
+        fill_r(night ? (k >= 0 ? COLOR_RED : COLOR_DARK_RED) : COLOR_GRAY(COERCE(lum, 6, 96)), bx + 1, 275, 38, 28, R_CHIP);
         int ev10 = k * step8 * 10 / 8;
         if (k == 0) snprintf(buf, sizeof(buf), "0");
         else snprintf(buf, sizeof(buf), "%s%d.%d", k > 0 ? "+" : "-", ABS(ev10) / 10, ABS(ev10) % 10);
@@ -178,7 +178,8 @@ static void dual_extra()
     /* righe del sensore alternate: ISO base e ISO di recupero */
     for (int i = 0; i < 8; i++)
         fill(i % 4 < 2 ? (night ? COLOR_DARK_RED : COLOR_GRAY(22)) : (night ? COLOR_RED : COLOR_GRAY(70)), 44, 186 + i * 12, 150, 12);
-    frame_rect(C_LINE, 44, 186, 150, 96, 1);
+    ring_r(C_PANEL, 44, 186, 150, 96, R_ROW, 2);              /* angoli tagliati col colore della scheda */
+    ring_r(C_LINE, 44, 186, 150, 96, R_ROW, 1);
     txt(FONT_MED, C_TEXT, 210, 190, "ISO base (es. 100)");
     snprintf(buf, sizeof(buf), "ISO di recupero %s", dual_iso_names[COERCE(P.dual_rec, 0, 2)]);
     txt(FONT_MED, C_ACCENT, 210, 240, buf);

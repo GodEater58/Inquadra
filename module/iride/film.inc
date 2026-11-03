@@ -623,7 +623,7 @@ static void draw_strip(const struct film *fm, int x0, int x1, int off, int tongu
 /* interno: cornice, vani, binari e finestrella dell'otturatore */
 static void draw_chamber()
 {
-    frame_rect(tc(COLOR_GRAY(30)), SC_X0, SC_Y0, SC_X1 - SC_X0, SC_Y1 - SC_Y0, 2);
+    ring_r(tc(COLOR_GRAY(30)), SC_X0, SC_Y0, SC_X1 - SC_X0, SC_Y1 - SC_Y0, R_CARD + 2, 2);
     fill(tc(COLOR_GRAY(8)), 62, 74, 124, 196);                 /* vano del rullino */
     fill(tc(COLOR_GRAY(8)), SC_DRUM_X - 56, 74, 112, 196);     /* vano della bobina */
     /* binari della pellicola */
