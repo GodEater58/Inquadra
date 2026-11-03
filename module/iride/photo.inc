@@ -433,7 +433,7 @@ static void nd_extra()
     int t10 = nd_result_tenths();
     info_card(24, 250, SCR_W - 48, 186, "CON IL FILTRO");
     /* tempo senza -> filtro -> tempo con il filtro */
-    txt(FONT_SMALL, C_DIM, 44, 272, "SENZA");
+    txt(FONT_SMALL, C_DIM, 44, 281, "SENZA");
     txt(FONT_MED_LARGE, C_TEXT, 44, 290, lens_format_shutter(P.nd_base));
     int fx = 300, fy = 302;
     fill(C_LINE, 170, fy, 100, 2); arrow(272, fy + 1, 1, C_LINE);
@@ -441,7 +441,7 @@ static void nd_extra()
     fill_circle(fx, fy, 21, night ? COLOR_BLACK : COLOR_GRAY(16));
     txt_c(FONT_SMALL, C_TEXT, fx, fy - 6, nd_names[COERCE(P.nd_idx, 0, NUM_ND - 1)]);
     fill(C_LINE, 330, fy, 100, 2); arrow(432, fy + 1, 1, C_LINE);
-    txt(FONT_SMALL, C_DIM, 450, 272, t10 > 300 ? "CON (POSA B)" : "CON");
+    txt(FONT_SMALL, C_DIM, 450, 281, t10 > 300 ? "CON (POSA B)" : "CON");
     fmt_duration(buf, sizeof(buf), t10);
     txt(FONT_MED_LARGE, C_ACCENT, 450, 290, buf);
     txt_wrap(FONT_MED, C_DIM, 44, 346, SCR_W - 96, "Misura senza filtro, poi monta il filtro: fino a 30 s Iride imposta il tempo, oltre scatta in posa B col conto alla rovescia. Cestino = stop.", 25);

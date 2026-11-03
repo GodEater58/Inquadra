@@ -44,18 +44,127 @@ static int tc(int c)
     return COLOR_RED;
 }
 
+/* Riga di pixel gia' pronti (0 = trasparente) scritta direttamente nel buffer di disegno.
+ * Sulla 6D ogni bmp_fill costa circa 10 microsecondi: la Luna a segmenti ne chiedeva migliaia
+ * per fotogramma (la Prova della 6D dava 62 ms al Calendario). */
+#ifdef PUT_ROW_HOOK
+void PUT_ROW_HOOK(int x, int y, const unsigned char *px, int n);
+#endif
+static void put_row(int x, int y, const unsigned char *px, int n)
+{
+    if (y < 0 || y >= SCR_H || n <= 0) return;
+    if (x < 0) { px -= x; n += x; x = 0; }
+    if (x + n > SCR_W) n = SCR_W - x;
+    if (n <= 0) return;
+#ifdef PUT_ROW_HOOK
+    PUT_ROW_HOOK(x, y, px, n);
+#else
+    uint8_t *b = bmp_vram();
+    if (!b) return;
+    uint8_t *d = b + y * BMPPITCH + x;
+    for (int i = 0; i < n; i++) if (px[i]) d[i] = px[i];
+#endif
+}
+
 /* ------------------------------------------------------------------ testo (sempre senza sfondo) */
+
+/* Carattere piccolo di Iride (Inter Medium 13 px, vedi font_small.inc) al posto del Terminus 12
+ * di Magic Lantern, che e' a spaziatura fissa. Bordi sfumati su 4 livelli: dove testo e sfondo
+ * sono grigi (o bianco e nero) i pixel di mezzo prendono il grigio intermedio, letto dal buffer;
+ * con colori veri (arancione, rossi della notte) il bordo resta netto. Si scrive a righe. */
+#include "font_small.inc"
+#define FS_UP 10                                   /* dalla y del testo alla linea di base */
+#ifdef PUT_ROW_HOOK
+int sim_get_px(int x, int y);
+void sim_text_check(int x, int y, int w, const char *s);
+#endif
+
+static int fs_width(const char *s)
+{
+    int w = 0;
+    for (; *s; s++) { int c = (unsigned char)*s; w += (c >= 32 && c < 127) ? fs_adv[c - 32] : fs_adv[0]; }
+    return w;
+}
+
+/* livello di grigio 0..255 di un colore della tavolozza, -1 se non e' un grigio */
+static int gray_level(int c)
+{
+    if (c == COLOR_BLACK) return 0;
+    if (c == COLOR_WHITE) return 255;
+    if (c >= 38 && c <= 79) return (c - 38) * 255 / 41;
+    return -1;
+}
+
+static int get_px(int x, int y)
+{
+#ifdef PUT_ROW_HOOK
+    return sim_get_px(x, y);
+#else
+    uint8_t *b = bmp_vram();
+    return b ? b[y * BMPPITCH + x] : 0;
+#endif
+}
+
+static unsigned char fs_row[FS_H][SCR_W];
+
+static void fs_draw(int fg, int x, int y, const char *s)
+{
+    int w = fs_width(s);
+#ifdef PUT_ROW_HOOK
+    sim_text_check(x, y, w, s);
+#endif
+    int x0 = MAX(x, 0), x1 = MIN(x + w, SCR_W);
+    if (x1 <= x0) return;
+    int top = y + FS_UP - FS_BASE;                 /* riga dello schermo della prima riga della cella */
+    for (int r = 0; r < FS_H; r++) memset(fs_row[r] + x0, 0, x1 - x0);
+    int fgl = gray_level(fg);
+    int pen = x;
+    for (; *s; s++)
+    {
+        int c = (unsigned char)*s;
+        int g = (c >= 32 && c < 127) ? c - 32 : 0;
+        int gx = pen + fs_lb[g], gw = fs_w[g], o = fs_off[g] * 1;
+        for (int r = 0; r < FS_H; r++)
+        {
+            int sy = top + r;
+            for (int i = 0; i < gw; i++)
+            {
+                int k = o + r * gw + i;
+                int v = (fs_bits[k >> 2] >> ((k & 3) * 2)) & 3;
+                int sx = gx + i;
+                if (!v || sx < x0 || sx >= x1 || sy < 0 || sy >= SCR_H) continue;
+                int out = fg;
+                if (v < 3)
+                {
+                    int bg = fs_row[r][sx] ? fs_row[r][sx] : get_px(sx, sy);
+                    int bgl = gray_level(bg);
+                    if (fgl >= 0 && bgl >= 0)
+                    {
+                        int l = bgl + (fgl - bgl) * v / 3;
+                        out = l <= 3 ? COLOR_BLACK : l >= 252 ? COLOR_WHITE : 38 + (l * 41 + 127) / 255;
+                    }
+                    else if (v < 2) continue;      /* colori veri: solo i pixel pieni */
+                }
+                fs_row[r][sx] = (unsigned char)out;
+            }
+        }
+        pen += fs_adv[g];
+    }
+    for (int r = 0; r < FS_H; r++) put_row(x0, top + r, fs_row[r] + x0, x1 - x0);
+}
 
 static void txt(int font, int fg, int x, int y, const char *s)
 {
     /* fuori dallo schermo non si scrive: ML sposterebbe il testo sul bordo (si vedrebbe un pezzo
        in alto mentre un rullino vola via o una lista scorre) */
     if (y < 0 || y > SCR_H - 12 || x < -8 || x > SCR_W - 4) return;
+    if (font == FONT_SMALL) { fs_draw(fg, x, y, s); return; }
     bmp_printf(FONT(font, fg, NO_BG_ERASE), x, y, "%s", s);
 }
 
 static int txt_w(int font, const char *s)
 {
+    if (font == FONT_SMALL) return fs_width(s);
     return bmp_string_width(FONT(font, COLOR_WHITE, NO_BG_ERASE), s);
 }
 
@@ -96,27 +205,88 @@ static void fill(int c, int x, int y, int w, int h)
     if (w > 0 && h > 0) bmp_fill(c, x, y, w, h);
 }
 
-/* Riga di pixel gia' pronti (0 = trasparente) scritta direttamente nel buffer di disegno.
- * Sulla 6D ogni bmp_fill costa circa 10 microsecondi: la Luna a segmenti ne chiedeva migliaia
- * per fotogramma (la Prova della 6D dava 62 ms al Calendario). */
-#ifdef PUT_ROW_HOOK
-void PUT_ROW_HOOK(int x, int y, const unsigned char *px, int n);
-#endif
-static void put_row(int x, int y, const unsigned char *px, int n)
+/* ---- rettangoli con gli angoli arrotondati
+ * Solo le prime e le ultime r righe sono a pezzi (2r+1 riempimenti in tutto). corners: quali
+ * angoli arrotondare (RC_TL, RC_TR, RC_BL, RC_BR); [ca, cb) limita le righe disegnate, per le
+ * barre che scorrono dentro pannelli arrotondati. */
+enum { RC_TL = 1, RC_TR = 2, RC_BL = 4, RC_BR = 8, RC_ALL = 15, RC_LEFT = 5, RC_RIGHT = 10 };
+
+static int isqrt_i(int v)
 {
-    if (y < 0 || y >= SCR_H || n <= 0) return;
-    if (x < 0) { px -= x; n += x; x = 0; }
-    if (x + n > SCR_W) n = SCR_W - x;
-    if (n <= 0) return;
-#ifdef PUT_ROW_HOOK
-    PUT_ROW_HOOK(x, y, px, n);
-#else
-    uint8_t *b = bmp_vram();
-    if (!b) return;
-    uint8_t *d = b + y * BMPPITCH + x;
-    for (int i = 0; i < n; i++) if (px[i]) d[i] = px[i];
-#endif
+    int r = 0;
+    while ((r + 1) * (r + 1) <= v) r++;
+    return r;
 }
+
+/* rientro della riga i (0 = la piu' esterna) in un angolo di raggio r */
+static int rc_inset(int r, int i)
+{
+    int d = 2 * r - 2 * i - 1;                      /* distanza dal centro dell'arco, in mezzi pixel */
+    return r - (isqrt_i(4 * r * r - d * d) + 1) / 2;
+}
+
+static void fill_rrc(int c, int x, int y, int w, int h, int r, int corners, int ca, int cb)
+{
+    if (w <= 0 || h <= 0) return;
+    r = MIN(r, MIN(w, h) / 2);
+    int a = MAX(y, ca), b = MIN(y + h, cb);
+    if (b <= a) return;
+    if (r <= 0 || !corners) { fill(c, x, a, w, b - a); return; }
+    int m0 = MAX(a, y + r), m1 = MIN(b, y + h - r);
+    if (m1 > m0) fill(c, x, m0, w, m1 - m0);
+    for (int i = 0; i < r; i++)
+    {
+        int ins = rc_inset(r, i);
+        int yt = y + i, yb = y + h - 1 - i;
+        if (yt >= a && yt < b && yt < m0)
+        {
+            int l = (corners & RC_TL) ? ins : 0, rr = (corners & RC_TR) ? ins : 0;
+            fill(c, x + l, yt, w - l - rr, 1);
+        }
+        if (yb >= a && yb < b && yb >= m1 && yb != yt)
+        {
+            int l = (corners & RC_BL) ? ins : 0, rr = (corners & RC_BR) ? ins : 0;
+            fill(c, x + l, yb, w - l - rr, 1);
+        }
+    }
+}
+
+static void fill_r(int c, int x, int y, int w, int h, int r) { fill_rrc(c, x, y, w, h, r, RC_ALL, -10000, 10000); }
+
+/* bordo arrotondato di spessore t: il colore c, poi l'interno col colore di dentro */
+static void frame_r(int c, int inside, int x, int y, int w, int h, int r, int t)
+{
+    fill_r(c, x, y, w, h, r);
+    fill_r(inside, x + t, y + t, w - 2 * t, h - 2 * t, MAX(r - t, 0));
+}
+
+/* solo il bordo, spessore t, senza toccare l'interno (cornici di selezione sopra i riquadri) */
+static void ring_r(int c, int x, int y, int w, int h, int r, int t)
+{
+    if (w <= 2 * t || h <= 2 * t) { fill_r(c, x, y, w, h, r); return; }
+    r = MIN(r, MIN(w, h) / 2);
+    int ri = MAX(r - t, 0);
+    for (int i = 0; i < h; i++)
+    {
+        int lo = i < r ? rc_inset(r, i) : (i >= h - r ? rc_inset(r, h - 1 - i) : 0);
+        if (i < t || i >= h - t) { fill(c, x + lo, y + i, w - 2 * lo, 1); continue; }
+        int j = i - t, hi = h - 2 * t;              /* riga dentro il rettangolo interno */
+        int li = t + (j < ri ? rc_inset(ri, j) : (j >= hi - ri ? rc_inset(ri, hi - 1 - j) : 0));
+        if (li == t && lo == 0)
+        {
+            /* tratto dritto: i due lati in un colpo fino alla prossima riga curva */
+            int k = i;
+            while (k < h - t && k < h - r && (k - t) >= ri && (k - t) < hi - ri) k++;
+            if (k > i) { fill(c, x, y + i, t, k - i); fill(c, x + w - t, y + i, t, k - i); i = k - 1; continue; }
+        }
+        fill(c, x + lo, y + i, li - lo, 1);
+        fill(c, x + w - li, y + i, li - lo, 1);
+    }
+}
+
+#define R_ROW 5                                     /* righe delle liste e pannelli */
+#define R_CARD 6                                    /* schede e riquadri della Home */
+#define R_CHIP 3                                    /* etichette e pulsanti piccoli */
 
 static void frame_rect(int c, int x, int y, int w, int h, int t)
 {
@@ -250,8 +420,8 @@ static void hl_bar(int x, int w, int target, int h)
 {
     int top, lead;
     int hh = hl_span(target, h, &top, &lead);
-    fill(C_SEL, x, top, w, hh);
-    fill(C_ACCENT, x, lead, 6, h);
+    fill_r(C_SEL, x, top, w, hh, R_ROW);
+    fill_rrc(C_ACCENT, x, lead, 6, h, R_ROW, RC_LEFT, -10000, 10000);
 }
 
 /* ------------------------------------------------------------------ doppio buffer e transizioni */
@@ -497,16 +667,17 @@ static void draw_pill(int on, int xr, int y, int e)
     int p = on ? e : 1000 - e;                  /* 0 = pallino a sinistra (OFF), 1000 = a destra (ON) */
     p = COERCE(p, -60, 1060);
     int lit = p >= 500;
-    fill(lit ? C_ACCENT : C_LINE, x, y, w, h);
-    fill(lit ? C_TEXT : C_BG, x + 4 + 30 * p / 1000, y + 4, 26, h - 8);
+    fill_r(lit ? C_ACCENT : C_LINE, x, y, w, h, h / 2);
+    fill_r(lit ? C_TEXT : C_BG, x + 4 + 30 * p / 1000, y + 4, 26, h - 8, (h - 8) / 2);
     int el = (e - 500) * 2;                     /* la scritta compare a corsa quasi finita */
     if (el > 0) txt(FONT_SMALL, fade_c(on ? C_BG : C_DIM, on ? 1000 : el), on ? x + 8 : x + 34, y + 7, on ? "ON" : "OFF");
 }
 
 static void draw_progress(int x, int y, int w, int h, int permille)
 {
-    fill(C_LINE, x, y, w, h);
-    fill(C_ACCENT, x, y, w * COERCE(permille, 0, 1000) / 1000, h);
+    fill_r(C_LINE, x, y, w, h, h / 2);
+    int pw = w * COERCE(permille, 0, 1000) / 1000;
+    if (pw > 0) fill_r(C_ACCENT, x, y, MAX(pw, h), h, h / 2);
 }
 
 /* cerchio con la spunta che si disegna da sola (e: ms dall'inizio, completa da 560 in poi) */
@@ -875,9 +1046,9 @@ static void arrow(int x, int y, int dir, int c)
 /* scheda informativa: fondo, tacca colorata a sinistra, titolino in maiuscolo */
 static void info_card(int x, int y, int w, int h, const char *title)
 {
-    fill(C_PANEL, x, y, w, h);
-    if (night) frame_rect(C_LINE, x, y, w, h, 1);
-    fill(C_ACCENT, x, y, 3, h);
+    if (night) frame_r(C_LINE, C_PANEL, x, y, w, h, R_CARD, 1);
+    else fill_r(C_PANEL, x, y, w, h, R_CARD);
+    fill_rrc(C_ACCENT, x, y, 4, h, R_CARD, RC_LEFT, -10000, 10000);
     if (title) txt(FONT_SMALL, C_DIM, x + 16, y + 9, title);
 }
 
@@ -923,9 +1094,21 @@ static int txt_wrap(int font, int c, int x, int y, int w, const char *s, int lh)
 /* etichetta a pastiglia: fondo pieno, testo piccolo; restituisce la larghezza */
 static int chip(int x, int y, const char *s, int bg, int fg)
 {
-    int w = txt_w(FONT_SMALL, s) + 14;
-    fill(bg, x, y, w, 20);
-    txt(FONT_SMALL, fg, x + 7, y + 4, s);
+    int w = txt_w(FONT_SMALL, s) + 16;
+    if (night) ring_r(C_LINE, x, y, w, 20, R_CHIP, 1);
+    else fill_r(bg, x, y, w, 20, R_CHIP);
+    txt(FONT_SMALL, fg, x + 8, y + 3, s);
+    return w;
+}
+
+/* etichetta con nome piccolo e valore medio: "ISO 1600", "STILE Standard" */
+static int chip_kv(int x, int y, const char *k, const char *v, int bg, int fgv)
+{
+    int kw = k ? txt_w(FONT_SMALL, k) + 6 : 0, vw = txt_w(FONT_MED, v), w = 22 + kw + vw;
+    if (night) ring_r(C_LINE, x, y, w, 30, R_CHIP + 1, 1);      /* di notte niente rosso su rosso */
+    else fill_r(bg, x, y, w, 30, R_CHIP + 1);
+    if (k) txt(FONT_SMALL, C_DIM, x + 11, y + 9, k);
+    txt(FONT_MED, fgv, x + 11 + kw, y + 3, v);
     return w;
 }
 
@@ -966,7 +1149,7 @@ static void draw_form(const struct form *f, int s)
     {
         int y = y0 + ry[i] - off;
         if (y > y1 || y + rh < y0 - FORM_HEAD) continue;
-        fill(C_PANEL, x0, y, w, rh - 4);
+        fill_r(C_PANEL, x0, y, w, rh - 4, R_ROW);
         if (f->heads && f->heads[i])
         {
             int hy = y - FORM_HEAD + 8;
@@ -983,9 +1166,9 @@ static void draw_form(const struct form *f, int s)
         for (int i = 0; i < f->n && i < 24; i++)
         {
             int a = MAX(top, y0 + ry[i]), b = MIN(top + hh, y0 + ry[i] + rh - 4);
-            if (b > a) fill(C_SEL, x0, a - off, w, b - a);
+            if (b > a) fill_rrc(C_SEL, x0, y0 + ry[i] - off, w, rh - 4, R_ROW, RC_ALL, a - off, b - off);
         }
-        fill(C_ACCENT, x0, lead - off, 6, rh - 4);
+        fill_rrc(C_ACCENT, x0, lead - off, 6, rh - 4, R_ROW, RC_LEFT, -10000, 10000);
     }
     for (int i = 0; i < f->n && i < 24; i++)
     {
@@ -1004,8 +1187,8 @@ static void draw_form(const struct form *f, int s)
             /* pulsante: bordo arancione, pieno quando e' la riga scelta */
             const char *t = buf[0] ? buf : "SET";
             int bw = txt_w(FONT_MED, t) + 26, bh = MIN(rh - 12, 30), by = mid - bh / 2;
-            if (mine) fill(C_ACCENT, xr - bw, by, bw, bh);
-            else frame_rect(C_ACCENT, xr - bw, by, bw, bh, 1);
+            if (mine) fill_r(C_ACCENT, xr - bw, by, bw, bh, R_CHIP + 1);
+            else frame_r(C_ACCENT, C_PANEL, xr - bw, by, bw, bh, R_CHIP + 1, 1);
             txt(FONT_MED, mine ? C_BG : C_ACCENT, xr - bw + 13, by + (bh - 23) / 2, t);
         }
         else if (buf[0])
@@ -1044,7 +1227,7 @@ struct menu_row { const char *title, *sub; int target; };
 static void draw_menu_rows(const struct menu_row *rows, int n, int s, int rh)
 {
     int y0 = 56;
-    for (int i = 0; i < n; i++) fill(C_PANEL, 24, y0 + i * rh, SCR_W - 48, rh - 8);
+    for (int i = 0; i < n; i++) fill_r(C_PANEL, 24, y0 + i * rh, SCR_W - 48, rh - 8, R_ROW);
     hl_bar(24, SCR_W - 48, y0 + s * rh, rh - 8);
     int big = rh >= 62;
     for (int i = 0; i < n; i++)

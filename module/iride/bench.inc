@@ -138,7 +138,7 @@ static void draw_bench()
     for (int i = 0; i < BT_N; i++)
     {
         int y = y0 + i * rh;
-        if (i % 2 == 0) fill(C_PANEL, 24, y, SCR_W - 48, rh - 2);
+        if (i % 2 == 0) fill_r(C_PANEL, 24, y, SCR_W - 48, rh - 2, R_CHIP);
         int running = bench_step == i;
         txt(FONT_MED, running ? C_ACCENT : C_TEXT, 40, y + 2, bench_names[i]);
         int us = bench_us[i];
@@ -146,8 +146,8 @@ static void draw_bench()
         /* sotto i 100 ms un fotogramma e' fluido; oltre i 400 si sente */
         int ms10 = us / 100;
         int c = us <= 100000 ? C_OK : us <= 400000 ? C_ACCENT : C_WARN;
-        fill(C_PANEL2, bx, y + 10, bw, 8);
-        fill(c, bx, y + 10, MIN(bw, bw * us / 500000), 8);
+        fill_r(C_PANEL2, bx, y + 10, bw, 8, 4);
+        fill_r(c, bx, y + 10, MAX(8, MIN(bw, bw * us / 500000)), 8, 4);
         snprintf(v, sizeof(v), "%d,%d ms", ms10 / 10, ms10 % 10);
         txt_r(FONT_MED, c, SCR_W - 40, y + 2, v);
     }

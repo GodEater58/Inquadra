@@ -41,7 +41,7 @@ static void hr_frame(int x, int y, int w, int h)
     if (t < d2) anim_keep();
     int x0 = MIN(hr_lead[0], hr_tail[0]), y0 = MIN(hr_lead[1], hr_tail[1]);
     int x1 = MAX(hr_lead[2], hr_tail[2]), y1 = MAX(hr_lead[3], hr_tail[3]);
-    frame_rect(C_ACCENT, x0 - 3, y0 - 3, x1 - x0 + 6, y1 - y0 + 6, 3);
+    ring_r(C_ACCENT, x0 - 3, y0 - 3, x1 - x0 + 6, y1 - y0 + 6, R_CARD + 3, 3);
 }
 
 /* ------------------------------------------------------------------ Home */
@@ -95,7 +95,7 @@ static void draw_home()
         if (dy) intro = 1;
         int x = 24 + i * 230, y = 62 + dy;
         int bg = i == s ? C_SEL : C_PANEL;
-        fill(bg, x, y, 212, 196);
+        fill_r(bg, x, y, 212, 196, R_CARD);
         int t = icon_time(i);
         if (i == 0) icon_sky(x + 11, y + 8, bg, t);
         else if (i == 1) icon_dslr(x + 31, y + 6, bg, t);
@@ -109,7 +109,7 @@ static void draw_home()
             txt_fit(C_DIM, x + 16, y + 158, 212 - 24, line);
         }
         else txt(FONT_MED, C_DIM, x + 16, y + 158, sub[i]);
-        if (dy && i == s) frame_rect(C_ACCENT, x - 3, y - 3, 218, 202, 3);
+        if (dy && i == s) ring_r(C_ACCENT, x - 3, y - 3, 218, 202, R_CARD + 3, 3);
     }
 
     const char *small[3] = { "Torna alla 6D", "Profili", "Opzioni" };
@@ -120,7 +120,7 @@ static void draw_home()
         if (dy) intro = 1;
         int x = 24 + i * 230, y = 272 + dy;
         int bg = i + 3 == s ? C_SEL : C_PANEL;
-        fill(bg, x, y, 212, 84);
+        fill_r(bg, x, y, 212, 84, R_CARD);
         int t = icon_time(i + 3);
         if (i == 0) icon_undo(x + 34, y + 42, t);
         else if (i == 1) icon_faders(x + 34, y + 42, t);
@@ -141,7 +141,7 @@ static void draw_home()
             txt(FONT_SMALL, C_DIM, x + 66, y + 50, line);
         }
         else txt(FONT_SMALL, C_DIM, x + 66, y + 50, night ? "tema notte" : "tema, tasti, luogo");
-        if (dy && i + 3 == s) frame_rect(C_ACCENT, x - 3, y - 3, 218, 90, 3);
+        if (dy && i + 3 == s) ring_r(C_ACCENT, x - 3, y - 3, 218, 90, R_CARD + 3, 3);
     }
 
     int tx, ty, tw, th;
@@ -152,17 +152,35 @@ static void draw_home()
     /* righe dell'obiettivo: si accendono dopo i riquadri */
     int ei = home_intro_t0 ? phase(get_ms_clock() - home_intro_t0, anim_ms(300), anim_ms(260), EZ_OUT) : 1000;
     if (ei < 1000) anim_keep();
+    /* striscia di stato: obiettivo e impostazioni come etichette */
     char buf[96], ap[8];
-    if (lens_info.lens_exists && lens_info.name[0])
+    if (ei > 0)
     {
-        fmt_tenths(ap, sizeof(ap), lens_info.aperture);
-        snprintf(buf, sizeof(buf), "%s   %dmm f/%s", lens_info.name, (int)lens_info.focal_len, ap);
+        int dy = 8 * (1000 - ei) / 1000, y = 366 + dy;
+        fill_r(C_PANEL, 24, y, SCR_W - 48, 72, R_CARD);
+        /* obiettivo disegnato: anelli e vetro con il riflesso */
+        int lx = 58, ly = y + 36;
+        fill_circle(lx, ly, 21, C_LINE);
+        fill_circle(lx, ly, 18, C_BG);
+        fill_circle(lx, ly, 13, C_PANEL2);
+        draw_circle(lx, ly, 9, C_ACCENT);
+        fill_circle(lx - 5, ly - 5, 3, C_DIM);
+        int tx = 94;
+        if (lens_info.lens_exists && lens_info.name[0])
+        {
+            fmt_tenths(ap, sizeof(ap), lens_info.aperture);
+            txt(FONT_MED, C_TEXT, tx, y + 4, lens_info.name);
+            snprintf(buf, sizeof(buf), "%dmm  f/%s", (int)lens_info.focal_len, ap);
+            txt(FONT_MED, C_ACCENT, tx + txt_w(FONT_MED, lens_info.name) + 14, y + 4, buf);
+        }
+        else txt(FONT_MED, C_DIM, tx, y + 4, "Obiettivo manuale o non rilevato");
+        int cx = tx, cy = y + 36, cb = C_SEL;
+        cx += chip_kv(cx, cy, "GHIERA", get_shootmode_name_short(shooting_mode), cb, C_ACCENT) + 8;
+        cx += chip_kv(cx, cy, "ISO", lens_format_iso(lens_info.raw_iso), cb, C_TEXT) + 8;
+        cx += chip_kv(cx, cy, "STILE", style_name(lens_info.raw_picstyle), cb, C_TEXT) + 8;
+        snprintf(buf, sizeof(buf), "%s", prefix_cur[0] ? prefix_cur : "IMG_");
+        if (cx + 100 < SCR_W - 30) chip_kv(cx, cy, "FILE", buf, cb, C_TEXT);
     }
-    else snprintf(buf, sizeof(buf), "Obiettivo manuale o non rilevato");
-    txt_in(FONT_MED, C_TEXT, 26, 372, buf, ei, 0, 8);
-    snprintf(buf, sizeof(buf), "Ghiera %s   ISO %s   %s   File %s", get_shootmode_name_short(shooting_mode),
-        lens_format_iso(lens_info.raw_iso), style_name(lens_info.raw_picstyle), prefix_cur[0] ? prefix_cur : "IMG_");
-    txt_in(FONT_MED, C_DIM, 26, 404, buf, ei, 0, 8);
     draw_footer("joystick scegli  SET apri  INFO aiuto  MENU esci  cestino = menu ML");
 }
 
@@ -336,6 +354,37 @@ static void foto_status(int i, char *buf, int len, int *on)
     }
 }
 
+/* icone piccole delle liste: immagini pronte (icons_small.inc), scritte a righe */
+#include "icons_small.inc"
+static int ics_index(void (*f)(int, int, int, int))
+{
+    static void (*const fn[])(int, int, int, int) = { ic_milkyway, ic_interval, ic_starfocus, ic_polar, ic_calendar,
+        ic_mwplan, ic_moonshot, ic_tag, ic_hdr, ic_fstack, ic_dual, ic_ettr, ic_motion, ic_lvtools, ic_nd };
+    for (int i = 0; i < (int)COUNT(fn); i++) if (fn[i] == f) return i;
+    return -1;
+}
+
+static void draw_sprite(int x, int y, int idx)
+{
+    unsigned char row[ICS_N];
+    const unsigned char *px = ics_px[idx];
+    for (int r = 0; r < ICS_N; r++)
+    {
+        for (int i = 0; i < ICS_N; i++)
+        {
+            int v = px[r * ICS_N + i];
+            if (v && night)
+            {
+                /* tema notte: solo rossi, le sfumature scure spariscono */
+                int l = gray_level(v);
+                v = l < 0 ? COLOR_RED : l < 70 ? 0 : l < 150 ? COLOR_DARK_RED : COLOR_RED;
+            }
+            row[i] = (unsigned char)v;
+        }
+        put_row(x, y + r, row, ICS_N);
+    }
+}
+
 static void draw_menu_md(const struct menu_row *rows, const struct md_item *it, int n, int s, int rh,
                          void (*status)(int, char *, int, int *), int value_row)
 {
@@ -351,15 +400,17 @@ static void draw_menu_md(const struct menu_row *rows, const struct md_item *it, 
         md_stat_t = now;
         for (int i = 0; i < n && i < 8; i++) { int on; status(i, st_txt[i], sizeof(st_txt[i]), &on); st_on[i] = on; }
     }
-    for (int i = 0; i < n; i++) fill(C_PANEL, lx, y0 + i * rh, lw, ph);
+    for (int i = 0; i < n; i++) fill_r(C_PANEL, lx, y0 + i * rh, lw, ph, R_ROW);
     hl_bar(lx, lw, y0 + s * rh, ph);
     for (int i = 0; i < n; i++)
     {
         int y = y0 + i * rh, mine = i == s;
         int bx = lx + 14, by = y + 6;
-        fill(C_BG, bx, by, box, box);
-        frame_rect(mine ? C_ACCENT : C_LINE, bx, by, box, box, 1);
-        it[i].icon(bx + box / 2, by + box / 2, box - 6, -1);
+        fill_r(C_BG, bx, by, box, box, R_CHIP + 1);
+        ring_r(mine ? C_ACCENT : C_LINE, bx, by, box, box, R_CHIP + 1, 1);
+        int si = ics_index(it[i].icon);
+        if (si >= 0 && box >= ICS_N + 2) draw_sprite(bx + (box - ICS_N) / 2, by + (box - ICS_N) / 2, si);
+        else it[i].icon(bx + box / 2, by + box / 2, box - 6, -1);
         int tx = bx + box + 14;
         txt(FONT_MED, mine ? C_TEXT : C_TEXT, tx, y + (ph - 23) / 2, rows[i].title);
         int on = st_on[MIN(i, 7)];
@@ -382,8 +433,8 @@ static void draw_menu_md(const struct menu_row *rows, const struct md_item *it, 
     if (t > 1300 || opt_anim == 2) t = -1;
     else { anim_keep(); if (opt_anim == 1) t = t * 10 / 6; }
     int ex = px + pw / 2, ey = y0 + 72, es = 104;
-    fill(C_BG, ex - es / 2 - 6, ey - es / 2 - 6, es + 12, es + 12);
-    frame_rect(C_LINE, ex - es / 2 - 6, ey - es / 2 - 6, es + 12, es + 12, 1);
+    fill_r(C_BG, ex - es / 2 - 6, ey - es / 2 - 6, es + 12, es + 12, R_CARD);
+    ring_r(C_LINE, ex - es / 2 - 6, ey - es / 2 - 6, es + 12, es + 12, R_CARD, 1);
     it[s].icon(ex, ey, es, t < 0 ? -1 : t);
     int e0 = phase(now - md_txt_t0, 0, anim_ms(240), EZ_OUT), e1 = phase(now - md_txt_t0, anim_ms(60), anim_ms(240), EZ_OUT);
     int e2 = phase(now - md_txt_t0, anim_ms(120), anim_ms(240), EZ_OUT);
@@ -728,7 +779,7 @@ static void draw_profiles()
     draw_header("Profili");
     int s = sel[SCR_PROFILES];
     const int y0 = 56, rh = 76, ph = rh - 6;
-    for (int i = 0; i < NPROF; i++) fill(C_PANEL, 24, y0 + i * rh, SCR_W - 48, ph);
+    for (int i = 0; i < NPROF; i++) fill_r(C_PANEL, 24, y0 + i * rh, SCR_W - 48, ph, R_ROW);
     hl_bar(24, SCR_W - 48, y0 + s * rh, ph);
     for (int i = 0; i < NPROF; i++)
     {
@@ -759,9 +810,15 @@ static void draw_profiles()
         }
         else
         {
-            const char *e = "vuoto: INFO salva qui le impostazioni attuali";
-            frame_rect(C_LINE, x, cyy, txt_w(FONT_SMALL, e) + 16, 20, 1);
-            txt(FONT_SMALL, C_DIM, x + 8, cyy + 4, e);
+            /* posto libero: etichetta tratteggiata con il "+", in evidenza quando e' scelto */
+            const char *e = "INFO salva qui le impostazioni di adesso";
+            int ew = txt_w(FONT_SMALL, e) + 36, ec = mine ? C_ACCENT : C_LINE;
+            for (int k = 0; k < ew; k += 6) { fill(ec, x + k, cyy, MIN(3, ew - k), 1); fill(ec, x + k, cyy + 19, MIN(3, ew - k), 1); }
+            for (int k = 0; k < 20; k += 6) { fill(ec, x, cyy + k, 1, MIN(3, 20 - k)); fill(ec, x + ew - 1, cyy + k, 1, MIN(3, 20 - k)); }
+            fill(ec, x + 9, cyy + 9, 9, 2);
+            fill(ec, x + 12, cyy + 6, 2, 8);
+            fill(ec, x + 13, cyy + 6, 1, 8);
+            txt(FONT_SMALL, mine ? C_TEXT : C_DIM, x + 26, cyy + 3, e);
         }
     }
     draw_footer("SET carica   INFO salva   Q cancella   </> nome   MENU");
@@ -1036,8 +1093,8 @@ static void draw_restore()
     /* elenco */
     int y = 126;
     const int rh = 38;
-    #define RITEM(icon, text) do { if (y < 366) { fill(C_PANEL, 24, y, SCR_W - 48, rh - 6); \
-        fill(C_BG, 32, y + 3, 26, 26); restore_icon(icon, 45, y + 16); txt(FONT_MED, C_TEXT, 72, y + 4, text); y += rh; } } while (0)
+    #define RITEM(icon, text) do { if (y < 366) { fill_r(C_PANEL, 24, y, SCR_W - 48, rh - 6, R_ROW); \
+        fill_r(C_BG, 32, y + 3, 26, 26, R_CHIP); restore_icon(icon, 45, y + 16); txt(FONT_MED, C_TEXT, 72, y + 4, text); y += rh; } } while (0)
     if (P.snap_valid)
     {
         snprintf(buf, sizeof(buf), "ISO, tempo, diaframma, bianco e anteprima (ghiera %s)", get_shootmode_name_short(P.snap_mode));
@@ -1062,7 +1119,7 @@ static void draw_restore()
     if (roll_active()) RITEM(RI_ROLL, "Rullino in pausa (non si perde)");
     #undef RITEM
     /* pulsante */
-    fill(C_ACCENT, 24, 384, SCR_W - 48, 48);
+    fill_r(C_ACCENT, 24, 384, SCR_W - 48, 48, R_CARD);
     txt_c(FONT_MED_LARGE, C_BG, 360, 394, "SET   ripristina tutto");
     draw_footer("SET conferma   MENU annulla");
 }

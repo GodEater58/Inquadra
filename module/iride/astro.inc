@@ -130,10 +130,10 @@ static void npf_extra()
     /* confronto: barra NPF e barra regola del 500 sulla stessa scala */
     int mx = MAX(MAX(t10, r500), 1);
     int bw = 260;
-    fill(C_PANEL2, 44, y + 74, bw, 8);
-    fill(C_ACCENT, 44, y + 74, bw * MIN(t10, mx) / mx, 8);
-    fill(C_PANEL2, 44, y + 94, bw, 8);
-    fill(C_LINE, 44, y + 94, bw * MIN(r500, mx) / mx, 8);
+    fill_r(C_PANEL2, 44, y + 74, bw, 8, 4);
+    fill_r(C_ACCENT, 44, y + 74, MAX(8, bw * MIN(t10, mx) / mx), 8, 4);
+    fill_r(C_PANEL2, 44, y + 94, bw, 8, 4);
+    fill_r(C_LINE, 44, y + 94, MAX(8, bw * MIN(r500, mx) / mx), 8, 4);
     txt(FONT_SMALL, C_DIM, 44 + bw + 10, y + 72, "NPF");
     fmt_tenths(b, sizeof(b), r500);
     snprintf(buf, sizeof(buf), "regola del 500: %s s", b);
@@ -1276,10 +1276,10 @@ static void draw_north_map(int mx, int my, int mr, float lst, float lat)
 static void draw_segments(int x, int y, int w, int h, const char *a, const char *b, int pos)
 {
     int half = w / 2;
-    fill(C_PANEL, x, y, w, h);
+    fill_r(C_PANEL, x, y, w, h, R_ROW);
     int sx = x + half * glide(&polar_seg, pos * 1000, 220) / 1000;
-    fill(C_SEL, sx, y, half, h);
-    fill(C_ACCENT, sx, y + h - 3, half, 3);
+    fill_r(C_SEL, sx, y, half, h, R_ROW);
+    fill_rrc(C_ACCENT, sx, y + h - 3, half, 3, 3, RC_BL | RC_BR, -10000, 10000);
     txt_c(FONT_MED, pos == 0 ? C_TEXT : C_DIM, x + half / 2, y + (h - 23) / 2, a);
     txt_c(FONT_MED, pos == 1 ? C_TEXT : C_DIM, x + half + half / 2, y + (h - 23) / 2, b);
 }
@@ -2039,7 +2039,7 @@ static void draw_sky()
     txt_r(FONT_SMALL, C_DIM, mx + mw, ty, "8");
     txt(FONT_SMALL, C_DIM, 512, ty, "SENZA LUNA");
     txt(FONT_SMALL, C_DIM, 610, ty, "VIA LATTEA");
-    for (int i = 0; i < SKY_NIGHTS; i++) if (i % 2 == 0) fill(C_PANEL, 24, y0 + i * rh, SCR_W - 48, rh - 2);
+    for (int i = 0; i < SKY_NIGHTS; i++) if (i % 2 == 0) fill_r(C_PANEL, 24, y0 + i * rh, SCR_W - 48, rh - 2, R_CHIP);
     hl_bar(24, SCR_W - 48, y0 + sky_sel * rh, rh - 2);
     for (int i = 0; i < SKY_NIGHTS; i++)
     {

@@ -1,5 +1,15 @@
 # Novità
 
+## 1.3 – 3 novembre 2026
+- **Carattere piccolo nuovo**: le scritte piccole (etichette, titoli di sezione, schede, profili) usavano il Terminus 12 di Magic Lantern, a spaziatura fissa, che accanto ai caratteri grandi sembrava "da terminale". Ora sono in Inter Medium 13 px, proporzionale, con i bordi sfumati su 4 livelli: sui grigi i pixel di bordo prendono il grigio giusto letto dallo schermo; su arancione e sui rossi del tema notte restano netti. Generato da `tools/font/make_font.py` (Inter, SIL Open Font License)
+- **Angoli arrotondati** su righe delle impostazioni e dei menu, barra di selezione, riquadri della Home e cornice che li sceglie, schede, etichette, pulsanti, barre di avanzamento; gli interruttori ON/OFF sono a pillola
+- **Icone nuove nelle liste di Astro e Foto**: 15 icone disegnate a 8 volte la grandezza e ridotte a 26×26 con l'antialias sui colori della 6D (`tools/icons/make_icons.py`); col tema notte diventano solo rosse
+- **Home**: obiettivo e impostazioni in una striscia di stato con l'obiettivo disegnato e le etichette GHIERA, ISO, STILE, FILE
+- **Profili**: il posto libero è un'etichetta tratteggiata con il "+" ("INFO salva qui le impostazioni di adesso") invece della frase lunga ripetuta
+- Di notte le etichette sono solo contornate, senza rosso su rosso
+- Filtri ND: le scritte SENZA e CON non toccano più il titolo della scheda
+- Simulatore: controllo delle sovrapposizioni del testo piccolo; schermate e GIF rifatte
+
 ## 1.2.3 – 3 novembre 2026
 - **Manovella di riavvolgimento ridisegnata**: prima era una linea arancione con un pallino. Ora è come sulle reflex a pellicola: perno, pomello zigrinato con le righe che girano, braccio metallico con l'impugnatura dritta (tappo arancione). Gira in piano vista un po' dall'alto, passa dietro il pomello nella metà lontana, si apre prima di girare e si richiude a fine riavvolgimento; nei giri veloci lascia due sagome sfumate
 

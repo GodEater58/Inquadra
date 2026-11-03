@@ -34,21 +34,29 @@ int bmp_string_width(int fontspec, const char *s)
 static long glyphs = 0;
 static int offscreen = 0, offscreen_on = 0;
 static char offscreen_txt[8][96];
+static void text_check(int x, int y, int w, const char *buf);
+void sim_text_check(int x, int y, int w, const char *buf)
+{
+    op("S\t%d\t%d\t%d\t%s\n", x, y, w, buf);       /* carattere piccolo: per i controlli di sovrapposizione */
+    text_check(x, y, w, buf);
+}
+static void text_check(int x, int y, int w, const char *buf)
+{
+    glyphs += strlen(buf);
+    if (offscreen_on && *buf && (x < 0 || x + w > 720 || y < 0 || y > 470))
+    {
+        int dup = 0;
+        for (int i = 0; i < offscreen && i < 8; i++) if (!strncmp(offscreen_txt[i] + 13, buf, strlen(buf))) dup = 1;
+        if (!dup) { if (offscreen < 8) snprintf(offscreen_txt[offscreen], 96, "%4d %4d %3d %s  [schermo %d, transizione %d]", x, y, w, buf, screen, transition); offscreen++; }
+    }
+}
 int bmp_printf(uint32_t fontspec, int x, int y, const char *fmt, ...)
 {
     char buf[256];
     va_list ap; va_start(ap, fmt); vsnprintf(buf, sizeof(buf), fmt, ap); va_end(ap);
-    glyphs += strlen(buf);
-    if (offscreen_on && *buf)
-    {
-        int w = bmp_string_width(fontspec, buf);
-        if (x < 0 || x + w > 720 || y < 0 || y > 470)
-        {
-            int dup = 0;
-            for (int i = 0; i < offscreen && i < 8; i++) if (!strncmp(offscreen_txt[i] + 13, buf, strlen(buf))) dup = 1;
-            if (!dup) { if (offscreen < 8) snprintf(offscreen_txt[offscreen], 96, "%4d %4d %3d %s  [schermo %d, transizione %d]", x, y, w, buf, screen, transition); offscreen++; }
-        }
-    }
+    int tw = bmp_string_width(fontspec, buf);
+    text_check(x, y, tw, buf);
+    op("W\t%d\t%d\t%d\t%d\t%s\n", x, y, tw, sim_font_h[(fontspec >> 16) & 7], buf);
     op("T\t%d\t%d\t%d\t%d\t%d\t%s\n", (fontspec >> 16) & 7, fontspec & 0xFF, (fontspec >> 8) & 0xFF, x, y, buf);
     return bmp_string_width(fontspec, buf);
 }
@@ -65,6 +73,7 @@ static void vram_raster(uint8_t c, int x, int y, int w, int h)
 }
 void bmp_fill(uint8_t c, int x, int y, int w, int h) { op("F\t%d\t%d\t%d\t%d\t%d\n", c, x, y, w, h); vram_raster(c, x, y, w, h); }
 void bmp_draw_rect(int c, int x, int y, int w, int h) { op("R\t%d\t%d\t%d\t%d\t%d\n", c, x, y, w, h); }
+int sim_get_px(int x, int y) { return (to_idle ? vram_b : vram_a)[30 * 960 + y * 960 + x]; }
 /* riga di pixel scritta direttamente nella memoria video (0 = trasparente) */
 void sim_put_row(int x, int y, const unsigned char *px, int n)
 {

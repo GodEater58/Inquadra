@@ -10,6 +10,7 @@ def pal(i):
     return (255,0,255)
 F = {0:("DejaVuSansMono.ttf",11,12),1:("DejaVuSansMono.ttf",17,20),2:("DejaVuSans.ttf",19,23),3:("DejaVuSans.ttf",23,28),4:("DejaVuSans.ttf",27,32)}
 fonts = {k:ImageFont.truetype("/usr/share/fonts/truetype/dejavu/"+v[0], v[1]) for k,v in F.items()}
+PALA = [((pal(i) + (255,)) if (i and pal(i)) else (0, 0, 0, 0)) for i in range(256)]
 def render(opsfile, bg=None):
     im = Image.new("RGBA",(720,480),(0,0,0,0)); d = ImageDraw.Draw(im)
     for line in open(opsfile, encoding="utf-8", errors="replace"):
@@ -26,12 +27,11 @@ def render(opsfile, bg=None):
             if fill: d.ellipse([x-r,y-r,x+r,y+r], fill=col)
             else: d.ellipse([x-r,y-r,x+r,y+r], outline=col)
         elif t == "P":
-            x,y = int(p[1]), int(p[2]); hx = p[3]
-            for i in range(len(hx)//2):
-                c = int(hx[2*i:2*i+2], 16)
-                if c:
-                    col = pal(c)
-                    d.point((x+i, y), fill=(col+(255,)) if col else (0,0,0,0))
+            x,y = int(p[1]), int(p[2]); bs = bytes.fromhex(p[3])
+            if not bs: continue
+            px = [PALA[c] for c in bs]
+            row = Image.new("RGBA", (len(bs), 1)); row.putdata(px)
+            im.alpha_composite(row, (x, y))
         elif t == "L":
             c,x1,y1,x2,y2 = map(int,p[1:6]); col = pal(c); d.line([x1,y1,x2,y2], fill=(col+(255,)) if col else (0,0,0,0))
         elif t == "T":
