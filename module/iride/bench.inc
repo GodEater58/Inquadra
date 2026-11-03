@@ -32,6 +32,7 @@ static void bench_enter()
 static int bench_time(void (*fn)(void), int n)
 {
     bmp_draw_to_idle(1);
+    fn();                                        /* un giro a vuoto: Luna e conti gia' in memoria, come nell'uso */
     int t0 = get_us_clock();
     for (int i = 0; i < n; i++) fn();
     int dt = get_us_clock() - t0;

@@ -129,8 +129,30 @@ static int get_px(int x, int y)
 
 static unsigned char fs_row[FS_H][SCR_W];
 
+/* i caratteri decompressi una volta sola (un byte per pixel) con le righe che hanno inchiostro:
+ * sulla 6D la Prova dava 28 microsecondi per lettera estraendo i bit ogni volta */
+static unsigned char fs_px[sizeof(fs_bits) * 4];
+static unsigned char fs_r0[95], fs_r1[95];
+static int fs_ready = 0;
+
+static void fs_init()
+{
+    for (int k = 0; k < (int)sizeof(fs_px); k++) fs_px[k] = (fs_bits[k >> 2] >> ((k & 3) * 2)) & 3;
+    for (int g = 0; g < 95; g++)
+    {
+        int r0 = FS_H, r1 = 0;
+        for (int r = 0; r < FS_H; r++)
+            for (int i = 0; i < fs_w[g]; i++)
+                if (fs_px[fs_off[g] + r * fs_w[g] + i]) { r0 = MIN(r0, r); r1 = MAX(r1, r + 1); }
+        fs_r0[g] = r0 < r1 ? r0 : 0;
+        fs_r1[g] = r0 < r1 ? r1 : 0;
+    }
+    fs_ready = 1;
+}
+
 static void fs_draw(int fg, int x, int y, const char *s)
 {
+    if (!fs_ready) fs_init();
     int w = fs_width(s);
 #ifdef PUT_ROW_HOOK
     sim_text_check(x, y, w, s);
@@ -138,54 +160,68 @@ static void fs_draw(int fg, int x, int y, const char *s)
     int x0 = MAX(x, 0), x1 = MIN(x + w, SCR_W);
     if (x1 <= x0) return;
     int top = y + FS_UP - FS_BASE;                 /* riga dello schermo della prima riga della cella */
+    /* solo le righe che servono a questa scritta */
+    int ra = FS_H, rb = 0;
+    for (const char *q = s; *q; q++)
+    {
+        int c = (unsigned char)*q, g = (c >= 32 && c < 127) ? c - 32 : 0;
+        if (fs_r1[g]) { ra = MIN(ra, fs_r0[g]); rb = MAX(rb, fs_r1[g]); }
+    }
+    ra = MAX(ra, -top); rb = MIN(rb, SCR_H - top);
+    if (rb <= ra) return;
 #ifdef PUT_ROW_HOOK
-    for (int r = 0; r < FS_H; r++) memset(fs_row[r] + x0, 0, x1 - x0);
+    for (int r = ra; r < rb; r++) memset(fs_row[r] + x0, 0, x1 - x0);
     const int opaque = 0;
 #else
     /* sulla 6D: lo sfondo si legge a blocchi, si sfuma in memoria e si riscrive a blocchi */
     uint8_t *vb = bmp_vram();
     const int opaque = vb != 0;
-    for (int r = 0; r < FS_H; r++)
+    for (int r = ra; r < rb; r++)
     {
-        int sy = top + r;
-        if (opaque && sy >= 0 && sy < SCR_H) memcpy(fs_row[r] + x0, vb + sy * BMPPITCH + x0, x1 - x0);
+        if (opaque) memcpy(fs_row[r] + x0, vb + (top + r) * BMPPITCH + x0, x1 - x0);
         else memset(fs_row[r] + x0, 0, x1 - x0);
     }
 #endif
     int fgl = gray_level(fg);
+    int last_bg = -1, lut[4] = { 0, 0, 0, 0 };      /* sfumature per l'ultimo sfondo visto */
     int pen = x;
     for (; *s; s++)
     {
         int c = (unsigned char)*s;
         int g = (c >= 32 && c < 127) ? c - 32 : 0;
-        int gx = pen + fs_lb[g], gw = fs_w[g], o = fs_off[g] * 1;
-        for (int r = 0; r < FS_H; r++)
+        int gx = pen + fs_lb[g], gw = fs_w[g];
+        pen += fs_adv[g];
+        if (!fs_r1[g]) continue;
+        int i0 = MAX(0, x0 - gx), i1 = MIN(gw, x1 - gx);
+        for (int r = MAX(fs_r0[g], ra); r < MIN(fs_r1[g], rb); r++)
         {
-            int sy = top + r;
-            for (int i = 0; i < gw; i++)
+            const unsigned char *gp = fs_px + fs_off[g] + r * gw;
+            unsigned char *row = fs_row[r] + gx;
+            for (int i = i0; i < i1; i++)
             {
-                int k = o + r * gw + i;
-                int v = (fs_bits[k >> 2] >> ((k & 3) * 2)) & 3;
-                int sx = gx + i;
-                if (!v || sx < x0 || sx >= x1 || sy < 0 || sy >= SCR_H) continue;
-                int out = fg;
-                if (v < 3)
+                int v = gp[i];
+                if (!v) continue;
+                if (v == 3) { row[i] = (unsigned char)fg; continue; }
+                int bg = (opaque || row[i]) ? row[i] : get_px(gx + i, top + r);
+                if (bg != last_bg)
                 {
-                    int bg = (opaque || fs_row[r][sx]) ? fs_row[r][sx] : get_px(sx, sy);
+                    last_bg = bg;
                     int bgl = gray_level(bg);
-                    if (fgl >= 0 && bgl >= 0)
+                    for (int k = 1; k < 3; k++)
                     {
-                        int l = bgl + (fgl - bgl) * v / 3;
-                        out = l <= 3 ? COLOR_BLACK : l >= 252 ? COLOR_WHITE : 38 + (l * 41 + 127) / 255;
+                        if (fgl >= 0 && bgl >= 0)
+                        {
+                            int l = bgl + (fgl - bgl) * k / 3;
+                            lut[k] = l <= 3 ? COLOR_BLACK : l >= 252 ? COLOR_WHITE : 38 + (l * 41 + 127) / 255;
+                        }
+                        else lut[k] = k < 2 ? -1 : fg;  /* colori veri: solo i pixel pieni */
                     }
-                    else if (v < 2) continue;      /* colori veri: solo i pixel pieni */
                 }
-                fs_row[r][sx] = (unsigned char)out;
+                if (lut[v] >= 0) row[i] = (unsigned char)lut[v];
             }
         }
-        pen += fs_adv[g];
     }
-    for (int r = 0; r < FS_H; r++)
+    for (int r = ra; r < rb; r++)
     {
         if (opaque) put_row_opaque(x0, top + r, fs_row[r] + x0, x1 - x0);
         else put_row(x0, top + r, fs_row[r] + x0, x1 - x0);

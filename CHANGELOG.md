@@ -1,5 +1,10 @@
 # Novità
 
+## 1.3.3 – 3 novembre 2026
+- **Testo piccolo più veloce**: la Prova della 6D (1.3.2) dava 28 microsecondi per lettera piccola contro 20 per le lettere medie di Magic Lantern. Ora i caratteri sono decompressi una volta sola, si saltano le righe vuote di ogni lettera e le sfumature si calcolano una volta per sfondo
+- **Prova della 6D più fedele**: ogni schermata fa un giro a vuoto prima di essere misurata. Il Calendario risultava 54 ms perché il primo dei tre fotogrammi ridisegnava da zero la Luna grande (100 ms), che nell'uso resta in memoria
+- Dai "mattoni" misurati sulla 6D: un riempimento costa 1,3 microsecondi, una riga di 600 pixel 3 µs, scritta un byte alla volta 30 µs e a blocchi 4 µs, una linea di 200 pixel 32 µs, un cerchio pieno di raggio 20 270 µs
+
 ## 1.3.2 – 3 novembre 2026
 - **Disegno a blocchi**: la memoria dello schermo della 6D è lenta un byte alla volta e veloce a blocchi. Il testo piccolo ora legge lo sfondo a righe intere, sfuma in memoria e riscrive a righe intere; Luna, barre del cielo e icone si scrivono a tratti con memcpy invece che pixel per pixel. La 1.3.1 sulla 6D vera dava Home 21,6 ms, Intervallometro 15,5, Calendario 52,3, Polare 47,0
 - **Prova della 6D: i "mattoni" del disegno** nel file `IRIDEBEN.TXT`: riempimenti da 1 pixel, righe col riempimento, righe scritte e lette un byte alla volta e a blocchi, lettere piccole di Iride e medie di Magic Lantern, linee, cerchi. Servono per ottimizzare con i tempi veri della macchina
