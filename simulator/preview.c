@@ -124,6 +124,7 @@ void bmp_idle_copy(int dir, int full)
 }
 uint8_t *bmp_vram_real() { return vram_a + 30 * 960; }
 uint8_t *bmp_vram_idle() { return vram_b + 30 * 960; }
+uint8_t *bmp_vram(void) { return (to_idle ? vram_b : vram_a) + 30 * 960; }
 
 static void shot(const char *name)
 {

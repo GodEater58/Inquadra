@@ -8,6 +8,7 @@
 #include <stdarg.h>
 #include <limits.h>
 
+uint8_t *bmp_vram(void);
 #define PUT_ROW_HOOK sim_put_row   /* righe scritte direttamente nel buffer: il simulatore le registra */
 #define COUNT(x) (sizeof(x) / sizeof((x)[0]))
 #define MIN(a,b) ((a) < (b) ? (a) : (b))

@@ -62,7 +62,29 @@ static void put_row(int x, int y, const unsigned char *px, int n)
     uint8_t *b = bmp_vram();
     if (!b) return;
     uint8_t *d = b + y * BMPPITCH + x;
-    for (int i = 0; i < n; i++) if (px[i]) d[i] = px[i];
+    /* a blocchi: la memoria dello schermo e' lenta un byte alla volta, veloce con memcpy */
+    for (int i = 0; i < n; )
+    {
+        while (i < n && !px[i]) i++;
+        int j = i;
+        while (j < n && px[j]) j++;
+        if (j > i) memcpy(d + i, px + i, j - i);
+        i = j;
+    }
+#endif
+}
+
+/* riga intera, senza trasparenza (lo sfondo e' gia' dentro px) */
+static void put_row_opaque(int x, int y, const unsigned char *px, int n)
+{
+#ifdef PUT_ROW_HOOK
+    put_row(x, y, px, n);
+#else
+    if (y < 0 || y >= SCR_H || n <= 0) return;
+    if (x < 0) { px -= x; n += x; x = 0; }
+    if (x + n > SCR_W) n = SCR_W - x;
+    uint8_t *b = bmp_vram();
+    if (b && n > 0) memcpy(b + y * BMPPITCH + x, px, n);
 #endif
 }
 
@@ -116,7 +138,20 @@ static void fs_draw(int fg, int x, int y, const char *s)
     int x0 = MAX(x, 0), x1 = MIN(x + w, SCR_W);
     if (x1 <= x0) return;
     int top = y + FS_UP - FS_BASE;                 /* riga dello schermo della prima riga della cella */
+#ifdef PUT_ROW_HOOK
     for (int r = 0; r < FS_H; r++) memset(fs_row[r] + x0, 0, x1 - x0);
+    const int opaque = 0;
+#else
+    /* sulla 6D: lo sfondo si legge a blocchi, si sfuma in memoria e si riscrive a blocchi */
+    uint8_t *vb = bmp_vram();
+    const int opaque = vb != 0;
+    for (int r = 0; r < FS_H; r++)
+    {
+        int sy = top + r;
+        if (opaque && sy >= 0 && sy < SCR_H) memcpy(fs_row[r] + x0, vb + sy * BMPPITCH + x0, x1 - x0);
+        else memset(fs_row[r] + x0, 0, x1 - x0);
+    }
+#endif
     int fgl = gray_level(fg);
     int pen = x;
     for (; *s; s++)
@@ -136,7 +171,7 @@ static void fs_draw(int fg, int x, int y, const char *s)
                 int out = fg;
                 if (v < 3)
                 {
-                    int bg = fs_row[r][sx] ? fs_row[r][sx] : get_px(sx, sy);
+                    int bg = (opaque || fs_row[r][sx]) ? fs_row[r][sx] : get_px(sx, sy);
                     int bgl = gray_level(bg);
                     if (fgl >= 0 && bgl >= 0)
                     {
@@ -150,7 +185,11 @@ static void fs_draw(int fg, int x, int y, const char *s)
         }
         pen += fs_adv[g];
     }
-    for (int r = 0; r < FS_H; r++) put_row(x0, top + r, fs_row[r] + x0, x1 - x0);
+    for (int r = 0; r < FS_H; r++)
+    {
+        if (opaque) put_row_opaque(x0, top + r, fs_row[r] + x0, x1 - x0);
+        else put_row(x0, top + r, fs_row[r] + x0, x1 - x0);
+    }
 }
 
 static void txt(int font, int fg, int x, int y, const char *s)

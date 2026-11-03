@@ -1,4 +1,4 @@
-IRIDE 6D 1.3.1 per Canon EOS 6D (firmware Canon 1.1.6)
+IRIDE 6D 1.3.2 per Canon EOS 6D (firmware Canon 1.1.6)
 =====================================================
 
 Magic Lantern per 6D 1.1.6 (build ufficiale del 20/06/2025, commit ed3e7c0)

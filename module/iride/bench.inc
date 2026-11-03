@@ -5,11 +5,18 @@ static void draw_home();
 static void draw_astro();
 static void draw_shelf();
 
-enum { BT_HOME, BT_ASTRO, BT_INTERVAL, BT_SHELF, BT_NIGHT, BT_GCSCAN, BT_SKY, BT_MOON, BT_POLAR, BT_N };
+enum { BT_HOME, BT_ASTRO, BT_INTERVAL, BT_SHELF, BT_NIGHT, BT_GCSCAN, BT_SKY, BT_MOON, BT_POLAR,
+       BT_MAIN,                                 /* da qui i "mattoni" del disegno: solo nel file */
+       BT_FILL1 = BT_MAIN, BT_FILLROW, BT_BYTEW, BT_MEMW, BT_BYTER, BT_MEMR, BT_TXTS, BT_TXTML, BT_LINE, BT_CIRC, BT_N };
 static const char *const bench_names[BT_N] = {
     "Home, un fotogramma", "Menu Astro, un fotogramma", "Intervallometro, un fotogramma", "Scaffale dei rullini",
     "Calendario: una notte calcolata", "Calendario: quando torna la Via Lattea", "Calendario, un fotogramma",
     "Luna grande, prima volta", "Allineamento polare, un fotogramma",
+    "mattoni: 1000 riempimenti da 1 pixel", "mattoni: 100 righe da 600 pixel col riempimento",
+    "mattoni: 100 righe da 600 pixel scritte un byte alla volta", "mattoni: 100 righe da 600 pixel scritte a blocchi",
+    "mattoni: 100 righe da 600 pixel lette un byte alla volta", "mattoni: 100 righe da 600 pixel lette a blocchi",
+    "mattoni: 1000 lettere piccole di Iride", "mattoni: 1000 lettere medie di Magic Lantern",
+    "mattoni: 100 linee da 200 pixel", "mattoni: 50 cerchi pieni di raggio 20",
 };
 static int bench_us[BT_N];                       /* microsecondi (media), -1 = non ancora */
 static int bench_step = -1;                      /* -1 ferma, 0..BT_N-1 in corso, BT_N finita */
@@ -39,6 +46,42 @@ static void bench_moon()
     ms_big.ok = 0;                               /* senza la memoria: il caso peggiore */
     il = (il + 137) % 1000;
     draw_moon(66, 106, 44, il, 1, 0);
+}
+
+/* i mattoni: quanto costa ogni modo di disegnare sulla 6D vera (nel simulatore non vale nulla) */
+static unsigned char bench_row[600];
+static int bench_brick(int s)
+{
+    static const char *const s50 = "Prova di scrittura: cinquanta lettere per riga!!";
+    bmp_draw_to_idle(1);
+    uint8_t *v = bmp_vram();
+    volatile int sum = 0;
+    int t0 = get_us_clock();
+    switch (s)
+    {
+        case BT_FILL1: for (int i = 0; i < 1000; i++) fill(C_PANEL2, 60 + i % 500, 150 + i / 500, 1, 1); break;
+        case BT_FILLROW: for (int i = 0; i < 100; i++) fill(C_PANEL2, 60, 150 + i, 600, 1); break;
+        case BT_BYTEW:
+            if (v) for (int i = 0; i < 100; i++) { uint8_t *d = v + (150 + i) * BMPPITCH + 60; for (int k = 0; k < 600; k++) d[k] = bench_row[k] | 2; }
+            break;
+        case BT_MEMW:
+            memset(bench_row, COLOR_GRAY(20), sizeof(bench_row));
+            if (v) for (int i = 0; i < 100; i++) memcpy(v + (150 + i) * BMPPITCH + 60, bench_row, 600);
+            break;
+        case BT_BYTER:
+            if (v) for (int i = 0; i < 100; i++) { uint8_t *d = v + (150 + i) * BMPPITCH + 60; for (int k = 0; k < 600; k++) sum += d[k]; }
+            break;
+        case BT_MEMR:
+            if (v) for (int i = 0; i < 100; i++) memcpy(bench_row, v + (150 + i) * BMPPITCH + 60, 600);
+            break;
+        case BT_TXTS: for (int i = 0; i < 20; i++) txt(FONT_SMALL, C_TEXT, 40, 150 + (i % 10) * 16, s50); break;
+        case BT_TXTML: for (int i = 0; i < 20; i++) txt(FONT_MED, C_TEXT, 40, 150 + (i % 10) * 24, s50); break;
+        case BT_LINE: for (int i = 0; i < 100; i++) draw_line(60, 150 + i, 260, 250 - i / 2, C_LINE); break;
+        case BT_CIRC: for (int i = 0; i < 50; i++) fill_circle(100 + (i % 10) * 50, 200 + (i / 10) * 30, 20, C_PANEL2); break;
+    }
+    int dt = get_us_clock() - t0;
+    bmp_draw_to_idle(0);
+    return dt;
 }
 
 static void bench_save()
@@ -96,6 +139,7 @@ static int bench_tick()
             break;
         case BT_MOON: bench_us[s] = bench_time(bench_moon, 3); break;
         case BT_POLAR: bench_us[s] = bench_time(draw_polar, 3); break;
+        default: bench_us[s] = bench_brick(s); break;
     }
     bench_step++;
     if (bench_step >= BT_N) { bench_save(); say(C_OK, "Prova finita: salvata in ML/LOGS/IRIDEBEN.TXT"); }
@@ -135,7 +179,7 @@ static void draw_bench()
 
     /* le prove */
     const int y0 = 140, rh = 30, bx = 470, bw = 140;
-    for (int i = 0; i < BT_N; i++)
+    for (int i = 0; i < BT_MAIN; i++)
     {
         int y = y0 + i * rh;
         if (i % 2 == 0) fill_r(C_PANEL, 24, y, SCR_W - 48, rh - 2, R_CHIP);
@@ -153,7 +197,8 @@ static void draw_bench()
     }
     if (bench_step >= 0 && bench_step < BT_N) anim_keep();
     if (bench_step < 0) snprintf(buf, sizeof(buf), "SET avvia la prova (qualche secondo)   MENU indietro");
-    else if (bench_step < BT_N) snprintf(buf, sizeof(buf), "Prova in corso: %d di %d", bench_step + 1, BT_N);
+    else if (bench_step < BT_MAIN) snprintf(buf, sizeof(buf), "Prova in corso: %d di %d", bench_step + 1, BT_N);
+    else if (bench_step < BT_N) snprintf(buf, sizeof(buf), "Misuro i mattoni del disegno: %d di %d", bench_step + 1, BT_N);
     else snprintf(buf, sizeof(buf), "SET ripete   salvata in ML/LOGS/IRIDEBEN.TXT");
     draw_footer(buf);
 }

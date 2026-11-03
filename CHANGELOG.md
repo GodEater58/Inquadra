@@ -1,5 +1,9 @@
 # Novità
 
+## 1.3.2 – 3 novembre 2026
+- **Disegno a blocchi**: la memoria dello schermo della 6D è lenta un byte alla volta e veloce a blocchi. Il testo piccolo ora legge lo sfondo a righe intere, sfuma in memoria e riscrive a righe intere; Luna, barre del cielo e icone si scrivono a tratti con memcpy invece che pixel per pixel. La 1.3.1 sulla 6D vera dava Home 21,6 ms, Intervallometro 15,5, Calendario 52,3, Polare 47,0
+- **Prova della 6D: i "mattoni" del disegno** nel file `IRIDEBEN.TXT`: riempimenti da 1 pixel, righe col riempimento, righe scritte e lette un byte alla volta e a blocchi, lettere piccole di Iride e medie di Magic Lantern, linee, cerchi. Servono per ottimizzare con i tempi veri della macchina
+
 ## 1.3.1 – 3 novembre 2026
 - **Angoli arrotondati anche dove mancavano**: riquadro dell'aiuto (INFO), barre del cielo nel Calendario (estremità tonde e cornice), grafico dell'HFR e riquadro di ricerca della stella in *Fuoco stelle*, grafico di *Dove puntare* e il segno dell'ora scelta, vano della scena dei rullini, campioni di esposizione dell'HDR, righe del Dual ISO
 
