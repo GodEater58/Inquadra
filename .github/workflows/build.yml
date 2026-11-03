@@ -62,7 +62,7 @@ jobs:
 
   release:
     name: Release su GitHub
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V')   # anche "V1.3" scritto dal sito
     runs-on: ubuntu-24.04
     needs: build
     permissions:
@@ -74,7 +74,7 @@ jobs:
           name: Iride6D-SD
       - name: File della release
         run: |
-          V="${GITHUB_REF_NAME#v}"
+          V="${GITHUB_REF_NAME#[vV]}"
           mkdir rel
           mv Iride6D-SD.zip "rel/Iride6D-$V-SD.zip"
           unzip -p "rel/Iride6D-$V-SD.zip" ML/modules/iride.mo > rel/iride.mo
