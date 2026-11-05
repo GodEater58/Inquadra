@@ -2,6 +2,9 @@
 #include <math.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#ifdef IRIDE_WEB
+#include "web/web_hooks.h"      /* demo nel browser: testo, linee, tempo e tasti veri (web/web.c) */
+#endif
 #include "../module/iride/iride.c"
 int sim_batt = 64, sim_batt_left = 7800, sim_free32k = 32 * 30000, sim_silent_shots = 0;
 static void sky_full(void) { while (!sky_ready) sky_tick(); while (sky_tick()) ; }   /* notti e ricerca della Via Lattea */
@@ -15,6 +18,9 @@ static int len_idle = 0, len_real = 0, to_idle = 0;
 static long sim_ops = 0;               /* operazioni di disegno: fanno da "tempo" per la prova della 6D */
 static void op(const char *fmt, ...)
 {
+#ifdef IRIDE_WEB
+    (void)fmt; return;                     /* nel browser si disegna solo in memoria video */
+#endif
     char line[2048];
     va_list ap; va_start(ap, fmt); int n = vsnprintf(line, sizeof(line), fmt, ap); va_end(ap);
     if (n < 0) return;
@@ -28,6 +34,9 @@ static void op(const char *fmt, ...)
 int bmp_string_width(int fontspec, const char *s)
 {
     int id = (fontspec >> 16) & 7, w = 0;
+#ifdef IRIDE_WEB
+    return web_str_width(id, s);
+#endif
     for (; *s; s++) w += sim_w[id][(unsigned char)*s & 127];
     return w;
 }
@@ -55,6 +64,10 @@ int bmp_printf(uint32_t fontspec, int x, int y, const char *fmt, ...)
     char buf[256];
     va_list ap; va_start(ap, fmt); vsnprintf(buf, sizeof(buf), fmt, ap); va_end(ap);
     int tw = bmp_string_width(fontspec, buf);
+#ifdef IRIDE_WEB
+    web_text(fontspec, x, y, buf);
+    return tw;
+#endif
     text_check(x, y, tw, buf);
     op("W\t%d\t%d\t%d\t%d\t%s\n", x, y, tw, sim_font_h[(fontspec >> 16) & 7], buf);
     op("T\t%d\t%d\t%d\t%d\t%d\t%s\n", (fontspec >> 16) & 7, fontspec & 0xFF, (fontspec >> 8) & 0xFF, x, y, buf);
@@ -73,7 +86,11 @@ static void vram_raster(uint8_t c, int x, int y, int w, int h)
 }
 static long sim_fills = 0, sim_fill_area = 0;
 void bmp_fill(uint8_t c, int x, int y, int w, int h) { sim_fills++; sim_fill_area += (long)MAX(w, 0) * MAX(h, 0); op("F\t%d\t%d\t%d\t%d\t%d\n", c, x, y, w, h); vram_raster(c, x, y, w, h); }
-void bmp_draw_rect(int c, int x, int y, int w, int h) { op("R\t%d\t%d\t%d\t%d\t%d\n", c, x, y, w, h); }
+void bmp_draw_rect(int c, int x, int y, int w, int h) {
+#ifdef IRIDE_WEB
+    web_rect(c, x, y, w, h); return;
+#endif
+    op("R\t%d\t%d\t%d\t%d\t%d\n", c, x, y, w, h); }
 int sim_get_px(int x, int y) { return (to_idle ? vram_b : vram_a)[30 * 960 + y * 960 + x]; }
 /* riga di pixel scritta direttamente nella memoria video (0 = trasparente) */
 void sim_put_row(int x, int y, const unsigned char *px, int n)
@@ -94,9 +111,21 @@ static void shape_check(const char *what, int x0, int y0, int x1, int y1)
     if (!offshape) snprintf(offshape_txt, sizeof(offshape_txt), "%s %d,%d - %d,%d", what, x0, y0, x1, y1);
     offshape++;
 }
-void fill_circle(int x, int y, int r, int c) { shape_check("cerchio", x - r, y - r, x + r, y + r); op("C\t%d\t%d\t%d\t%d\t1\n", c, x, y, r); }
-void draw_circle(int x, int y, int r, int c) { shape_check("circonferenza", x - r, y - r, x + r, y + r); op("C\t%d\t%d\t%d\t%d\t0\n", c, x, y, r); }
-void draw_line(int x1, int y1, int x2, int y2, int c) { shape_check("linea", MIN(x1, x2), MIN(y1, y2), MAX(x1, x2), MAX(y1, y2)); op("L\t%d\t%d\t%d\t%d\t%d\n", c, x1, y1, x2, y2); }
+void fill_circle(int x, int y, int r, int c) {
+#ifdef IRIDE_WEB
+    web_fill_circle(x, y, r, c); return;
+#endif
+    shape_check("cerchio", x - r, y - r, x + r, y + r); op("C\t%d\t%d\t%d\t%d\t1\n", c, x, y, r); }
+void draw_circle(int x, int y, int r, int c) {
+#ifdef IRIDE_WEB
+    web_circle(x, y, r, c); return;
+#endif
+    shape_check("circonferenza", x - r, y - r, x + r, y + r); op("C\t%d\t%d\t%d\t%d\t0\n", c, x, y, r); }
+void draw_line(int x1, int y1, int x2, int y2, int c) {
+#ifdef IRIDE_WEB
+    web_line(x1, y1, x2, y2, c); return;
+#endif
+    shape_check("linea", MIN(x1, x2), MIN(y1, y2), MAX(x1, x2), MAX(y1, y2)); op("L\t%d\t%d\t%d\t%d\t%d\n", c, x1, y1, x2, y2); }
 void clrscr(void) { if (to_idle) len_idle = 0; else len_real = 0; op("X\n"); vram_raster(0, 0, 0, 720, 480); }
 void bmp_draw_to_idle(int v) { to_idle = v; if (v) { len_idle = 0; } }
 static int frames_shown = 0;
@@ -195,6 +224,9 @@ static void vcapture(const char *name, const int *times, int n)
 }
 void msleep(int ms)
 {
+#ifdef IRIDE_WEB
+    web_sleep(ms); return;
+#endif
     clock_ms += ms > 0 ? ms : 1;
     while (vcap_on && vcap_i < vcap_n && clock_ms - vcap_t0 >= vcap_times[vcap_i])
     {
@@ -202,16 +234,36 @@ void msleep(int ms)
     }
     if (vcap_on && vcap_i >= vcap_n) vcap_on = 0;
 }
-int get_ms_clock(void) { return clock_ms; }
+int get_ms_clock(void) {
+#ifdef IRIDE_WEB
+    clock_ms = web_ms();
+#endif
+    return clock_ms; }
 static int tasks_created = 0;
-void task_create(const char *n, int p, int s, void (*f)(void*), void *a) { (void)n; (void)p; (void)s; (void)f; (void)a; tasks_created++; }
+void task_create(const char *n, int p, int s, void (*f)(void*), void *a) {
+#ifdef IRIDE_WEB
+    web_task(n, f, a);
+#endif
+    (void)n; (void)p; (void)s; (void)f; (void)a; tasks_created++; }
 static struct tm sim_tm;
-void LoadCalendarFromRTC(struct tm *t) { *t = sim_tm; }
+void LoadCalendarFromRTC(struct tm *t) {
+#ifdef IRIDE_WEB
+    web_now(&sim_tm);
+#endif
+    *t = sim_tm; }
 void menu_add(const char *n, struct menu_entry *m, int c) { (void)n; (void)m; (void)c; }
 static int menu_open = 1, menu_closed_calls = 0, menu_opened_calls = 0;
 int gui_menu_shown(void) { return menu_open; }
-void gui_stop_menu(void) { menu_closed_calls++; }
-void gui_open_menu(void) { menu_opened_calls++; }
+void gui_stop_menu(void) { menu_closed_calls++;
+#ifdef IRIDE_WEB
+    menu_open = 0;
+#endif
+}
+void gui_open_menu(void) { menu_opened_calls++;
+#ifdef IRIDE_WEB
+    menu_open = 1;
+#endif
+}
 int is_play_mode(void) { return 0; }
 int is_camera(const char *m, const char *f) { return streq(m, "6D") && streq(f, "1.1.6"); }
 static int fstack_runs = 0;
@@ -273,6 +325,9 @@ int shutterf_to_raw(float s) { return (int)roundf(56.0f - log2f(s) * 8.0f); }
 float raw2shutterf(int raw) { return powf(2.0f, (56.0f - (float)raw) / 8.0f); }
 const char *lens_format_shutter(int r)
 {
+#ifdef IRIDE_WEB
+    return web_fmt_shutter(r);
+#endif
     static char b[16]; float t = raw2shutterf(r);
     if (t >= 0.3f) snprintf(b, sizeof(b), "%d\"", (int)(t + 0.5f)); else snprintf(b, sizeof(b), "1/%d", (int)(1.0f / t + 0.5f));
     return b;
@@ -410,6 +465,9 @@ static void frames_at(const char *name, const int *times, int n)
     }
 }
 
+#ifdef IRIDE_WEB
+#include "web/web.c"
+#else
 int main(void)
 {
     mkdir("out", 0755); mkdir("out/DCIM", 0755); mkdir("out/DCIM/100CANON", 0755);   /* la "scheda" del simulatore */
@@ -1536,3 +1594,4 @@ int main(void)
     printf("\n%d test superati, %d falliti\n", passes, fails);
     return fails ? 1 : 0;
 }
+#endif /* IRIDE_WEB */

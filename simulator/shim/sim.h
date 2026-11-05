@@ -115,7 +115,11 @@ struct event { int type; int param; void *obj; int arg; };
 void msleep(int ms);
 int get_ms_clock(void);
 extern int ml_shutdown_requested;
+#ifdef IRIDE_WEB
+#define TASK_LOOP for (int k = 0; !ml_shutdown_requested; k++)      /* nel browser i task girano davvero */
+#else
 #define TASK_LOOP for (int k = 0; !ml_shutdown_requested && k < 1; k++)
+#endif
 void task_create(const char *name, int prio, int stack, void (*f)(void*), void *arg);
 struct tm { int tm_sec, tm_min, tm_hour, tm_mday, tm_mon, tm_year, tm_wday, tm_yday, tm_isdst; long tm_gmtoff; };
 void LoadCalendarFromRTC(struct tm *t);
@@ -156,7 +160,12 @@ void select_menu_by_name(char *name, const char *entry);
 #define PROP_WB_MODE_LV 0x80050018
 #define PROP_WB_MODE_PH 0x8000000D
 void prop_request_change(unsigned p, const void *a, size_t l);
+#ifdef IRIDE_WEB
+int web_raw2ap(int raw);                     /* demo: codici veri di Canon/ML -> f in decimi */
+#define RAW2VALUE(param,raw) web_raw2ap((int)(raw))
+#else
 #define RAW2VALUE(param,raw) ((int)(raw))
+#endif
 int lens_set_rawaperture(int a); int lens_set_rawiso(int i); int lens_set_rawshutter(int s);
 void lens_set_kelvin(int k);
 int shutterf_to_raw(float s); float raw2shutterf(int raw);

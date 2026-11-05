@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Iride 6D – prova nel browser</title>
+<meta name="description" content="Iride 6D: firmware personalizzato per Canon EOS 6D su Magic Lantern. Provalo nel browser: astro, foto, rullini, profili.">
+<style>
+  :root { --bg: #0d0d0f; --panel: #17171a; --line: #2a2a2f; --text: #e8e8ea; --dim: #9a9aa2; --accent: #ff8c00; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  a { color: var(--accent); }
+  header { max-width: 1100px; margin: 0 auto; padding: 28px 20px 8px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; }
+  header h1 { margin: 0; font-size: 32px; letter-spacing: 1px; }
+  header h1 span { color: var(--accent); }
+  header p { margin: 0; color: var(--dim); flex: 1 1 320px; }
+  .links { display: flex; gap: 10px; flex-wrap: wrap; }
+  .btn-link { display: inline-block; padding: 7px 14px; border: 1px solid var(--line); border-radius: 999px; text-decoration: none; color: var(--text); background: var(--panel); font-size: 14px; }
+  .btn-link.primary { border-color: var(--accent); color: var(--accent); }
+  main { max-width: 1100px; margin: 0 auto; padding: 10px 20px 40px; }
+
+  /* la 6D vista da dietro */
+  .camera { position: relative; margin: 18px auto 0; max-width: 1040px; background: linear-gradient(#25252a, #1a1a1e); border-radius: 46px 46px 34px 34px;
+            padding: 34px 26px 30px; box-shadow: 0 30px 60px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.06);
+            display: grid; grid-template-columns: 92px 1fr 170px; gap: 22px; align-items: center; user-select: none; -webkit-user-select: none; }
+  .brand { position: absolute; top: 9px; left: 50%; transform: translateX(-50%); color: #77777f; font-size: 13px; letter-spacing: 4px; }
+  .screen-wrap { position: relative; background: #000; border-radius: 10px; padding: 10px; box-shadow: inset 0 0 0 2px #0a0a0b, 0 0 0 1px #333; }
+  canvas { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; image-rendering: pixelated; border-radius: 3px; background: #000; }
+  .loading { position: absolute; inset: 10px; display: flex; align-items: center; justify-content: center; color: var(--dim); font-size: 15px; }
+  .col { display: flex; flex-direction: column; gap: 14px; align-items: center; }
+  .key { width: 64px; height: 34px; border-radius: 17px; border: none; background: #2d2d33; color: #d5d5da; font: 600 12px system-ui, sans-serif;
+         letter-spacing: .5px; cursor: pointer; box-shadow: 0 2px 0 #0b0b0c, inset 0 1px 0 rgba(255,255,255,.08); touch-action: manipulation; }
+  .key:active, .key.down { transform: translateY(2px); box-shadow: 0 0 0 #0b0b0c; background: #3a3a41; }
+  .key.round { width: 46px; height: 46px; border-radius: 50%; }
+  .key.small { width: 52px; height: 28px; font-size: 11px; }
+  .key.accent { color: var(--accent); }
+  .key.red { color: #ff5a4f; }
+  /* ghiera posteriore con croce e SET */
+  .dial { position: relative; width: 156px; height: 156px; border-radius: 50%; background: radial-gradient(circle at 50% 45%, #34343a, #1d1d21 70%);
+          box-shadow: 0 3px 0 #0b0b0c, inset 0 0 0 9px #26262b; }
+  .dial button { position: absolute; border: none; background: transparent; color: #c9c9ce; font-size: 15px; cursor: pointer; width: 46px; height: 40px; touch-action: manipulation; }
+  .dial .up { top: 12px; left: 55px; } .dial .down { bottom: 12px; left: 55px; } .dial .left { left: 10px; top: 58px; } .dial .right { right: 10px; top: 58px; }
+  .dial .set { left: 46px; top: 46px; width: 64px; height: 64px; border-radius: 50%; background: #2b2b31; box-shadow: 0 2px 0 #0b0b0c; font: 700 13px system-ui; }
+  .dial button:active { color: var(--accent); }
+  .row { display: flex; gap: 10px; align-items: center; }
+  .top { display: flex; justify-content: center; gap: 12px; margin: 12px auto 0; flex-wrap: wrap; max-width: 1040px; }
+  .status { text-align: center; color: var(--dim); font-size: 14px; margin-top: 10px; min-height: 21px; }
+
+  section.info { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-top: 30px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+  .card h3 { margin: 0 0 6px; font-size: 15px; color: var(--accent); letter-spacing: .5px; }
+  .card p, .card li { color: var(--dim); font-size: 14px; margin: 0; }
+  .card ul { margin: 0; padding-left: 18px; }
+  kbd { background: #26262b; border: 1px solid #3a3a40; border-bottom-width: 2px; border-radius: 5px; padding: 0 6px; font: 12px ui-monospace, monospace; color: var(--text); }
+  table.keys { width: 100%; border-collapse: collapse; font-size: 14px; }
+  table.keys td { padding: 3px 0; color: var(--dim); }
+  table.keys td:first-child { white-space: nowrap; padding-right: 10px; }
+  footer { max-width: 1100px; margin: 0 auto; padding: 0 20px 40px; color: #6b6b73; font-size: 13px; }
+
+  @media (max-width: 860px) {
+    .camera { grid-template-columns: 1fr; padding: 30px 14px 20px; border-radius: 28px; gap: 16px; }
+    .col.left { flex-direction: row; justify-content: center; order: 2; }
+    .col.right { order: 3; }
+    .screen-wrap { order: 1; }
+    .right .row { justify-content: center; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1><span>IRIDE</span> 6D</h1>
+  <p>Firmware personalizzato per Canon EOS 6D, su Magic Lantern modificato: astrofotografia, foto, rullini in stile pellicola, profili. Qui sotto gira <b>lo stesso codice</b> che va sulla macchina.</p>
+  <div class="links">
+    <a class="btn-link primary" href="https://github.com/GodEater58/Iride-6D/releases/latest">Scarica per la 6D</a>
+    <a class="btn-link" href="https://github.com/GodEater58/Iride-6D">Codice su GitHub</a>
+  </div>
+</header>
+
+<main>
+  <div class="camera" id="camera">
+    <div class="brand">CANON EOS 6D · IRIDE</div>
+    <div class="col left">
+      <button class="key" data-k="22" title="MENU (Esc)">MENU</button>
+      <button class="key" data-k="23" title="INFO (I)">INFO</button>
+      <button class="key red" data-k="25" title="Cestino (Canc)">🗑</button>
+      <button class="key small" data-k="100" title="Luce del display superiore (B)">LUCE</button>
+    </div>
+
+    <div class="screen-wrap">
+      <canvas id="lcd" width="720" height="480" aria-label="Schermo della 6D con Iride"></canvas>
+      <div class="loading" id="loading">Avvio di Magic Lantern e Iride…</div>
+    </div>
+
+    <div class="col right">
+      <div class="row">
+        <button class="key small" data-k="29" title="Q (Q)">Q</button>
+        <button class="key small red" data-k="28" title="START/STOP Live View (L)">LV</button>
+      </div>
+      <div class="row">
+        <button class="key round" data-k="7" title="Ghiera superiore a sinistra ([)">◀︎</button>
+        <span style="color:#77777f;font-size:11px">ghiera</span>
+        <button class="key round" data-k="8" title="Ghiera superiore a destra (])">▶︎</button>
+      </div>
+      <div class="dial">
+        <button class="up" data-k="12" title="Su (freccia)">▲</button>
+        <button class="left" data-k="16" title="Sinistra (freccia)">◀</button>
+        <button class="set" data-k="9" title="SET (Invio)">SET</button>
+        <button class="right" data-k="15" title="Destra (freccia)">▶</button>
+        <button class="down" data-k="19" title="Giu' (freccia)">▼</button>
+      </div>
+      <button class="key accent" data-k="1" title="Mezzo scatto / scatta (Spazio)" style="width:120px">SCATTO</button>
+    </div>
+  </div>
+  <div class="status" id="status"></div>
+
+  <section class="info">
+    <div class="card">
+      <h3>COME SI USA</h3>
+      <table class="keys">
+        <tr><td><kbd>←</kbd> <kbd>↑</kbd> <kbd>→</kbd> <kbd>↓</kbd></td><td>croce: muoversi e cambiare valori</td></tr>
+        <tr><td><kbd>Invio</kbd></td><td>SET: apri, conferma</td></tr>
+        <tr><td><kbd>Esc</kbd></td><td>MENU: indietro</td></tr>
+        <tr><td><kbd>I</kbd> · <kbd>Q</kbd></td><td>INFO (aiuto) · Q</td></tr>
+        <tr><td><kbd>Canc</kbd> · <kbd>B</kbd></td><td>cestino · tasto luce: apri Iride</td></tr>
+        <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>ghiera superiore: passi grandi</td></tr>
+        <tr><td><kbd>L</kbd> · <kbd>Spazio</kbd></td><td>Live View · scatto (chiude Iride)</td></tr>
+      </table>
+    </div>
+    <div class="card">
+      <h3>COSA PROVARE</h3>
+      <ul>
+        <li><b>Astro</b>: Polare, Luna e calendario del cielo con l'ora del tuo computer</li>
+        <li><b>Rullini</b>: scegli la pellicola, SET, guarda il caricamento</li>
+        <li><b>Foto › Bilanciamento bianco</b>: il tasto WB che manca alla 6D</li>
+        <li><b>Profili</b>: Ritratto, Paesaggio, Street, Sport, Notte</li>
+        <li><b>Opzioni</b>: tema notte rosso, animazioni, luogo</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>COS'È QUESTA DEMO</h3>
+      <p>Il codice di Iride e il simulatore usato per i suoi test, compilati in WebAssembly. Testo e caratteri sono quelli veri di Magic Lantern. La 6D, il menu Canon e il Live View sono finti: le impostazioni non vanno da nessuna parte, e ricaricando la pagina si riparte da zero.</p>
+    </div>
+  </section>
+</main>
+<footer>
+  Iride 6D · GPL v2 come Magic Lantern · non affiliato né approvato da Canon. Sulla macchina vera: <a href="https://github.com/GodEater58/Iride-6D#installazione">istruzioni di installazione</a>.
+</footer>
+
+<script>
+  /* tavolozza di Magic Lantern usata da Iride (come simulator/render.py) */
+  const PAL = new Uint32Array(256);
+  (function () {
+    const base = {0:[0,0,0],1:[255,255,255],2:[0,0,0],3:[0,0,0],5:[0,220,230],6:[60,210,90],7:[120,200,120],8:[235,50,45],
+                  9:[110,170,255],11:[40,80,210],12:[150,25,25],14:[220,0,220],15:[250,215,0],19:[255,140,0]};
+    for (let i = 0; i < 256; i++) {
+      let c = base[i];
+      if (!c && i >= 38 && i <= 79) { const g = Math.round((i - 38) / 41 * 255); c = [g, g, g]; }
+      if (!c) c = [0, 0, 0];
+      PAL[i] = (255 << 24) | (c[2] << 16) | (c[1] << 8) | c[0];   /* RGBA little endian */
+    }
+  })();
+
+  const canvas = document.getElementById('lcd');
+  const ctx = canvas.getContext('2d');
+  const img = ctx.createImageData(720, 480);
+  const px = new Uint32Array(img.data.buffer);
+  const keys = [];
+  const status = document.getElementById('status');
+  let started = false;
+
+  window.Module = {
+    iridePresent(ptr) {
+      if (!started) { started = true; document.getElementById('loading').style.display = 'none'; }
+      const h = Module.HEAPU8;
+      for (let y = 0; y < 480; y++) {
+        const s = ptr + y * 960, d = y * 720;
+        for (let x = 0; x < 720; x++) px[d + x] = PAL[h[s + x]];
+      }
+      ctx.putImageData(img, 0, 0);
+    },
+    iridePopKey() { return keys.length ? keys.shift() : -1; },
+    irideState(open, live, screen) {
+      status.textContent = (open ? 'Iride aperta' : 'Iride chiusa: cestino o LUCE per aprirla') + (live ? ' · Live View acceso' : '');
+    },
+    print(t) { console.log(t); }, printErr(t) { console.warn(t); },
+  };
+
+  function press(k) {
+    if (k === 1 && Module._web_shoot) Module._web_shoot();       /* scatto: una foto, e chiude Iride */
+    keys.push(k);
+  }
+  document.querySelectorAll('[data-k]').forEach(b => {
+    const k = +b.dataset.k;
+    b.addEventListener('pointerdown', e => { e.preventDefault(); press(k); b.classList.add('down'); });
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => b.addEventListener(ev, () => b.classList.remove('down')));
+  });
+  const MAP = { ArrowUp: 12, ArrowDown: 19, ArrowLeft: 16, ArrowRight: 15, Enter: 9, Escape: 22, Backspace: 22,
+                i: 23, I: 23, q: 29, Q: 29, Delete: 25, c: 25, C: 25, b: 100, B: 100, l: 28, L: 28, ' ': 1, '[': 7, ']': 8 };
+  document.addEventListener('keydown', e => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const k = MAP[e.key];
+    if (k === undefined) return;
+    e.preventDefault();
+    press(k);
+  });
+  /* rotella del mouse sullo schermo = ghiera superiore */
+  canvas.addEventListener('wheel', e => { e.preventDefault(); press(e.deltaY > 0 ? 8 : 7); }, { passive: false });
+</script>
+<script src="iride.js"></script>
+</body>
+</html>

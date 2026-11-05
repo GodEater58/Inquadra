@@ -1,5 +1,14 @@
 # Novità
 
+## 1.5.1 – 5 novembre 2026
+- **Prova Iride nel browser**: [godeater58.github.io/Iride-6D](https://godeater58.github.io/Iride-6D/). Lo stesso codice di Iride e il simulatore dei test, compilati in WebAssembly: si usa con la tastiera o coi tasti di una 6D disegnata, con l'ora del computer per Luna, cielo e Polare. GitHub Actions la ricompila e la pubblica a ogni modifica
+- **Caratteri veri di Magic Lantern nel simulatore**: larghezze, schermate del README e demo usano i caratteri RBF della 6D (`simulator/fonts`) invece di un carattere del PC. Così i controlli "testo fuori dallo schermo" valgono anche sulla macchina, e hanno trovato quattro testi che sulla 6D uscivano dal loro spazio:
+  - piede della Home: "cestino = menu ML" usciva dal bordo destro (ora "cestino = ML")
+  - menu Astro: "Dove puntare la Via Lattea" usciva dalla riga (ora "Dove puntare"; nella scheda a destra il titolo lungo usa un carattere più piccolo)
+  - menu Foto: "Bilanciamento del bianco" finiva sotto il pallino verde (ora "Bilanciamento bianco")
+  - Strumenti Live View: la nota in basso usciva dal riquadro
+- Schermate e GIF del README rifatte con i caratteri veri; schermate raccolte in una sezione a scomparsa
+
 ## 1.5 – 5 novembre 2026
 - **Bilanciamento del bianco** (Foto › Bilanciamento del bianco): la 6D non ha un tasto per il bianco ed è una delle mancanze più citate dagli utenti. Automatico, luce diurna, ombra, nuvoloso, tungsteno, fluorescente, flash e Kelvin da 2500 a 10000 K (passi di 100, 500 con la ghiera superiore), con la scala delle temperature dal caldo al freddo
   - **SET dalla schermata di scatto** apre subito il bianco (Opzioni › *SET apre il bianco*, anche nel menu ML; spento di serie per non togliere il SET a chi l'ha già assegnato in Canon). MENU o *Fatto* tornano a scattare. I SET "premuti" da Magic Lantern restano a Canon

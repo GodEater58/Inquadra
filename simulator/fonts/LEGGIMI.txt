@@ -1,0 +1,2 @@
+Caratteri RBF di Magic Lantern (data/fonts, GPL): li usano il simulatore (larghezze vere),
+render.py (schermate) e la demo nel browser, cosi il testo e identico a quello della 6D.

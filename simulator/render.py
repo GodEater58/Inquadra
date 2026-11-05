@@ -10,6 +10,30 @@ def pal(i):
     return (255,0,255)
 F = {0:("DejaVuSansMono.ttf",11,12),1:("DejaVuSansMono.ttf",17,20),2:("DejaVuSans.ttf",19,23),3:("DejaVuSans.ttf",23,28),4:("DejaVuSans.ttf",27,32)}
 fonts = {k:ImageFont.truetype("/usr/share/fonts/truetype/dejavu/"+v[0], v[1]) for k,v in F.items()}
+# caratteri veri di Magic Lantern (fonts/*.rbf): il testo delle schermate e' identico a quello della 6D
+import struct
+def _rbf(path):
+    f = open(path, "rb"); f.read(72)
+    cs, pts, h, mw, first, last, _u, wmap, cmap, de, il = struct.unpack("=11l", f.read(44))
+    f.seek(wmap); w = list(f.read(last - first + 1)); f.seek(cmap); c = f.read((last - first + 1) * cs)
+    return dict(h=h, first=first, last=last, cs=cs, bpr=(8 * cs // h) // 8, w=w, c=c)
+RBF = {i: _rbf(os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts", n + ".rbf"))
+       for i, n in enumerate(["term12", "term20", "argnor23", "argnor28", "argnor32"])}
+def rbf_text(im, fid, x, y, s, fg, bg):
+    f = RBF.get(fid, RBF[2]); px = im.load()
+    for ch in s:
+        c = ord(ch)
+        if c < f["first"] or c > f["last"]: continue
+        w = f["w"][c - f["first"]]; g = f["c"][(c - f["first"]) * f["cs"]:]
+        if bg is not None:
+            for yy in range(f["h"]):
+                for xx in range(w):
+                    if 0 <= x + xx < 720 and 0 <= y + yy < 480: px[x + xx, y + yy] = bg
+        for yy in range(f["h"]):
+            for xx in range(w):
+                if g[yy * f["bpr"] + xx // 8] & (1 << (xx % 8)) and 0 <= x + xx < 720 and 0 <= y + yy < 480:
+                    px[x + xx, y + yy] = fg
+        x += w
 PALA = [((pal(i) + (255,)) if (i and pal(i)) else (0, 0, 0, 0)) for i in range(256)]
 def render(opsfile, bg=None):
     im = Image.new("RGBA",(720,480),(0,0,0,0)); d = ImageDraw.Draw(im)
@@ -36,10 +60,8 @@ def render(opsfile, bg=None):
             c,x1,y1,x2,y2 = map(int,p[1:6]); col = pal(c); d.line([x1,y1,x2,y2], fill=(col+(255,)) if col else (0,0,0,0))
         elif t == "T":
             fid,fg,bgc,x,y = map(int,p[1:6]); s = p[6] if len(p) > 6 else ""
-            f = fonts.get(fid, fonts[2]); h = F.get(fid,F[2])[2]
-            w = int(f.getlength(s)); b = pal(bgc)
-            if b: d.rectangle([x,y,x+w,y+h-1], fill=b+(255,))
-            d.text((x, y + (h - F.get(fid,F[2])[1])//2 - 1), s, font=f, fill=pal(fg)+(255,) if pal(fg) else (0,0,0,0))
+            b = pal(bgc) if bgc != 255 else None
+            rbf_text(im, fid, x, y, s, (pal(fg) + (255,)) if pal(fg) else (0, 0, 0, 0), (b + (255,)) if b else None)
     base = Image.new("RGBA",(720,480),(0,0,0,255))
     if bg: base = Image.open(bg).convert("RGBA").resize((720,480))
     base.alpha_composite(im)

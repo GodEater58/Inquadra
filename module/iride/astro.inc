@@ -2088,7 +2088,7 @@ static const struct menu_row astro_rows[] = {
     { "Fuoco sulle stelle", "Misura HFR in Live View, zoom e passi di fuoco", SCR_STARS },
     { "Allineamento polare", "Dove mettere la Polare nel cannocchiale", SCR_POLAR },
     { "Calendario del cielo", "Luna, buio e Via Lattea nelle prossime 7 notti", SCR_SKY },
-    { "Dove puntare la Via Lattea", "Direzione, altezza e arco del centro, ora per ora", SCR_MWPLAN },
+    { "Dove puntare", "Direzione, altezza e arco del centro della Via Lattea, ora per ora", SCR_MWPLAN },
     { "Luna da fotografare", "Fase, posizione e tempo di scatto giusto", SCR_MOON },
     { "Etichetta file", "LGHT, DARK, FLAT, BIAS al posto di IMG_", -1 },
 };

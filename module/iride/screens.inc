@@ -181,7 +181,7 @@ static void draw_home()
         snprintf(buf, sizeof(buf), "%s", prefix_cur[0] ? prefix_cur : "IMG_");
         if (cx + 100 < SCR_W - 30) chip_kv(cx, cy, "FILE", buf, cb, C_TEXT);
     }
-    draw_footer("joystick scegli  SET apri  INFO aiuto  MENU esci  cestino = menu ML");
+    draw_footer("joystick scegli  SET apri  INFO aiuto  MENU esci  cestino = ML");
 }
 
 /* da/verso la Home: lo zoom parte dal riquadro (cornice compresa) */
@@ -448,7 +448,9 @@ static void draw_menu_md(const struct menu_row *rows, const struct md_item *it, 
     int e0 = phase(now - md_txt_t0, 0, anim_ms(240), EZ_OUT), e1 = phase(now - md_txt_t0, anim_ms(60), anim_ms(240), EZ_OUT);
     int e2 = phase(now - md_txt_t0, anim_ms(120), anim_ms(240), EZ_OUT);
     if (e2 < 1000) anim_keep();
-    txt_in(FONT_MED_LARGE, C_TEXT, px + 18, y0 + 140, rows[s].title, e0, 0, 8);
+    /* titolo lungo (Dove puntare la Via Lattea): carattere un poco piu' piccolo, deve stare nel riquadro */
+    int tf = txt_w(FONT_MED_LARGE, rows[s].title) <= pw - 34 ? FONT_MED_LARGE : FONT_MED;
+    txt_in(tf, C_TEXT, px + 18, y0 + (tf == FONT_MED ? 144 : 140), rows[s].title, e0, 0, 8);
     if (e1 >= 1000) txt_wrap(FONT_MED, C_DIM, px + 18, y0 + 174, pw - 34, it[s].desc, 24);
     else if (e1 > 0)
     {

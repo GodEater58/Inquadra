@@ -351,7 +351,7 @@ static void lv_extra()
 {
     info_card(24, 384, SCR_W - 48, 52, 0);
     txt(FONT_MED, C_DIM, 44, 398, sel[SCR_LVTOOLS] == LV_GAIN_ROW ? "Per inquadrare di notte. Le foto restano uguali." :
-        "Si vedono nel Live View. Iride accende da sola il disegno di ML.");
+        "Si vedono nel Live View: Iride accende il disegno di ML.");
 }
 
 static const struct form lv_form = { 8, lv_labels, lv_value, lv_change, lv_activate, lv_extra,
@@ -555,7 +555,7 @@ static const struct menu_row foto_rows[] = {
     { "Movimento e trappola", "Scatta da solo: fulmini, animali, fuoco", SCR_MOTION },
     { "Strumenti Live View", "Peaking, zebra, istogramma, falsi colori", SCR_LVTOOLS },
     { "Filtri ND", "Tempo col filtro e posa B automatica", SCR_ND },
-    { "Bilanciamento del bianco", "Il tasto che manca alla 6D, con la scala in Kelvin", SCR_WB },
+    { "Bilanciamento bianco", "Il tasto che manca alla 6D, con la scala in Kelvin", SCR_WB },
 };
 #define NUM_FOTO_ROWS ((int)COUNT(foto_rows))
 

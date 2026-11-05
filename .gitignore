@@ -10,3 +10,5 @@ __pycache__/
 *.zip
 simulator/preview_asan
 simulator/sheets/
+site/iride.js
+site/iride.wasm
