@@ -1,10 +1,10 @@
 name: Demo nel browser
 
-# Compila Iride + simulatore in WebAssembly e pubblica site/ su GitHub Pages
+# Compila Iride + simulatore in WebAssembly, aggiorna la cronistoria dal CHANGELOG e pubblica site/ su GitHub Pages
 on:
   push:
     branches: [main]
-    paths: ["site/**", "simulator/**", "module/iride/**", ".github/workflows/pages.yml"]
+    paths: ["site/**", "simulator/**", "module/iride/**", "CHANGELOG.md", "tools/cronistoria/**", ".github/workflows/pages.yml"]
   workflow_dispatch:
 
 permissions:
@@ -25,6 +25,8 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y emscripten
       - name: Compila la demo (WebAssembly)
         run: sh simulator/web/build.sh ../site
+      - name: Cronistoria (versioni nuove dal CHANGELOG)
+        run: python3 tools/cronistoria/genera.py
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

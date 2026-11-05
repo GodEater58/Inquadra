@@ -36,7 +36,7 @@ Un'interfaccia a tutto schermo, animata, con menu dedicati ad **astrofotografia*
 ## Cronistoria
 
 <p align="center"><a href="https://godeater58.github.io/Iride-6D/cronistoria.html"><img src="docs/screenshots/cronistoria-v16.png" width="620" alt="Cronistoria di Iride 6D: dalla 0.1 alla 1.6"></a><br>
-<b><a href="https://godeater58.github.io/Iride-6D/cronistoria.html">Dalla 0.1 alla 1.6, in cinque giorni</a></b>: ogni versione con le novità, gli errori trovati e corretti e le parti rifatte da capo, e i test che crescono da 0 a 211.</p>
+<b><a href="https://godeater58.github.io/Iride-6D/cronistoria.html">Dalla 0.1 alla 1.6, in cinque giorni</a></b>: ogni versione con le novità, gli errori trovati e corretti e le parti rifatte da capo, e i test che crescono da 0 a 211. Si aggiorna da sola: a ogni versione nuova nel CHANGELOG GitHub Actions la rigenera (`tools/cronistoria/genera.py`).</p>
 
 ## Funzioni
 

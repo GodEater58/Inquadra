@@ -129,12 +129,12 @@ footer { margin-top: 40px; color: var(--dim); font-size: 13px; border-top: 1px s
 </div>
 <header>
   <div class="brand">Cronistoria · firmware per Canon EOS 6D</div>
-  <h1>Dalla 0.1 alla 1.6, in cinque giorni</h1>
+  <h1 id="h1">Dalla 0.1 alla 1.6, in cinque giorni</h1>
   <p class="lede">Tutte le versioni, dal primo modulo sopra Magic Lantern al firmware con il core modificato, la demo nel browser e l'inglese. Con quello che è andato bene, quello che si è rotto e quello che è stato rifatto da capo.</p>
   <div class="tiles" aria-label="Numeri del progetto">
-    <div class="tile acc"><b>28</b><span>versioni, dall'1 al 5 novembre 2026</span></div>
-    <div class="tile ok"><b>0 → 211</b><span>test sul simulatore</span></div>
-    <div class="tile"><b>11.400</b><span>righe del modulo Iride</span></div>
+    <div class="tile acc"><b id="n-ver">28</b><span>versioni pubblicate</span></div>
+    <div class="tile ok"><b id="n-test">0 → 211</b><span>test sul simulatore</span></div>
+    <div class="tile"><b id="n-righe">11.400</b><span>righe del modulo Iride</span></div>
     <div class="tile err"><b id="n-err">0</b><span>errori trovati e corretti</span></div>
     <div class="tile redo"><b id="n-redo">0</b><span>rifacimenti da capo</span></div>
   </div>
@@ -168,162 +168,11 @@ footer { margin-top: 40px; color: var(--dim); font-size: 13px; border-top: 1px s
 <footer>Fonti: il <a href="https://github.com/GodEater58/Iride-6D/blob/main/CHANGELOG.md">CHANGELOG</a> e la cronologia dei commit di GodEater58/Iride-6D (prima GodEater58/Inquadra), e le conversazioni di lavoro. Il core modificato della 1.4 non è ancora stato provato su una 6D vera: la lista è in docs/PROVA_6D.md.</footer>
 </div>
 
+<script src="cronistoria-data.js"></script>
 <script>
 /* k: ok = novita', err = errore, fix = correzione di un errore (conta come errore), redo = rifatto da capo, mod = modifica */
-const PHASES = [
- { when: "1 novembre · sabato", title: "Nascita: un modulo sopra Magic Lantern", vers: [
-  { v: "prima", t: "L'idea e la 6D pronta", tests: null, items: [
-    ["ok", "Idea: i rullini simulati come nel video R-FILM per la 5D3, più un menu Astro come quello dell'app Iride per Android"],
-    ["mod", "La 6D riportata dal firmware Canon 1.1.9 alla 1.1.6, quello richiesto da Magic Lantern"],
-  ]},
-  { v: "0.1", t: "Prima versione", tests: 0, items: [
-    ["ok", "Via Lattea con la regola NPF, intervallometro, fuoco sulle stelle (HFR), etichetta dei file, scaffale dei rullini"],
-  ]},
-  { v: "0.2", t: "Interfaccia riscritta", tests: 49, items: [
-    ["redo", "Interfaccia rifatta da capo: doppio buffer senza sfarfallio, transizioni, schermata iniziale, tema notte rosso"],
-    ["ok", "Home con Astro, Foto, Rullini, Torna alla 6D, Profili, Opzioni; HDR, focus stacking, Dual ISO, ETTR, ND, polare, calendario"],
-    ["ok", "Simulatore con 49 test e confronto astronomico con astropy"],
-  ]},
-  { v: "0.3", t: "Preset per il PC", tests: 55, items: [
-    ["ok", "16 preset XMP per LightCraft e Lightroom: il carattere della pellicola anche nel RAW"],
-    ["ok", "Avviso se la macchina è in solo RAW (Iride legge la qualità ma non la cambia: Magic Lantern lo considera rischioso)"],
-  ]},
-  { v: "0.4", t: "Animazioni dei rullini", tests: 65, items: [
-    ["ok", "Caricamento e riavvolgimento animati, scaffale con mensola, cestino che apre Iride, diagnostica dei tasti"],
-  ]},
-  { v: "0.5", t: "Rullini disegnati", tests: null, items: [
-    ["redo", "Rullini ridisegnati con perno, coperchi zigrinati, codice DX e tre impaginazioni originali, senza loghi reali"],
-  ]},
-  { v: "0.6", t: "Icone e apertura all'accensione", tests: 70, items: [
-    ["redo", "Icone della Home ridisegnate"],
-    ["ok", "All'accensione la 6D mostra subito la Home di Iride"],
-  ]},
-  { v: "0.7", t: "Cose che sbucavano sopra Iride", tests: 72, items: [
-    ["err", "In basso comparivano gli indicatori audio di Magic Lantern sopra la riga d'aiuto"],
-    ["err", "All'avvio il menu Canon si vedeva sopra Iride"],
-    ["fix", "Menu ML portato su Shoot › Iride, attesa del menu Canon, ridisegno completo periodico"],
-  ]},
-  { v: "0.8", t: "Live View", tests: 78, items: [
-    ["ok", "START/STOP accende e spegne il Live View e riapre Iride sulla stessa schermata"],
-    ["err", "In Live View la grafica di Iride poteva restare invisibile"],
-  ]},
-  { v: "0.9", t: "Il nome Iride 6D", tests: 81, items: [
-    ["mod", "Il progetto prende il nome Iride 6D"],
-    ["err", "Cambiando rullino si vedeva solo il riavvolgimento: gli eventi interni di Canon venivano presi per tasti"],
-  ]},
-  { v: "1.0", t: "Animazioni ovunque", tests: 86, items: [
-    ["ok", "Diaframma all'avvio, zoom dal riquadro alla schermata, fogli che salgono, barra elastica, contapose a rullo"],
-    ["redo", "Allineamento polare e calendario del cielo rifatti"],
-    ["fix", "Descrizioni dei rullini verificate: la Delta 3200 è una ISO 1000 reale, la CineStill 800T vira al blu di giorno"],
-    ["err", "Dopo Torna alla 6D l'avviso \"Fatto\" non compariva"],
-  ]},
- ]},
- { when: "2 novembre · domenica", title: "L'astrofotografia diventa seria", vers: [
-  { v: "1.1", t: "Mai uscita come release", tests: 108, items: [
-    ["redo", "Sottomenu ridisegnati come la Home, con anteprima della voce scelta"],
-    ["ok", "Luna disegnata dal vero con mari e 45 crateri; magnitudine limite con la Luna (Krisciunas e Schaefer)"],
-    ["err", "Sfarfallio nello zoom tra Home e schermate"],
-    ["err", "Fuoco stelle: HFR bloccato a 12 con la stella sfocata, ricerca sotto il pannello, pixel caldi presi per stelle"],
-    ["err", "Testi spostati da ML sul bordo quando uscivano dallo schermo; Luna non capovolta dall'emisfero sud"],
-    ["ok", "Controllo a tappeto con AddressSanitizer e 6000 tasti a caso"],
-  ]},
-  { v: "1.2", t: "Intervallometro da campo", tests: 148, items: [
-    ["ok", "Fuoco automatico sulle stelle a curva a V, otturatore silenzioso, dithering, registro della sessione"],
-    ["ok", "Luna da fotografare, Dove puntare, 57 città e fusi orari controllati col database IANA, Prova della 6D"],
-  ]},
-  { v: "1.2.1", t: "Primo dato dalla 6D vera", tests: null, items: [
-    ["err", "Nella Prova della 6D il \"%\" spostava i valori: la temperatura mostrava i MB liberi (30387)"],
-    ["fix", "Nuovo controllo automatico dei formati (check_formats.py) prima della compilazione"],
-  ]},
-  { v: "1.2.2", t: "Calendario più leggero", tests: null, items: [
-    ["err", "Il calendario costava 62 ms per fotogramma: oltre 5.500 piccoli riempimenti"],
-    ["fix", "Luna e barre disegnate a blocchi"],
-  ]},
- ]},
- { when: "3 novembre · lunedì", title: "Prestazioni e aspetto, misurati sulla macchina", vers: [
-  { v: "1.2.3", t: "Manovella", tests: null, items: [
-    ["redo", "Manovella di riavvolgimento ridisegnata come sulle reflex a pellicola"],
-  ]},
-  { v: "1.3", t: "Carattere e angoli", tests: null, items: [
-    ["redo", "Il testo piccolo passa dal Terminus di ML a Inter Medium proporzionale con bordi sfumati"],
-    ["ok", "Angoli arrotondati, interruttori a pillola, 15 icone nuove, striscia di stato nella Home"],
-  ]},
-  { v: "1.3.1", t: "", tests: null, items: [["mod", "Angoli arrotondati anche dove mancavano"]] },
-  { v: "1.3.2", t: "Disegno a blocchi", tests: null, items: [
-    ["mod", "La memoria dello schermo della 6D è lenta un byte alla volta: testo, Luna e icone scritti a righe intere"],
-  ]},
-  { v: "1.3.3", t: "Testo piccolo più veloce", tests: null, items: [
-    ["err", "28 µs per lettera piccola contro 20 per quelle di ML"],
-    ["fix", "Caratteri decompressi una volta, righe vuote saltate, sfumature in cache"],
-    ["mod", "Repository: il ramo main di GodEater58/Inquadra diventa il firmware, poi tutto si chiama Iride 6D"],
-  ]},
- ]},
- { when: "5 novembre · mattina", title: "Il bug sulla 6D e il core di Magic Lantern", vers: [
-  { v: "1.3.4", t: "Ciclo del Live View", tests: 153, items: [
-    ["err", "Sulla 6D: dopo un cambio di rullino il Live View si accendeva e tornava sui Rullini in un ciclo fino al pulsante di scatto"],
-    ["fix", "Iride si riapre solo se il Live View è cambiato, START/STOP doppio ignorato, 5 test nuovi"],
-  ]},
-  { v: "1.4", t: "Magic Lantern modificato", tests: 158, items: [
-    ["ok", "Core di ML modificato: modalità schermo intero, dialogo Canon tenuto sveglio, apertura senza attese fisse"],
-    ["ok", "Tasti \"finti\" premuti da ML riconosciuti; funzioni del core collegate deboli (va anche con ML ufficiale)"],
-  ]},
-  { v: "1.4.1", t: "Revisione completa", tests: 163, items: [
-    ["ok", "Salvataggio in due copie (IRIDE.DAT e IRIDE.BAK) con somma di controllo"],
-    ["err", "Numeri del rullino e della sessione sbagliati oltre il file 9999"],
-    ["err", "Cerchio pieno disegnato con un ciclo sbagliato e uno spostamento a sinistra di un numero negativo"],
-    ["fix", "Cerchi a righe intere, verificati pixel per pixel da raggio 0 a 170"],
-  ]},
-  { v: "1.4.2", t: "Una notte, un file", tests: 165, items: [
-    ["ok", "Registro della sessione per notte, lavori su scheda in un task, sanitizer in GitHub Actions"],
-    ["err", "La release v1.4.2 uscì vuota: il tag puntava a un commit con la compilazione rotta"],
-    ["err", "CI rossa: con un seme diverso i tasti a caso non visitavano abbastanza schermate"],
-    ["err", "La sessione non può creare tag su GitHub (errore 403): da allora le release si creano dal sito"],
-    ["fix", "Release ricreata sul commit giusto; controllo delle schermate visitate solo col seme di partenza"],
-  ]},
-  { v: "1.4.3", t: "Profili di partenza", tests: 171, items: [
-    ["ok", "Ritratto, Paesaggio, Street, Sport e Notte nei posti vuoti, una volta sola"],
-    ["ok", "Diaframma adattato ai limiti dell'obiettivo, con avviso"],
-    ["err", "L'avviso del diaframma confrontava il valore dopo averlo già cambiato"],
-  ]},
- ]},
- { when: "5 novembre · pomeriggio", title: "La vetrina: bianco, demo nel browser, retro della 6D", vers: [
-  { v: "1.5", t: "Bilanciamento del bianco", tests: 180, items: [
-    ["ok", "Il tasto WB che manca alla 6D, anche col SET dalla schermata di scatto"],
-    ["mod", "Avvio appena ML è pronto (circa 1 s invece di 2,5)"],
-  ]},
-  { v: "1.5.1", t: "Demo nel browser", tests: 180, items: [
-    ["ok", "Lo stesso codice di Iride compilato in WebAssembly e pubblicato su GitHub Pages"],
-    ["redo", "Simulatore coi caratteri RBF veri di Magic Lantern"],
-    ["err", "Coi caratteri veri: 4 testi uscivano dal loro spazio (piede della Home, Dove puntare, Bilanciamento, nota del Live View)"],
-  ]},
-  { v: "demo", t: "Correzioni della demo", tests: null, items: [
-    ["err", "La freccia giù, dopo averla premuta, saltava in alto a sinistra"],
-    ["redo", "Retro della 6D rifatto due volte: prima generico, poi ricalcato sulla foto ufficiale Canon"],
-    ["err", "Il mirino non somigliava a quello della 6D: ridisegnato con pentaprisma, conchiglia e diottrie"],
-    ["err", "START/STOP non faceva vedere nulla: ora il Live View resta visibile circa 2 s"],
-    ["err", "Su telefono la pagina scorreva di lato"],
-  ]},
-  { v: "1.5.2", t: "Tema notte completo", tests: 181, items: [
-    ["err", "Luna da fotografare e Dove puntare restavano bianche e arancioni col tema notte in Astro"],
-    ["ok", "Demo con salvataggio nel browser e pulsante per ripartire da capo"],
-  ]},
- ]},
- { when: "5 novembre · sera", title: "1.6: idee dalle ricerche online", vers: [
-  { v: "1.6", t: "Fai tutto", tests: 211, items: [
-    ["ok", "Dark proposti a fine sessione con la stessa posa, ISO e temperatura"],
-    ["ok", "Avviso della riduzione disturbo lunghe esposizioni, riconosciuta dal tempo dello scatto"],
-    ["ok", "Fino a 4 pellicole tue (ricette) con scheda di testo da condividere e preset XMP sul PC"],
-    ["ok", "Interfaccia in inglese: circa 800 testi, registri sempre in italiano"],
-    ["ok", "Piano di stacking per AstroStack, release con un clic, lista di prova sulla 6D"],
-    ["ok", "Demo: stella da mettere a fuoco in Live View e PLAY per rivedere le foto"],
-    ["err", "I test di apertura fallivano: la proposta dei dark si apriva al posto della Home"],
-    ["err", "La macro della traduzione si applicava anche alla definizione di NotifyBox nel simulatore"],
-    ["err", "In inglese il registro della sessione avrebbe scritto \"silent\" invece di \"silenzioso\", illeggibile per AstroStack"],
-    ["err", "L'estrazione dei testi saltava tutte le righe con un tasto (MODULE_KEY): \"Profilo cancellato\" restava in italiano"],
-    ["fix", "Scrittura dei file senza traduzione, test in inglese su tutte le schermate: nessun testo fuori dallo schermo"],
-  ]},
- ]},
-];
+const D = window.CRONISTORIA;
+const PHASES = D.fasi;
 
 const LABEL = { ok: "nuovo", err: "errore", fix: "corretto", redo: "rifatto", mod: "modifica" };
 const main = document.getElementById("timeline");
@@ -357,6 +206,13 @@ for (const p of PHASES) {
   main.appendChild(sec);
 }
 document.getElementById("n-err").textContent = nErr;
+const PAROLE = ["", "un giorno", "due giorni", "tre giorni", "quattro giorni", "cinque giorni", "sei giorni", "sette giorni"];
+document.getElementById("h1").textContent = `Dalla ${D.prima} alla ${D.ultima}, in ${PAROLE[D.giorni] || D.giorni + " giorni"}`;
+document.title = "Cronistoria di Iride 6D";
+document.getElementById("n-ver").textContent = D.versioni;
+document.getElementById("n-test").textContent = "0 → " + D.test;
+document.getElementById("n-righe").textContent = D.righe.toLocaleString("it-IT");
+document.querySelector("#chart").setAttribute("aria-label", "Numero di test per versione, da 0 a " + D.test);
 document.getElementById("n-redo").textContent = nRedo;
 
 /* filtro: nasconde righe, versioni e giornate rimaste vuote */
@@ -370,22 +226,23 @@ document.querySelectorAll(".filters button").forEach(b => b.addEventListener("cl
 
 /* grafico dei test: solo le versioni con un numero noto */
 (function () {
-  const pts = [["0.1",0],["0.2",49],["0.3",55],["0.4",65],["0.6",70],["0.7",72],["0.8",78],["0.9",81],["1.0",86],["1.1",108],["1.2",148],
-               ["1.3.4",153],["1.4",158],["1.4.1",163],["1.4.2",165],["1.4.3",171],["1.5",180],["1.5.2",181],["1.6",211]];
-  const W = 980, H = 230, L = 44, R = 34, T = 18, B = 34, max = 240;
+  /* le versioni con il numero di test noto (le altre non l'hanno cambiato) */
+  const pts = [];
+  for (const p of PHASES) for (const v of p.vers) if (v.tests !== null && v.tests !== undefined) pts.push([v.v, v.tests]);
+  const top = Math.max(...pts.map(p => p[1]));
+  const W = 980, H = 230, L = 44, R = 34, T = 18, B = 34, max = Math.ceil(top / 60 + 0.4) * 60;
   const x = i => L + i * (W - L - R) / (pts.length - 1), y = v => T + (H - T - B) * (1 - v / max);
   let s = "";
-  for (const g of [0, 60, 120, 180, 240]) s += `<line x1="${L}" x2="${W - R}" y1="${y(g)}" y2="${y(g)}" stroke="#2c2c30"/><text x="${L - 8}" y="${y(g) + 4}" text-anchor="end">${g}</text>`;
+  for (let g = 0; g <= max; g += 60) s += `<line x1="${L}" x2="${W - R}" y1="${y(g)}" y2="${y(g)}" stroke="#2c2c30"/><text x="${L - 8}" y="${y(g) + 4}" text-anchor="end">${g}</text>`;
   const line = pts.map((p, i) => `${x(i)},${y(p[1])}`).join(" ");
   s += `<polygon points="${x(0)},${y(0)} ${line} ${x(pts.length - 1)},${y(0)}" fill="#ff8c00" fill-opacity=".12"/>`;
   s += `<polyline points="${line}" fill="none" stroke="#ff8c00" stroke-width="2.5" stroke-linejoin="round"/>`;
   pts.forEach((p, i) => {
     const last = i === pts.length - 1;
     s += `<circle cx="${x(i)}" cy="${y(p[1])}" r="${last ? 5.5 : 3}" fill="${last ? "#ff8c00" : "#0d0d0e"}" stroke="#ff8c00" stroke-width="2"/>`;
-    s += `<text x="${x(i)}" y="${H - 12}" text-anchor="middle">${p[0]}</text>`;
+    if (pts.length <= 24 || i % 2 === 0 || last) s += `<text x="${x(i)}" y="${H - 12}" text-anchor="middle">${p[0]}</text>`;
   });
-  s += `<text x="${x(pts.length - 1) - 10}" y="${y(211) - 10}" text-anchor="end" style="fill:#ecebe8;font-size:12px">211</text>`;
-  s += `<text x="${x(10)}" y="${y(148) - 10}" text-anchor="middle" style="fill:#ecebe8">148</text>`;
+  s += `<text x="${x(pts.length - 1) - 10}" y="${y(top) - 10}" text-anchor="end" style="fill:#ecebe8;font-size:12px">${top}</text>`;
   document.getElementById("chart").innerHTML = s;
 })();
 </script>
