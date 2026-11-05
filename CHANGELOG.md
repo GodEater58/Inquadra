@@ -1,5 +1,9 @@
 # Novità
 
+## 1.3.4 – 5 novembre 2026
+- **Corretto il Live View che andava avanti e indietro dopo un cambio di rullino**: premendo START/STOP dentro Iride la 6D provava ad accendere il Live View, tornava subito sui Rullini e ricominciava finché non si premeva il pulsante di scatto. Magic Lantern accende il Live View "premendo" un tasto LV finto; subito dopo un cambio di rullino Canon è occupata a salvare stile, ISO e bianco, il tasto finto arrivava in ritardo e lo riceveva Iride, già riaperta, che lo prendeva per un nuovo START/STOP. Ora Iride si riapre solo quando il Live View è partito (o spento) davvero, e per un secondo e mezzo dopo la riapertura ignora un altro START/STOP
+- Simulatore: 5 test nuovi (Canon occupata, tasto LV in ritardo, doppio START/STOP)
+
 ## 1.3.3 – 3 novembre 2026
 - **Testo piccolo più veloce**: la Prova della 6D (1.3.2) dava 28 microsecondi per lettera piccola contro 20 per le lettere medie di Magic Lantern. Ora i caratteri sono decompressi una volta sola, si saltano le righe vuote di ogni lettera e le sfumature si calcolano una volta per sfondo
 - **Prova della 6D più fedele**: ogni schermata fa un giro a vuoto prima di essere misurata. Il Calendario risultava 54 ms perché il primo dei tre fotogrammi ridisegnava da zero la Luna grande (100 ms), che nell'uso resta in memoria

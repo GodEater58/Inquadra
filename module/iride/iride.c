@@ -36,7 +36,7 @@
 #include <math.h>
 #include <battery.h>
 
-#define IRIDE_VERSION "1.3.3"
+#define IRIDE_VERSION "1.3.4"
 
 /* ------------------------------------------------------------------ compatibilita' API */
 
@@ -226,6 +226,8 @@ static volatile int to_ml_menu = 0;
 static volatile int open_settle = 0;   /* aperta dalla schermata di scatto: Canon apre il suo menu sotto */
 static volatile int lv_toggle = 0;     /* START/STOP dentro Iride: Live View acceso/spento e ritorno qui */
 static int lv_resume_screen = 0;
+static int lv_reopen_ms = -100000;      /* riaperta dopo il Live View: un LV doppio subito dopo si ignora */
+#define LV_DEBOUNCE_MS 1500
 static volatile int skip_splash = 0;    /* riapertura dopo il Live View: subito al lavoro */
 
 /* diagnostica: ultimi eventi dei tasti visti da Iride, per capire cosa manda la 6D */
@@ -462,10 +464,21 @@ static void lv_task(void *unused)
     int was = lv;
     msleep(300);                                /* ML chiude il suo menu e quello di Canon */
     if (!was) force_liveview(); else close_liveview();
-    for (int i = 0; i < 40 && lv == was; i++) msleep(100);
+    /* ML accende e spegne il Live View "premendo" un tasto LV finto. Se Canon e' occupata
+       (per esempio subito dopo un cambio di rullino, mentre salva stile, ISO e bianco) il tasto
+       finto arriva in ritardo: se Iride fosse gia' riaperta lo prenderebbe per un nuovo
+       START/STOP e lo toglierebbe a Canon, e si andrebbe avanti e indietro senza fine.
+       Quindi Iride si riapre solo quando il Live View e' cambiato davvero. */
+    for (int i = 0; i < 80 && lv == was; i++) msleep(100);
+    if (lv == was) return;                      /* il tasto finto arrivera' a Canon, non a Iride */
     msleep(400);
     for (int i = 0; i < 30 && !can_open_from_shooting(); i++) msleep(100);
-    if (can_open_from_shooting()) { skip_splash = 1; open_on(lv_resume_screen); }
+    if (can_open_from_shooting())
+    {
+        lv_reopen_ms = get_ms_clock();
+        skip_splash = 1;
+        open_on(lv_resume_screen);
+    }
 }
 
 static void boot_task(void *unused)
@@ -519,6 +532,9 @@ static unsigned int iride_keypress(unsigned int key)
         case MODULE_KEY_LV:
         case MODULE_KEY_REC:
             if (is_movie_mode() || RECORDING) return 1;
+            /* appena riaperta dopo il Live View: un LV ritardato (o doppio) non rilancia tutto */
+            if (get_ms_clock() - lv_reopen_ms < LV_DEBOUNCE_MS) return 0;
+            if (lv_toggle) return 0;
             lv_resume_screen = screen;
             lv_toggle = 1;
             return 0;

@@ -143,8 +143,8 @@ int sensor_cleaning = 0;
 int get_halfshutter_pressed(void) { return sim_half; }
 static int menu_redraw_calls = 0;
 void menu_redraw(void) { menu_redraw_calls++; }
-static int lv_forced = 0, lv_closed = 0, bmp_on_calls = 0, sim_movie = 0;
-void force_liveview(void) { lv_forced++; lv = 1; }
+static int lv_forced = 0, lv_closed = 0, bmp_on_calls = 0, sim_movie = 0, sim_lv_late = 0;
+void force_liveview(void) { lv_forced++; if (!sim_lv_late) lv = 1; }   /* late: Canon occupata, il tasto finto arriva dopo */
 void close_liveview(void) { lv_closed++; lv = 0; }
 void bmp_on(void) { bmp_on_calls++; }
 int is_movie_mode(void) { return sim_movie; }
@@ -741,6 +741,20 @@ int main(void)
       app_running = 0; menu_open = 0; lv_resume_screen = SCR_STARS; lv_task(NULL);
       CHECK(lv == 0 && lv_closed > 0 && screen == SCR_STARS, "secondo START/STOP: Live View spento, si resta su Fuoco stelle");
       menu_redraw_blocked = 0; open_settle = 0; menu_open = mo; lv = l0; app_running = 0; screen = SCR_HOME; }
+
+    /* ---------- START/STOP con Canon occupata (dopo un cambio di rullino): niente avanti e indietro */
+    { int l0 = lv; lv = 0; app_running = 0; menu_open = 0; gui_state = 0; screen = SCR_HOME;
+      lv_resume_screen = SCR_SHELF; sim_lv_late = 1; int before = menu_opened_calls;
+      lv_task(NULL);
+      CHECK(lv == 0 && menu_opened_calls == before && !app_running, "LV non ancora partito: Iride non si riapre (il tasto LV finto resta a Canon)");
+      CHECK(iride_keypress(MODULE_KEY_LV) == 1 && !lv_toggle, "il tasto LV finto in ritardo, a Iride chiusa, arriva a Canon");
+      sim_lv_late = 0; lv_task(NULL);
+      CHECK(lv == 1 && menu_opened_calls == before + 1 && screen == SCR_SHELF, "LV partito: Iride riaperta sui Rullini");
+      app_running = 1;
+      CHECK(iride_keypress(MODULE_KEY_LV) == 0 && !lv_toggle, "un LV subito dopo la riapertura non rilancia il Live View");
+      clock_ms += LV_DEBOUNCE_MS;
+      CHECK(iride_keypress(MODULE_KEY_LV) == 0 && lv_toggle == 1, "dopo un attimo START/STOP torna a funzionare");
+      lv_toggle = 0; menu_redraw_blocked = 0; open_settle = 0; lv = l0; app_running = 0; screen = SCR_HOME; }
 
     /* ---------- cambio rullino: riavvolgimento E caricamento animati */
     { app_running = 1; kq_tail = kq_head;
