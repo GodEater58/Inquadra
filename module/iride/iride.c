@@ -36,7 +36,7 @@
 #include <math.h>
 #include <battery.h>
 
-#define IRIDE_VERSION "1.6.1"
+#define IRIDE_VERSION "1.6.2"
 
 /* ------------------------------------------------------------------ compatibilita' API */
 
@@ -633,33 +633,36 @@ static void lvlog_flush()
 }
 
 /* ogni 200 ms: Live View acceso da Iride e poi spento con START/STOP (o dopo una foto): Iride torna */
-static int lv_prev = -1;
+/* ogni 200 ms. Live View acceso da Iride: quando si spegne davvero (START/STOP, anche dopo una foto)
+   Iride torna sulla schermata di prima. Guardare le foto (PLAY) spegne il Live View solo per un po':
+   la 6D poi lo riaccende da sola. Quindi l'attesa resta finche' il Live View e' spento e la schermata
+   di scatto e' libera per 1,2 s di fila; se intanto il Live View riparte si aspetta di nuovo. */
+#define LV_RETURN_MS 1200
+static int lv_prev = -1, lv_off_since = 0;
 static void lv_watch()
 {
     int now_lv = lv;
     if (lv_prev >= 0 && now_lv != lv_prev)
-    {
-        lvlog_add("Live View %d -> %d (Iride %d, gui %d, ritorno %d)", lv_prev, now_lv, app_running, gui_state, lv_return);
-        if (!now_lv)
-        {
-            lv_by_iride = 0;
-            int s = lv_return;
-            lv_return = -1;
-            if (s >= 0 && !app_running && job_running == JOB_NONE)
-            {
-                for (int i = 0; i < 30 && !can_open_from_shooting(); i++) msleep(100);
-                if (can_open_from_shooting())
-                {
-                    lv_reopen_ms = get_ms_clock();
-                    skip_splash = 1;
-                    lvlog_add("Live View spento: Iride torna su %d", s);
-                    open_on(s);
-                }
-                else lvlog_add("Live View spento ma la 6D e' occupata (gui %d): Iride resta chiusa", gui_state);
-            }
-        }
-    }
+        lvlog_add("Live View %d -> %d (Iride %d, gui %d, foto %d, ritorno %d)", lv_prev, now_lv, app_running, gui_state, is_play_mode(), lv_return);
     lv_prev = now_lv;
+
+    if (lv_return < 0 || app_running || job_running != JOB_NONE || now_lv || !can_open_from_shooting())
+    {
+        lv_off_since = 0;
+        return;
+    }
+    int now = get_ms_clock();
+    if (!lv_off_since) { lv_off_since = now; return; }
+    if (now - lv_off_since < LV_RETURN_MS) return;
+
+    int s = lv_return;
+    lv_return = -1;
+    lv_by_iride = 0;
+    lv_off_since = 0;
+    lv_reopen_ms = now;
+    skip_splash = 1;
+    lvlog_add("Live View spento: Iride torna su %d", s);
+    open_on(s);
 }
 
 extern int ml_started, ml_gui_initialized;

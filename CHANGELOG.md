@@ -1,5 +1,9 @@
 # Novità
 
+## 1.6.2 – 5 novembre 2026
+- **Corretto: dopo aver guardato una foto, START/STOP riportava al menu Canon invece che a Iride**. Guardare la foto (PLAY) spegne il Live View per un momento: Iride ci provava subito, trovava la 6D in riproduzione e lasciava perdere. Ora aspetta: torna quando il Live View è spento e la schermata di scatto è libera per 1,2 secondi di fila, e se nel frattempo il Live View riparte (la 6D lo riaccende uscendo dalla riproduzione) continua ad aspettare
+- Simulatore: 3 test nuovi (222)
+
 ## 1.6.1 – 5 novembre 2026
 - **Live View da Iride rifatto**: START/STOP dentro Iride ora chiude Iride e lascia il Live View acceso, per inquadrare e scattare (prima Iride si rimetteva subito sopra e lo copriva). START/STOP di nuovo, anche dopo una foto, spegne il Live View e riporta Iride sulla schermata di prima. Solo *Fuoco stelle*, che lavora sopra l'immagine, si riapre subito
 - **Corretto: dopo una foto in Live View, spegnendolo, Iride non tornava**. Ora torna, anche da *Fuoco stelle* chiusa col mezzo scatto

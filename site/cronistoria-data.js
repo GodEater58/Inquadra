@@ -595,14 +595,29 @@ window.CRONISTORIA = {
 "Registro del Live View (IRIDELV.TXT) per vedere sulla 6D cosa succede, millisecondo per millisecondo"
 ]
 ]
+},
+{
+"v": "1.6.2",
+"t": "Dopo la foto",
+"tests": 222,
+"items": [
+[
+"err",
+"Sulla 6D: guardata la foto, START/STOP riportava al menu Canon invece che a Iride"
+],
+[
+"fix",
+"Iride aspetta che il Live View sia spento davvero, non solo durante la riproduzione della foto"
+]
+]
 }
 ]
 }
 ],
-"versioni": 29,
+"versioni": 30,
 "prima": "0.1",
-"ultima": "1.6.1",
+"ultima": "1.6.2",
 "giorni": 5,
-"righe": 11519,
-"test": 219
+"righe": 11522,
+"test": 222
 };
