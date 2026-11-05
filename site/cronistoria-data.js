@@ -572,14 +572,37 @@ window.CRONISTORIA = {
 "Scrittura dei file senza traduzione, test in inglese su tutte le schermate: nessun testo fuori dallo schermo"
 ]
 ]
+},
+{
+"v": "1.6.1",
+"t": "Il Live View, di nuovo",
+"tests": 219,
+"items": [
+[
+"err",
+"Sulla 6D: il ciclo tra Live View e Rullini si vede ancora"
+],
+[
+"err",
+"Dopo una foto in Live View, spegnendolo, Iride non tornava (era stato promesso)"
+],
+[
+"redo",
+"START/STOP da Iride rifatto: il Live View resta visibile, Iride torna quando lo si spegne"
+],
+[
+"ok",
+"Registro del Live View (IRIDELV.TXT) per vedere sulla 6D cosa succede, millisecondo per millisecondo"
+]
+]
 }
 ]
 }
 ],
-"versioni": 28,
+"versioni": 29,
 "prima": "0.1",
-"ultima": "1.6",
+"ultima": "1.6.1",
 "giorni": 5,
-"righe": 11426,
-"test": 211
+"righe": 11519,
+"test": 219
 };

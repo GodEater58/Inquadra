@@ -36,9 +36,12 @@ Una ✗ in una riga non blocca il resto: segna e vai avanti.
 
 ## 3. Live View (il bug del rullino del 1.3)
 
-- [ ] Rullini → carica Portra 400 → START/STOP: si accende il Live View, Iride si riapre sopra dopo ~2 s
+Prima di questo punto cancella `ML/LOGS/IRIDELV.TXT` dalla scheda (se c'è): Iride ci scrive tutto quello che succede col Live View. Se qualcosa non va, è il file da mandarmi.
+
+- [ ] Rullini → carica Portra 400 → START/STOP: Iride si chiude e il Live View **resta acceso** (avviso "START/STOP per tornare a Iride")
+- [ ] Scatta una foto in Live View, poi START/STOP: il Live View si spegne e **Iride torna sui Rullini**
 - [ ] Cambia rullino (Ektar 100) e premi di nuovo START/STOP: **nessun ciclo** tra Live View e scaffale
-- [ ] Mezzo scatto in Live View chiude Iride e lascia scattare
+- [ ] Astro → Fuoco stelle → START/STOP: Iride resta sopra il Live View; mezzo scatto, foto, START/STOP: Iride torna su Fuoco stelle
 
 ## 4. Rullini
 

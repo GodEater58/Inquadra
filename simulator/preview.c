@@ -970,12 +970,41 @@ int main(void)
       CHECK(lv == 0 && menu_opened_calls == before && !app_running, "LV non ancora partito: Iride non si riapre (il tasto LV finto resta a Canon)");
       CHECK(iride_keypress(MODULE_KEY_LV) == 1 && !lv_toggle, "il tasto LV finto in ritardo, a Iride chiusa, arriva a Canon");
       sim_lv_late = 0; lv_task(NULL);
-      CHECK(lv == 1 && menu_opened_calls == before + 1 && screen == SCR_SHELF, "LV partito: Iride riaperta sui Rullini");
-      app_running = 1;
+      CHECK(lv == 1 && menu_opened_calls == before && !app_running && lv_return == SCR_SHELF && strstr(last_notify, "START/STOP"),
+            "LV partito dai Rullini: il Live View resta visibile (Iride non si rimette sopra) e lo dice");
+      /* foto in Live View, poi START/STOP (a Iride chiusa e' di Canon): il LV si spegne e Iride torna sui Rullini */
+      CHECK(iride_keypress(MODULE_KEY_LV) == 1, "START/STOP a Iride chiusa: va a Canon");
+      lv_prev = 1; lv = 0; lv_watch();
+      CHECK(menu_opened_calls == before + 1 && screen == SCR_SHELF && lv_return < 0, "Live View spento: Iride torna sui Rullini");
+      lv_watch();
+      CHECK(menu_opened_calls == before + 1, "una volta sola");
+      app_running = 1; lv_reopen_ms = clock_ms;
       CHECK(iride_keypress(MODULE_KEY_LV) == 0 && !lv_toggle, "un LV subito dopo la riapertura non rilancia il Live View");
       clock_ms += LV_DEBOUNCE_MS;
       CHECK(iride_keypress(MODULE_KEY_LV) == 0 && lv_toggle == 1, "dopo un attimo START/STOP torna a funzionare");
       lv_toggle = 0; menu_redraw_blocked = 0; open_settle = 0; lv = l0; app_running = 0; screen = SCR_HOME; }
+
+    /* ---------- Fuoco stelle sopra il Live View, foto col mezzo scatto, poi LV spento: Iride torna */
+    { int l0 = lv; lv = 0; app_running = 0; menu_open = 0; gui_state = 0; lv_resume_screen = SCR_STARS; lv_return = -1;
+      int before = menu_opened_calls;
+      lv_task(NULL);
+      CHECK(lv == 1 && lv_by_iride && menu_opened_calls == before + 1 && screen == SCR_STARS, "Fuoco stelle: Iride si riapre sopra il Live View");
+      /* mezzo scatto: Canon chiude il menu, Iride esce */
+      menu_open = 1; open_settle = 0; app_task(NULL); menu_open = 0;
+      CHECK(!app_running && lv_return == SCR_STARS, "mezzo scatto in Live View: Iride si chiude e ricorda Fuoco stelle");
+      card.file_number++;                       /* la foto */
+      lv_prev = 1; lv = 0; menu_redraw_blocked = 0; lv_watch();
+      CHECK(menu_opened_calls == before + 2 && screen == SCR_STARS, "Live View spento dopo la foto: Iride torna su Fuoco stelle");
+      /* Live View acceso a mano (non da Iride) e spento: Iride non si apre da sola */
+      lv_by_iride = 0; lv_return = -1; app_running = 0; menu_open = 0; lv_prev = 1; lv = 0; lv_watch();
+      CHECK(menu_opened_calls == before + 2, "Live View di Canon (non acceso da Iride): spegnendolo Iride non si apre");
+      { FILE *lf = fopen("out/IRIDELV.TXT", "w"); if (lf) fclose(lf); }
+      lvlog_flush();
+      FILE *lf = fopen("out/IRIDELV.TXT", "r"); char ln[128]; int righe = 0, torna = 0;
+      while (lf && fgets(ln, sizeof(ln), lf)) { righe++; if (strstr(ln, "Iride torna su")) torna++; }
+      if (lf) fclose(lf);
+      CHECK(righe >= 5 && torna >= 2, "registro del Live View in ML/LOGS/IRIDELV.TXT (%d righe)", righe);
+      menu_redraw_blocked = 0; open_settle = 0; lv = l0; app_running = 0; screen = SCR_HOME; lv_return = -1; lv_by_iride = 0; }
 
     /* ---------- tasto LV finto di ML (force_liveview) a Iride aperta: va a Canon */
     { app_running = 1; clock_ms += LV_DEBOUNCE_MS; lv_toggle = 0;

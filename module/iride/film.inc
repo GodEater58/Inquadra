@@ -283,11 +283,13 @@ static void iride_bg_tick()
 
 static void iride_bg_task(void *unused)
 {
+    int n = 0;
     TASK_LOOP
     {
         if (ml_shutdown_requested) break;
-        iride_bg_tick();
-        msleep(1000);
+        lv_watch();                              /* ogni 200 ms: Live View spento, Iride torna */
+        if (n++ % 5 == 0) { iride_bg_tick(); lvlog_flush(); }
+        msleep(200);
     }
 }
 

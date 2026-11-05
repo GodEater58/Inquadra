@@ -476,6 +476,7 @@ int main(void)
             continue;
         }
         if (!app_running && job_running == JOB_NONE) menu_open = 0;   /* la schermata la disegna web_sleep */
+        lv_watch();                                                    /* Live View spento: Iride torna */
         web_sleep(30);
     }
     return 0;

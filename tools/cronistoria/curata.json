@@ -570,6 +570,29 @@
       "Scrittura dei file senza traduzione, test in inglese su tutte le schermate: nessun testo fuori dallo schermo"
      ]
     ]
+   },
+   {
+    "v": "1.6.1",
+    "t": "Il Live View, di nuovo",
+    "tests": 219,
+    "items": [
+     [
+      "err",
+      "Sulla 6D: il ciclo tra Live View e Rullini si vede ancora"
+     ],
+     [
+      "err",
+      "Dopo una foto in Live View, spegnendolo, Iride non tornava (era stato promesso)"
+     ],
+     [
+      "redo",
+      "START/STOP da Iride rifatto: il Live View resta visibile, Iride torna quando lo si spegne"
+     ],
+     [
+      "ok",
+      "Registro del Live View (IRIDELV.TXT) per vedere sulla 6D cosa succede, millisecondo per millisecondo"
+     ]
+    ]
    }
   ]
  }

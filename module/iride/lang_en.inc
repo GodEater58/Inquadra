@@ -338,6 +338,7 @@ static const char *const lang_en[][2] = {
     { "Live View al buio", "Dark Live View" },
     { "Live View normale", "Normal Live View" },
     { "Live View schiarito: solo lo schermo, non le foto", "Brightened Live View: only the screen, not the photos" },
+    { "Live View: START/STOP per tornare a Iride", "Live View: START/STOP to go back to Iride" },
     { "Londra", "London" },
     { "Longitudine", "Longitude" },
     { "Luce diurna", "Daylight" },

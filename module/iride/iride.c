@@ -36,7 +36,7 @@
 #include <math.h>
 #include <battery.h>
 
-#define IRIDE_VERSION "1.6"
+#define IRIDE_VERSION "1.6.1"
 
 /* ------------------------------------------------------------------ compatibilita' API */
 
@@ -278,6 +278,26 @@ static volatile int lv_toggle = 0;     /* START/STOP dentro Iride: Live View acc
 static int lv_resume_screen = 0;
 static int lv_reopen_ms = -100000;      /* riaperta dopo il Live View: un LV doppio subito dopo si ignora */
 #define LV_DEBOUNCE_MS 1500
+static volatile int lv_return = -1;     /* Live View acceso da Iride: quando si spegne, Iride torna su questa schermata */
+static volatile int lv_by_iride = 0;    /* il Live View attuale l'ha acceso Iride (START/STOP dentro Iride) */
+
+/* registro del Live View (ML/LOGS/IRIDELV.TXT): cosa succede tra tasti, Canon e Iride, per
+   capire sulla 6D vera i casi che il simulatore non riproduce. Si scrive in memoria e si salva
+   ogni secondo dal task di Iride, a macchina ferma. */
+#define LVLOG_N 48
+static char lvlog[LVLOG_N][88];
+static volatile int lvlog_head = 0, lvlog_saved = 0;
+static void lvlog_add(const char *fmt, ...)
+{
+    char *line = lvlog[lvlog_head % LVLOG_N];
+    int t = get_ms_clock();
+    int n = (snprintf)(line, sizeof(lvlog[0]), "%5d.%03d ", t / 1000 % 100000, t % 1000);
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(line + n, sizeof(lvlog[0]) - n, fmt, ap);
+    va_end(ap);
+    lvlog_head++;
+}
 static volatile int skip_splash = 0;    /* riapertura dopo il Live View: subito al lavoro */
 static volatile int fullscreen = 0;     /* ML di Iride: schermo intero dal core (niente giri) */
 static volatile int key_fake = 0;       /* l'evento in corso e' un tasto finto di ML */
@@ -308,6 +328,8 @@ static void say(int color, const char *text);
 static const char *parent_title(const char *section);
 static void go(int s, int dir);
 static void lv_task(void *unused);
+static void lv_watch();
+static void lvlog_flush();
 static void session_watch_external(int fn);
 static void log_warning(const char *text);
 static int persist_touch_ms = 0;
@@ -381,6 +403,7 @@ static void app_task(void *unused)
     menu_redraw_blocked = 1;
     fullscreen = menu_fullscreen_begin();
     to_ml_menu = 0;
+    lvlog_add("Iride aperta: schermata %d, lv %d, core Iride %d", screen, lv, fullscreen);
     /* ML apre il menu di Canon sotto il suo (circa 200 ms) e poi ferma i disegni di Canon:
        aspettiamo che abbia finito, altrimenti Canon disegna sopra Iride. Col core di Iride
        ML dice quando ha finito; altrimenti si aspetta un tempo fisso */
@@ -479,6 +502,9 @@ static void app_task(void *unused)
     if (fullscreen) { menu_fullscreen_end(); fullscreen = 0; }
     wb_quick = 0;
     menu_redraw_blocked = 0;
+    lvlog_add("Iride chiusa: menu %d, menu ML %d, START/STOP %d, lv %d, gui %d", gui_menu_shown(), to_ml_menu, lv_toggle, lv, gui_state);
+    /* chiusa col mezzo scatto (o da Canon) col Live View acceso da Iride: allo spegnimento torna qui */
+    if (lv && lv_by_iride && !lv_toggle && !to_ml_menu && lv_return < 0) lv_return = screen;
     app_running = 0;
     if (to_ml_menu)
     {
@@ -552,9 +578,15 @@ static int boot_ready()
 
 /* START/STOP dentro Iride: Iride si chiude, la 6D accende (o spegne) il Live View come col suo
    tasto, poi Iride si riapre sulla stessa schermata */
+/* schermate che lavorano sopra il Live View (sfondo trasparente): Iride si riapre sopra */
+static int lv_overlay_screen(int s) { return s == SCR_STARS; }
+
 static void lv_task(void *unused)
 {
     int was = lv;
+    int t0 = get_ms_clock();
+    lvlog_add("START/STOP da Iride: lv %d schermata %d gui %d Canon occupata %d", was, lv_resume_screen, gui_state, lens_info.job_state);
+    lv_return = -1;
     msleep(300);                                /* ML chiude il suo menu e quello di Canon */
     if (!was) force_liveview(); else close_liveview();
     /* ML accende e spegne il Live View "premendo" un tasto LV finto. Se Canon e' occupata
@@ -563,15 +595,71 @@ static void lv_task(void *unused)
        START/STOP e lo toglierebbe a Canon, e si andrebbe avanti e indietro senza fine.
        Quindi Iride si riapre solo quando il Live View e' cambiato davvero. */
     for (int i = 0; i < 80 && lv == was; i++) msleep(100);
-    if (lv == was) return;                      /* il tasto finto arrivera' a Canon, non a Iride */
+    if (lv == was) { lvlog_add("Live View non cambiato dopo %d ms: Iride resta chiusa", get_ms_clock() - t0); return; }
+    lvlog_add("Live View %s dopo %d ms", lv ? "acceso" : "spento", get_ms_clock() - t0);
+    lv_by_iride = lv;
+    /* Live View acceso da una schermata normale: resta visibile per inquadrare e scattare.
+       Iride torna quando lo si spegne (START/STOP), sulla stessa schermata. Solo Fuoco stelle,
+       che e' fatta per stare sopra il Live View, si riapre subito. */
+    if (lv && !lv_overlay_screen(lv_resume_screen))
+    {
+        lv_return = lv_resume_screen;
+        NotifyBox(2500, "Live View: START/STOP per tornare a Iride");
+        lvlog_add("resta il Live View, ritorno su %d allo spegnimento", lv_return);
+        return;
+    }
     msleep(400);
     for (int i = 0; i < 30 && !can_open_from_shooting(); i++) msleep(100);
     if (can_open_from_shooting())
     {
         lv_reopen_ms = get_ms_clock();
         skip_splash = 1;
+        lvlog_add("riapro Iride su %d", lv_resume_screen);
         open_on(lv_resume_screen);
     }
+    else lvlog_add("non riesco a riaprire Iride: gui %d, menu %d", gui_state, gui_menu_shown());
+}
+
+/* le righe nuove del registro del Live View in ML/LOGS/IRIDELV.TXT (dal task di Iride, a macchina ferma) */
+static void lvlog_flush()
+{
+    if (lvlog_saved == lvlog_head || lens_info.job_state) return;
+    if (lvlog_head - lvlog_saved > LVLOG_N) lvlog_saved = lvlog_head - LVLOG_N;   /* troppe: le piu' vecchie sono perse */
+    FIO_CreateDirectory("ML/LOGS");
+    FILE *f = FIO_CreateFileOrAppend("ML/LOGS/IRIDELV.TXT");
+    if (!f) return;
+    while (lvlog_saved != lvlog_head) my_fprintf(f, "%s\n", lvlog[lvlog_saved++ % LVLOG_N]);
+    FIO_CloseFile(f);
+}
+
+/* ogni 200 ms: Live View acceso da Iride e poi spento con START/STOP (o dopo una foto): Iride torna */
+static int lv_prev = -1;
+static void lv_watch()
+{
+    int now_lv = lv;
+    if (lv_prev >= 0 && now_lv != lv_prev)
+    {
+        lvlog_add("Live View %d -> %d (Iride %d, gui %d, ritorno %d)", lv_prev, now_lv, app_running, gui_state, lv_return);
+        if (!now_lv)
+        {
+            lv_by_iride = 0;
+            int s = lv_return;
+            lv_return = -1;
+            if (s >= 0 && !app_running && job_running == JOB_NONE)
+            {
+                for (int i = 0; i < 30 && !can_open_from_shooting(); i++) msleep(100);
+                if (can_open_from_shooting())
+                {
+                    lv_reopen_ms = get_ms_clock();
+                    skip_splash = 1;
+                    lvlog_add("Live View spento: Iride torna su %d", s);
+                    open_on(s);
+                }
+                else lvlog_add("Live View spento ma la 6D e' occupata (gui %d): Iride resta chiusa", gui_state);
+            }
+        }
+    }
+    lv_prev = now_lv;
 }
 
 extern int ml_started, ml_gui_initialized;
@@ -639,6 +727,8 @@ static unsigned int iride_keypress(unsigned int key)
            il Live View e torna qui; in filmato lo lasciamo a Canon (registrazione) */
         case MODULE_KEY_LV:
         case MODULE_KEY_REC:
+            lvlog_add("tasto LV: finto %d lv %d schermata %d riaperta da %d ms, in corso %d",
+                      key_fake, lv, screen, MIN(get_ms_clock() - lv_reopen_ms, 99999), lv_toggle);
             if (is_movie_mode() || RECORDING) return 1;
             /* tasto LV "premuto" da ML (force_liveview, close_liveview) arrivato in ritardo:
                e' per Canon, non un nuovo START/STOP */

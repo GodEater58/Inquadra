@@ -157,6 +157,11 @@ OPZIONI     Tema (normale / notte rossa / notte solo in Astro), animazioni
             calcolo, in ML/LOGS/IRIDEBEN.TXT), Lingua / Language
             (italiano o inglese; i registri restano in italiano).
 
+START/STOP DENTRO IRIDE: Iride si chiude e il Live View resta acceso per
+            inquadrare e scattare. START/STOP di nuovo (anche dopo una foto):
+            Live View spento e Iride torna sulla schermata di prima. In Fuoco
+            stelle Iride resta sopra il Live View.
+Registro del Live View (da mandare se qualcosa non va): ML/LOGS/IRIDELV.TXT
 Registro di rullini, sessioni astro e avvisi: ML/LOGS/IRIDE.CSV
 Stato di Iride: ML/SETTINGS/IRIDE.DAT (se lo cancelli, riparte da zero)
 

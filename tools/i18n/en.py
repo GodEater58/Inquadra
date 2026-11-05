@@ -795,4 +795,5 @@ EN = {
     'zoom': 'zoom',
     'zoom rilascio': 'zoom release',
     'zoom x%d     passo %d': 'zoom x%d     step %d',
+    'Live View: START/STOP per tornare a Iride': 'Live View: START/STOP to go back to Iride',
 }

@@ -1,5 +1,11 @@
 # Novità
 
+## 1.6.1 – 5 novembre 2026
+- **Live View da Iride rifatto**: START/STOP dentro Iride ora chiude Iride e lascia il Live View acceso, per inquadrare e scattare (prima Iride si rimetteva subito sopra e lo copriva). START/STOP di nuovo, anche dopo una foto, spegne il Live View e riporta Iride sulla schermata di prima. Solo *Fuoco stelle*, che lavora sopra l'immagine, si riapre subito
+- **Corretto: dopo una foto in Live View, spegnendolo, Iride non tornava**. Ora torna, anche da *Fuoco stelle* chiusa col mezzo scatto
+- **Registro del Live View** `ML/LOGS/IRIDELV.TXT`: tasti LV (veri o premuti da Magic Lantern), aperture e chiusure di Iride, Live View acceso e spento, con i millisecondi. Serve a capire sulla 6D il ciclo tra Live View e Rullini che il simulatore non riproduce
+- Simulatore: 8 test nuovi (219)
+
 ## 1.6 – 5 novembre 2026
 - **Dark a fine sessione**: finita una serie di light (Via Lattea, Deep sky, Star trails), alla prossima apertura Iride propone i dark con la stessa posa e lo stesso ISO, da fare subito col tappo, quando il sensore è ancora alla stessa temperatura. Mostra la temperatura di adesso e quella delle light e avvisa se il sensore si è scaldato. *Non ora* toglie la proposta
 - **Avviso della riduzione disturbo lunghe esposizioni (LENR)**: Magic Lantern non ne conosce la proprietà, così Iride la riconosce dal tempo dello scatto (una posa da 8 s che tiene occupata la macchina per 16). Con la LENR accesa ogni scatto dura il doppio: Iride lo dice con tre bip e un avviso, lo scrive nel registro e lo ricorda nella scheda dell'intervallometro. Sotto i 4 s non giudica (niente falsi allarmi)
