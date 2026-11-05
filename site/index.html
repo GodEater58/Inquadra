@@ -30,7 +30,7 @@
   .col { display: flex; flex-direction: column; gap: 14px; align-items: center; }
   .key { width: 64px; height: 34px; border-radius: 17px; border: none; background: #2d2d33; color: #d5d5da; font: 600 12px system-ui, sans-serif;
          letter-spacing: .5px; cursor: pointer; box-shadow: 0 2px 0 #0b0b0c, inset 0 1px 0 rgba(255,255,255,.08); touch-action: manipulation; }
-  .key:active, .key.down { transform: translateY(2px); box-shadow: 0 0 0 #0b0b0c; background: #3a3a41; }
+  .key:active, .key.pressed { transform: translateY(2px); box-shadow: 0 0 0 #0b0b0c; background: #3a3a41; }
   .key.round { width: 46px; height: 46px; border-radius: 50%; }
   .key.small { width: 52px; height: 28px; font-size: 11px; }
   .key.accent { color: var(--accent); }
@@ -39,7 +39,7 @@
   .dial { position: relative; width: 156px; height: 156px; border-radius: 50%; background: radial-gradient(circle at 50% 45%, #34343a, #1d1d21 70%);
           box-shadow: 0 3px 0 #0b0b0c, inset 0 0 0 9px #26262b; }
   .dial button { position: absolute; border: none; background: transparent; color: #c9c9ce; font-size: 15px; cursor: pointer; width: 46px; height: 40px; touch-action: manipulation; }
-  .dial .up { top: 12px; left: 55px; } .dial .down { bottom: 12px; left: 55px; } .dial .left { left: 10px; top: 58px; } .dial .right { right: 10px; top: 58px; }
+  .dial .up { top: 12px; left: 55px; } .dial .dn { bottom: 12px; left: 55px; } .dial .left { left: 10px; top: 58px; } .dial .right { right: 10px; top: 58px; }
   .dial .set { left: 46px; top: 46px; width: 64px; height: 64px; border-radius: 50%; background: #2b2b31; box-shadow: 0 2px 0 #0b0b0c; font: 700 13px system-ui; }
   .dial button:active { color: var(--accent); }
   .row { display: flex; gap: 10px; align-items: center; }
@@ -106,7 +106,7 @@
         <button class="left" data-k="16" title="Sinistra (freccia)">◀</button>
         <button class="set" data-k="9" title="SET (Invio)">SET</button>
         <button class="right" data-k="15" title="Destra (freccia)">▶</button>
-        <button class="down" data-k="19" title="Giu' (freccia)">▼</button>
+        <button class="dn" data-k="19" title="Giu' (freccia)">▼</button>
       </div>
       <button class="key accent" data-k="1" title="Mezzo scatto / scatta (Spazio)" style="width:120px">SCATTO</button>
     </div>
@@ -191,8 +191,8 @@
   }
   document.querySelectorAll('[data-k]').forEach(b => {
     const k = +b.dataset.k;
-    b.addEventListener('pointerdown', e => { e.preventDefault(); press(k); b.classList.add('down'); });
-    ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => b.addEventListener(ev, () => b.classList.remove('down')));
+    b.addEventListener('pointerdown', e => { e.preventDefault(); press(k); b.classList.add('pressed'); });
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => b.addEventListener(ev, () => b.classList.remove('pressed')));
   });
   const MAP = { ArrowUp: 12, ArrowDown: 19, ArrowLeft: 16, ArrowRight: 15, Enter: 9, Escape: 22, Backspace: 22,
                 i: 23, I: 23, q: 29, Q: 29, Delete: 25, c: 25, C: 25, b: 100, B: 100, l: 28, L: 28, ' ': 1, '[': 7, ']': 8 };
