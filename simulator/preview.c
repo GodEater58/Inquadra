@@ -174,8 +174,16 @@ int get_halfshutter_pressed(void) { return sim_half; }
 static int menu_redraw_calls = 0;
 void menu_redraw(void) { menu_redraw_calls++; }
 static int lv_forced = 0, lv_closed = 0, bmp_on_calls = 0, sim_movie = 0, sim_lv_late = 0;
-void force_liveview(void) { lv_forced++; if (!sim_lv_late) lv = 1; }   /* late: Canon occupata, il tasto finto arriva dopo */
-void close_liveview(void) { lv_closed++; lv = 0; }
+void force_liveview(void) { lv_forced++; if (!sim_lv_late) lv = 1;   /* late: Canon occupata, il tasto finto arriva dopo */
+#ifdef IRIDE_WEB
+    msleep(1500);                                  /* come ML: tasto LV finto e 1,5 s di attesa (si vede il Live View) */
+#endif
+}
+void close_liveview(void) { lv_closed++; lv = 0;
+#ifdef IRIDE_WEB
+    msleep(1000);
+#endif
+}
 void bmp_on(void) { bmp_on_calls++; }
 /* schermo intero del core di Iride: sim_fs = 0 come un ML senza la patch */
 static int sim_fs = 0, sim_fs_on = 0, sim_fs_seq = 0, sim_fs_ready = 1, sim_fs_begins = 0;

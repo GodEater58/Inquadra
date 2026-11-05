@@ -151,9 +151,19 @@ static void web_present(void)
     js_state(app_running, lv, screen);
 }
 
+static void web_shooting_screen(void);
+static int web_last_shoot_draw = 0;
+
 void web_sleep(int ms)
 {
     int now = web_ms();
+    /* Iride chiusa (anche mentre un task aspetta, per esempio il Live View che si accende):
+       la schermata di scatto, come sulla 6D */
+    if (!app_running && job_running == JOB_NONE && now - web_last_shoot_draw > 150)
+    {
+        web_last_shoot_draw = now;
+        web_shooting_screen();
+    }
     if (now - web_last_present >= 16) { web_last_present = now; web_present(); }
     emscripten_sleep(ms > 0 ? ms : 1);
     int k;
@@ -299,7 +309,6 @@ int main(void)
     make_sky(1.8f, 34.0f, 360, 240);                    /* una stella per Fuoco sulle stelle */
     iride_init();
     web_last_tick = web_ms();
-    int last_draw = 0;
     for (;;)
     {
         if (web_qt != web_qh)
@@ -309,12 +318,7 @@ int main(void)
             t.f(t.arg);
             continue;
         }
-        if (!app_running && job_running == JOB_NONE)
-        {
-            menu_open = 0;
-            int now = web_ms();
-            if (now - last_draw > 200) { last_draw = now; web_shooting_screen(); }
-        }
+        if (!app_running && job_running == JOB_NONE) menu_open = 0;   /* la schermata la disegna web_sleep */
         web_sleep(30);
     }
     return 0;
