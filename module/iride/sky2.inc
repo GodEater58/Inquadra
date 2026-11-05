@@ -15,7 +15,7 @@ static const char *compass16(float az)
 {
     static const char *const n[16] = { "N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
                                        "S", "SSO", "SO", "OSO", "O", "ONO", "NO", "NNO" };
-    return n[((int)(az / 22.5f + 0.5f)) & 15];
+    return tr(n[((int)(az / 22.5f + 0.5f)) & 15]);
 }
 
 /* massa d'aria (Kasten e Young), anche vicino all'orizzonte */

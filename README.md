@@ -7,41 +7,43 @@
 **Firmware personalizzato per Canon EOS 6D** (firmware Canon 1.1.6): una versione di [Magic Lantern](https://www.magiclantern.fm/) modificata per Iride, più il modulo Iride.
 Un'interfaccia a tutto schermo, animata, con menu dedicati ad **astrofotografia**, **foto**, **rullini** in stile pellicola e **profili**, più un tasto che riporta la macchina com'era.
 
-*English: custom full-screen UI for the Canon EOS 6D (fw 1.1.6) built on a modified Magic Lantern (core patched for a full-screen module mode) — astrophotography tools (NPF with declination, field intervalometer with silent shutter, dithering pauses and CSV session log, HFR star focus with V-curve autofocus, polar alignment, sky calendar, Moon exposure, Milky Way planner, worldwide cities and time zones), photo tools (HDR, focus stacking, Dual ISO, ETTR, ND), film-roll simulation and user profiles. UI in Italian.*
+*English: custom full-screen UI for the Canon EOS 6D (fw 1.1.6) built on a modified Magic Lantern (core patched for a full-screen module mode) — astrophotography tools (NPF with declination, field intervalometer with silent shutter, dithering pauses and CSV session log, HFR star focus with V-curve autofocus, polar alignment, sky calendar, Moon exposure, Milky Way planner, worldwide cities and time zones), photo tools (HDR, focus stacking, Dual ISO, ETTR, ND), film-roll simulation with your own recipes and user profiles. UI in Italian or English (Options › Lingua / Language).*
 
-> ⚠️ **Software sperimentale.** Prime prove su una 6D reale: rullini e nomi dei file funzionano. Il resto è verificato su un simulatore che esegue lo stesso codice (181 test) ed è compilato contro il firmware 6D 1.1.6. Usalo a tuo rischio. Non è affiliato né approvato da Canon.
+> ⚠️ **Software sperimentale.** Prime prove su una 6D reale: rullini e nomi dei file funzionano. Il resto è verificato su un simulatore che esegue lo stesso codice (211 test) ed è compilato contro il firmware 6D 1.1.6. Usalo a tuo rischio. Non è affiliato né approvato da Canon.
 
-<p align="center"><a href="https://godeater58.github.io/Iride-6D/"><img src="docs/screenshots/animazioni-v15.gif" width="540" alt="Avvio, Home, scaffale dei rullini e dialogo"></a><br>
+<p align="center"><a href="https://godeater58.github.io/Iride-6D/"><img src="docs/screenshots/animazioni-v16.gif" width="540" alt="Avvio, Home, scaffale dei rullini e dialogo"></a><br>
 <b><a href="https://godeater58.github.io/Iride-6D/">▶ Provala nel browser</a></b>: è lo stesso codice che gira sulla 6D, con i caratteri veri di Magic Lantern. Si usa con la tastiera o coi tasti di una 6D disegnata.</p>
 
 <details>
 <summary><b>Tutte le schermate</b> (clicca per aprire)</summary>
 
 
-| ![Home](docs/screenshots/01_home-v15.png) | ![Astro](docs/screenshots/02_astro-v15.png) | ![Rullini](docs/screenshots/14_rullini-v15.png) |
-| ![Allineamento polare](docs/screenshots/06_polare-v15.png) | ![Calendario del cielo](docs/screenshots/07_cielo-v15.png) | ![Tema notte](docs/screenshots/21_cielo_notte-v15.png) |
-| ![Fuoco stelle](docs/screenshots/05_stelle-v15.png) | ![Foto](docs/screenshots/08_foto-v15.png) | ![Torna alla 6D](docs/screenshots/19_torna_6d-v15.png) |
-| ![Fuoco automatico](docs/screenshots/05b_fuoco_auto-v15.png) | ![Luna da fotografare](docs/screenshots/25_luna_foto-v15.png) | ![Dove puntare la Via Lattea](docs/screenshots/26_dove_puntare-v15.png) |
-| ![Intervallometro da campo](docs/screenshots/04_intervallometro-v15.png) | ![Luogo e fuso](docs/screenshots/18d_opzioni_luogo-v15.png) | ![Aiuto con INFO](docs/screenshots/05c_aiuto-v15.png) |
-| ![Live View al buio](docs/screenshots/11b_lv_al_buio-v15.png) | ![Luce cinerea](docs/screenshots/25b_luna_cinerea-v15.png) | ![Prova della 6D](docs/screenshots/24_prova-v15.png) |
-| ![Profili](docs/screenshots/17_profili-v15.png) | ![Opzioni](docs/screenshots/18_opzioni-v15.png) | ![Filtri ND](docs/screenshots/12_filtri_nd-v15.png) |
-| ![Bilanciamento del bianco](docs/screenshots/27_bianco-v15.png) | ![Menu Foto](docs/screenshots/08b_foto_bianco-v15.png) | |
+| ![Home](docs/screenshots/01_home-v16.png) | ![Astro](docs/screenshots/02_astro-v16.png) | ![Rullini](docs/screenshots/14_rullini-v16.png) |
+| ![Allineamento polare](docs/screenshots/06_polare-v16.png) | ![Calendario del cielo](docs/screenshots/07_cielo-v16.png) | ![Tema notte](docs/screenshots/21_cielo_notte-v16.png) |
+| ![Fuoco stelle](docs/screenshots/05_stelle-v16.png) | ![Foto](docs/screenshots/08_foto-v16.png) | ![Torna alla 6D](docs/screenshots/19_torna_6d-v16.png) |
+| ![Fuoco automatico](docs/screenshots/05b_fuoco_auto-v16.png) | ![Luna da fotografare](docs/screenshots/25_luna_foto-v16.png) | ![Dove puntare la Via Lattea](docs/screenshots/26_dove_puntare-v16.png) |
+| ![Intervallometro da campo](docs/screenshots/04_intervallometro-v16.png) | ![Luogo e fuso](docs/screenshots/18d_opzioni_luogo-v16.png) | ![Aiuto con INFO](docs/screenshots/05c_aiuto-v16.png) |
+| ![Live View al buio](docs/screenshots/11b_lv_al_buio-v16.png) | ![Luce cinerea](docs/screenshots/25b_luna_cinerea-v16.png) | ![Prova della 6D](docs/screenshots/24_prova-v16.png) |
+| ![Profili](docs/screenshots/17_profili-v16.png) | ![Opzioni](docs/screenshots/18_opzioni-v16.png) | ![Filtri ND](docs/screenshots/12_filtri_nd-v16.png) |
+| ![Bilanciamento del bianco](docs/screenshots/27_bianco-v16.png) | ![Menu Foto](docs/screenshots/08b_foto_bianco-v16.png) | ![Dark a fine sessione](docs/screenshots/04e_dark_fine_sessione-v16.png) |
+| ![Le tue pellicole](docs/screenshots/14e_rullini_mie-v16.png) | ![La tua pellicola](docs/screenshots/14f_tua_pellicola-v16.png) | ![Avviso LENR](docs/screenshots/04d_intervallometro_lenr-v16.png) |
+| ![In inglese: Home](docs/screenshots/en_home-v16.png) | ![In inglese: intervallometro](docs/screenshots/en_intervallometro-v16.png) | |
 
 </details>
 
-<p align="center"><img src="docs/screenshots/menu-v15.gif" width="540" alt="Menu Astro con l'anteprima della voce scelta"></p>
+<p align="center"><img src="docs/screenshots/menu-v16.gif" width="540" alt="Menu Astro con l'anteprima della voce scelta"></p>
 
 ## Funzioni
 
 | Area | Cosa fa |
 |---|---|
-| 🌌 **Astro** | Via Lattea con regola NPF e punto del cielo (applica tempo, diaframma, ISO, bianco) · intervallometro con preset Via Lattea, Deep sky, Star trails, Timelapse, Giorno-notte, Dark, Flat, Bias, con otturatore silenzioso, pausa per il dithering, controllo di batteria, scheda e temperatura e registro della sessione in CSV (lettore per AstroStack in [tools/astrostack](tools/astrostack/)) · fuoco sulle stelle con misura HFR in Live View e fuoco automatico a curva a V · Luna da fotografare (regola Looney 11 con fase e altezza) · dove puntare la Via Lattea ora per ora · allineamento polare su reticolo con mappa del cielo a nord (Grande Carro e Cassiopea) · calendario di 7 notti con linea del tempo della notte (crepuscoli, Luna, centro della Via Lattea), stelle visibili col cielo buio e con la Luna, quando torna il centro della Via Lattea e notte migliore · nomi file LGHT/DARK/FLAT/BIAS per lo stacking |
+| 🌌 **Astro** | Via Lattea con regola NPF e punto del cielo (applica tempo, diaframma, ISO, bianco) · intervallometro con preset Via Lattea, Deep sky, Star trails, Timelapse, Giorno-notte, Dark, Flat, Bias, con otturatore silenzioso, pausa per il dithering, controllo di batteria, scheda e temperatura e registro della sessione in CSV (lettore e piano di stacking per AstroStack in [tools/astrostack](tools/astrostack/)) · **dark proposti a fine sessione** con la stessa posa, ISO e temperatura · avviso se la riduzione disturbo lunghe esposizioni della 6D è accesa · fuoco sulle stelle con misura HFR in Live View e fuoco automatico a curva a V · Luna da fotografare (regola Looney 11 con fase e altezza) · dove puntare la Via Lattea ora per ora · allineamento polare su reticolo con mappa del cielo a nord (Grande Carro e Cassiopea) · calendario di 7 notti con linea del tempo della notte (crepuscoli, Luna, centro della Via Lattea), stelle visibili col cielo buio e con la Luna, quando torna il centro della Via Lattea e notte migliore · nomi file LGHT/DARK/FLAT/BIAS per lo stacking |
 | 📷 **Foto** | Bracketing HDR · focus stacking · Dual ISO · ETTR · scatto su movimento e trappola di fuoco · strumenti del Live View (peaking, zebra, istogramma, falsi colori, zoom, spot) · filtri ND con posa B automatica · **bilanciamento del bianco**, il tasto che manca alla 6D: modi Canon e Kelvin con la scala, anche col SET dalla schermata di scatto |
-| 🎞️ **Rullini** | 16 pellicole (colore, dia, B/N, cine) · push/pull · 12/24/36 pose · pausa e ripresa · contatore nella barra del Live View · registro su scheda · avviso se la macchina è in solo RAW · [preset per LightCraft e Lightroom](presets/) |
+| 🎞️ **Rullini** | 16 pellicole (colore, dia, B/N, cine) · **4 pellicole tue** (ricette: ISO, stile, contrasto, bianco, grana, vignettatura) da salvare e condividere come scheda di testo · push/pull · 12/24/36 pose · pausa e ripresa · contatore nella barra del Live View · registro su scheda · avviso se la macchina è in solo RAW · [preset per LightCraft e Lightroom](presets/) |
 | 💾 **Profili** | 5 posti per le impostazioni preferite, con 5 profili di partenza da ritoccare: Ritratto (Av f/2.8), Paesaggio (Av f/8 ISO 100), Street (Av f/5.6 ISO Auto), Sport (Tv 1/1000), Notte (M 1/30 f/4 ISO 3200); se l'obiettivo non arriva al diaframma del profilo si usa il suo limite |
 | 🔁 **Torna alla 6D** | Rimette tutto com'era prima di Iride: stile immagine e cursori, ISO, tempo, diaframma, bianco, anteprima, impostazioni di Magic Lantern, nomi dei file |
 | 🌍 **Luogo** | 57 città pronte, latitudine e longitudine libere, fusi orari di tutto il mondo con l'ora legale automatica (controllati col database IANA) |
-| ✨ **Interfaccia** | Carattere piccolo proporzionale con i bordi sfumati (al posto del Terminus di ML) · angoli arrotondati su pannelli, schede, pulsanti e interruttori · icone disegnate per le liste di Astro e Foto · aiuto col tasto INFO in ogni schermata · Sottomenu con anteprima della voce scelta (icona animata, a cosa serve, com'è adesso), percorso nell'intestazione, schede con i conti già fatti, Opzioni in sezioni · animazioni senza sfarfallio (doppio buffer): diaframma all'avvio, riquadri della Home che entrano e icone che si animano, zoom dal riquadro alla schermata, dialoghi che salgono come fogli, barra di selezione elastica, interruttori e valori che scorrono, avvisi che entrano e si spengono · caricamento e riavvolgimento del rullino con contapose a rullo · tema notte rosso, compare all'accensione, si apre col cestino (o col tasto luce) · diagnostica dei tasti |
+| ✨ **Interfaccia** | Carattere piccolo proporzionale con i bordi sfumati (al posto del Terminus di ML) · angoli arrotondati su pannelli, schede, pulsanti e interruttori · icone disegnate per le liste di Astro e Foto · aiuto col tasto INFO in ogni schermata · Sottomenu con anteprima della voce scelta (icona animata, a cosa serve, com'è adesso), percorso nell'intestazione, schede con i conti già fatti, Opzioni in sezioni · animazioni senza sfarfallio (doppio buffer): diaframma all'avvio, riquadri della Home che entrano e icone che si animano, zoom dal riquadro alla schermata, dialoghi che salgono come fogli, barra di selezione elastica, interruttori e valori che scorrono, avvisi che entrano e si spengono · caricamento e riavvolgimento del rullino con contapose a rullo · italiano o inglese · tema notte rosso, compare all'accensione, si apre col cestino (o col tasto luce) · diagnostica dei tasti |
 
 ### Magic Lantern modificato
 
@@ -68,8 +70,8 @@ La 6D riceve il tasto luce del display superiore come evento `0x20`, e Magic Lan
 Ogni rullino è disegnato in macchina, con grafiche originali: perno, coperchi zigrinati, cilindro ombreggiato, fessura di velluto, codice DX e codice a barre.
 Sotto lo scaffale due righe per pellicola: il carattere e l'uso ideale (verificati su schede tecniche e prove: per esempio la Delta 3200 è una ISO 1000 reale esposta a 3200, la CineStill 800T è una pellicola cinema al tungsteno che di giorno vira al blu).
 
-<p align="center"><img src="docs/screenshots/caricamento-v15.gif" width="540" alt="Caricamento di un rullino"></p>
-<p align="center"><img src="docs/screenshots/riavvolgimento-v15.gif" width="540" alt="Riavvolgimento con la manovella"></p>
+<p align="center"><img src="docs/screenshots/caricamento-v16.gif" width="540" alt="Caricamento di un rullino"></p>
+<p align="center"><img src="docs/screenshots/riavvolgimento-v16.gif" width="540" alt="Riavvolgimento con la manovella"></p>
 
 ### Rullini e RAW
 
@@ -86,7 +88,7 @@ I calcoli astronomici girano in macchina, senza internet, e sono confrontati con
 4. Ghiera su M, Menu → Versione firmware → aggiorna: parte l'installatore di Magic Lantern.
 5. All'accensione compare la Home di Iride (si può spegnere in Opzioni). Poi si apre col **cestino**: dentro Iride il cestino porta al menu di Magic Lantern, un altro cestino lo chiude. Si può usare anche il tasto luce del display superiore (vedi «Tasto luce» qui sopra).
 
-Istruzioni complete in [docs/LEGGIMI.txt](docs/LEGGIMI.txt). Se la macchina si blocca: togli e rimetti la batteria. Magic Lantern gira dalla scheda e non modifica la ROM.
+Istruzioni complete in [docs/LEGGIMI.txt](docs/LEGGIMI.txt); per la prima volta sulla macchina c'è una **[lista di prova da spuntare](docs/PROVA_6D.md)**. Se la macchina si blocca: togli e rimetti la batteria. Magic Lantern gira dalla scheda e non modifica la ROM.
 
 ## Compilare
 
@@ -99,7 +101,7 @@ git apply ../module/magiclantern.patch
 cd platform/6D.116 && make -j8      # -> build/magiclantern.zip
 ```
 
-La compilazione e i test girano anche in automatico con GitHub Actions a ogni modifica (`.github/workflows/build.yml`). Pubblicando una **Release** con tag `vX.Y` (dal sito: Releases → Draft a new release, oppure `git tag v0.5 && git push origin v0.5`) GitHub Actions ci aggiunge da solo pacchetto SD, `iride.mo` e preset pellicola, con le note prese dal CHANGELOG.
+La compilazione e i test girano anche in automatico con GitHub Actions a ogni modifica (`.github/workflows/build.yml`). Per una release basta un clic: **Actions → Build → Run workflow** con *Pubblica la release*: compila, crea il tag della versione di `iride.c` (`IRIDE_VERSION`) e pubblica pacchetto SD, `iride.mo` e preset pellicola con le note prese dal CHANGELOG. Funziona anche come prima, creando una Release con tag `vX.Y` dal sito.
 
 ## Demo nel browser
 
@@ -117,7 +119,7 @@ cd site && python3 -m http.server    # poi http://localhost:8000
 
 ```
 cd simulator && mkdir -p out
-gcc -std=gnu99 -Ishim -o preview preview.c -lm && ./preview   # 181 test
+gcc -std=gnu99 -Ishim -o preview preview.c -lm && ./preview   # 211 test
 pip install astropy pillow
 python3 check_astro.py   # confronto astronomico con astropy
 python3 check_tz.py      # fusi orari a confronto col database IANA
@@ -129,7 +131,8 @@ python3 gif.py ../docs/screenshots   # GIF del README (caricamento, animazioni)
 
 ```
 module/iride/       il modulo (iride.c include ui, moon, icons, store, film, campo, astro, sky2, photo, bench, screens)
-tools/astrostack/   lettore delle sessioni CSV per AstroStack
+tools/astrostack/   lettore delle sessioni CSV e piano di stacking per AstroStack
+tools/i18n/         traduzioni inglesi (en.py) e generatore di module/iride/lang_en.inc
 module/*.patch      aggiunge iride ai moduli e al pacchetto della 6D, e lo schermo intero al core di ML
 simulator/          test su PC e generatore delle schermate (caratteri veri di ML in simulator/fonts)
 simulator/web/      la demo nel browser (WebAssembly)

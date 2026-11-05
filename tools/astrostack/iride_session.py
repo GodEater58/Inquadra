@@ -180,7 +180,95 @@ def riepilogo(s: Session) -> str:
     return f"{os.path.basename(s.path)}: " + ", ".join(parti) + t
 
 
+# ------------------------------------------------------------------ piano di stacking
+
+@dataclass
+class Gruppo:
+    """Light con la stessa posa, ISO e focale, e le calibrazioni adatte."""
+    exposure_s: float
+    iso: int
+    focal_mm: int
+    light: List[Frame]
+    dark: List[Frame]
+    flat: List[Frame]
+    bias: List[Frame]
+    avvisi: List[str]
+
+    def migliori(self, quota: float = 0.9) -> List[Frame]:
+        """Le light col cielo migliore (magnitudine limite piu' alta, Luna piu' bassa): la quota da tenere."""
+        ordinate = sorted(self.light, key=qualita, reverse=True)
+        return ordinate[:max(1, int(round(len(ordinate) * quota)))] if ordinate else []
+
+    def come_dict(self) -> dict:
+        nomi = lambda fs: [f.file for f in fs]   # noqa: E731
+        return dict(posa_s=self.exposure_s, iso=self.iso, focale_mm=self.focal_mm, light=nomi(self.light),
+                    dark=nomi(self.dark), flat=nomi(self.flat), bias=nomi(self.bias), avvisi=self.avvisi)
+
+
+def qualita(f: Frame) -> float:
+    """Punteggio del cielo di uno scatto: magnitudine limite, meno la Luna alta e piena."""
+    luna = max(f.moon_alt, 0.0) / 90.0 * f.moon_pct / 100.0
+    return f.nelm - 1.5 * luna
+
+
+def _unici(frames: Iterable[Frame]) -> List[Frame]:
+    out, seen = [], set()
+    for f in frames:
+        if id(f) not in seen:
+            seen.add(id(f))
+            out.append(f)
+    return out
+
+
+def piano_stack(folder: str, max_dt: int = 3) -> List[Gruppo]:
+    """Raggruppa le light della cartella e abbina dark (posa, ISO, temperatura), flat (focale) e bias (ISO).
+
+    AstroStack puo' usarlo cosi' com'e': un gruppo = uno stack, con i file gia' scelti.
+    """
+    frames = [f for s in find_sessions(folder) for f in s.frames]
+    lights = [f for f in frames if f.kind == "LGHT"]
+    gruppi: Dict[tuple, List[Frame]] = {}
+    for f in lights:
+        gruppi.setdefault((round(f.exposure_s, 2), f.iso, f.focal_mm), []).append(f)
+    out = []
+    for (posa, iso, focale), ls in sorted(gruppi.items()):
+        temps = sorted(f.temp_c for f in ls)
+        mediana = ls[0] if not temps else next(f for f in ls if f.temp_c == temps[len(temps) // 2])
+        dark = darks_for(mediana, frames, max_dt)
+        flat = [f for f in frames if f.kind == "FLAT" and f.focal_mm == focale]
+        bias = [f for f in frames if f.kind == "BIAS" and f.iso == iso]
+        avvisi = []
+        if not dark:
+            altri = [f for f in frames if f.kind == "DARK" and f.iso == iso and abs(f.exposure_s - posa) <= 0.02 * max(posa, 0.01)]
+            if altri:
+                dt = min(abs(f.temp_c - mediana.temp_c) for f in altri)
+                avvisi.append(f"dark con posa e ISO giusti ma {dt} gradi di differenza: meglio rifarli")
+            else:
+                avvisi.append("nessun dark con la stessa posa e ISO: Iride li propone a fine sessione")
+        elif len(dark) < 10:
+            avvisi.append(f"solo {len(dark)} dark: con 15-20 il master e' piu' pulito")
+        if not flat:
+            avvisi.append("nessun flat a questa focale: vignettatura e polvere restano")
+        if any(f.file == "silenzioso" for f in ls):
+            avvisi.append("scatti silenziosi: abbina i DNG con abbina_silenziosi()")
+        if temps and temps[-1] - temps[0] > 2 * max_dt:
+            avvisi.append(f"temperatura salita da {temps[0]} a {temps[-1]} gradi durante la serie")
+        out.append(Gruppo(posa, iso, focale, ls, _unici(dark), flat, bias, avvisi))
+    return out
+
+
 if __name__ == "__main__":
+    import json
     import sys
-    for sess in find_sessions(sys.argv[1] if len(sys.argv) > 1 else "."):
-        print(riepilogo(sess))
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    cartella = args[0] if args else "."
+    if "--json" in sys.argv:
+        print(json.dumps([g.come_dict() for g in piano_stack(cartella)], indent=1, ensure_ascii=False))
+    else:
+        for sess in find_sessions(cartella):
+            print(riepilogo(sess))
+        for g in piano_stack(cartella):
+            print(f"  stack {g.exposure_s:g} s ISO {g.iso} {g.focal_mm} mm: {len(g.light)} light, {len(g.dark)} dark, "
+                  f"{len(g.flat)} flat, {len(g.bias)} bias")
+            for a in g.avvisi:
+                print(f"    ! {a}")

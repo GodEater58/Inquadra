@@ -49,9 +49,13 @@ void sim_text_check(int x, int y, int w, const char *buf)
     op("S\t%d\t%d\t%d\t%s\n", x, y, w, buf);       /* carattere piccolo: per i controlli di sovrapposizione */
     text_check(x, y, w, buf);
 }
+static char sim_text_seen[8192];                /* ultimi testi disegnati, per i test */
 static void text_check(int x, int y, int w, const char *buf)
 {
     glyphs += strlen(buf);
+    { size_t n = strlen(sim_text_seen), m = strlen(buf);
+      if (n + m + 2 >= sizeof(sim_text_seen)) { n = 0; sim_text_seen[0] = 0; }
+      memcpy(sim_text_seen + n, buf, m); sim_text_seen[n + m] = '\n'; sim_text_seen[n + m + 1] = 0; }
     if (offscreen_on && *buf && (x < 0 || x + w > 720 || y < 0 || y > 470))
     {
         int dup = 0;
@@ -272,7 +276,8 @@ void gui_open_menu(void) { menu_opened_calls++;
     menu_open = 1;
 #endif
 }
-int is_play_mode(void) { return 0; }
+static int sim_play = 0;                       /* riproduzione delle foto (la demo nel browser) */
+int is_play_mode(void) { return sim_play; }
 int is_camera(const char *m, const char *f) { return streq(m, "6D") && streq(f, "1.1.6"); }
 static int fstack_runs = 0;
 void focus_stack_run(int s) { (void)s; fstack_runs++; }
@@ -345,14 +350,24 @@ const char *lens_format_iso(int r) { static char b[16]; snprintf(b, sizeof(b), "
 const char *get_shootmode_name_short(int m) { return m == SHOOTMODE_M ? "M" : m == SHOOTMODE_BULB ? "B" : m == SHOOTMODE_AV ? "Av" : m == SHOOTMODE_TV ? "Tv" : "P"; }
 static int shots_taken = 0, bulb_ms_total = 0, last_bulb_ms = 0;
 static struct card_info card = { 1234 };
-int lens_take_picture(int w, int af) { (void)w; (void)af; shots_taken++; card.file_number++; return 0; }
+static int sim_lenr = 0;                       /* riduzione disturbo lunghe esposizioni accesa sulla 6D finta */
+int lens_take_picture(int w, int af)
+{
+    (void)w; (void)af; shots_taken++; card.file_number++;
+    if (lens_info.raw_shutter > 0)
+    {
+        int ms = (int)(raw2shutterf(lens_info.raw_shutter) * 1000.0f);
+        clock_ms += ms + 300 + (sim_lenr && ms >= 1000 ? ms : 0);     /* posa, scrittura e dark della LENR */
+    }
+    return 0;
+}
 int take_a_pic(int af)
 {
     /* con lo scatto silenzioso acceso il modulo silent non tocca il contatore Canon */
     if (menu_get_value_from_script("Shoot", "Silent Picture") == 1) { sim_silent_shots++; return 0; }
     return lens_take_picture(64, af);
 }
-int bulb_take_pic(int ms) { bulb_ms_total += ms; last_bulb_ms = ms; shots_taken++; card.file_number++; return 0; }
+int bulb_take_pic(int ms) { bulb_ms_total += ms; last_bulb_ms = ms; shots_taken++; card.file_number++; clock_ms += ms + 300 + (sim_lenr ? ms : 0); return 0; }
 /* obiettivo finto per il fuoco automatico: il motore muove la ghiera con un po' di gioco (sim_fbl) */
 static int sim_af = 0, sim_fmot = 0, sim_fpos = 0, sim_fbest = 0, sim_fbl = 1, sim_fcalls = 0;
 static void make_sky(float sigma, float amp, int sx, int sy);
@@ -410,14 +425,20 @@ FILE *FIO_CreateFile(const char *n)
     if (strncmp(n, "ML/", 3) == 0 && b) { char p[160]; snprintf(p, sizeof(p), "out/%s", b + 1); return fopen(p, "wb"); }
     return fopen(n, "wb");
 }
-FILE *FIO_OpenFile(const char *n, unsigned m) { (void)m; return fopen(n, "rb"); }
+FILE *FIO_OpenFile(const char *n, unsigned m)
+{
+    (void)m;
+    const char *b = strrchr(n, '/');
+    if (strncmp(n, "ML/", 3) == 0 && b) { char p[160]; snprintf(p, sizeof(p), "out/%s", b + 1); return fopen(p, "rb"); }
+    return fopen(n, "rb");
+}
 int FIO_ReadFile(FILE *f, void *p, size_t n) { return (int)fread(p, 1, n, f); }
 int FIO_WriteFile(FILE *f, const void *p, size_t n) { return (int)fwrite(p, 1, n, f); }
 void FIO_CloseFile(FILE *f) { fclose(f); }
 int my_fprintf(FILE *f, const char *fmt, ...) { va_list ap; va_start(ap, fmt); int r = vfprintf(f, fmt, ap); va_end(ap); return r; }
 static char last_notify[160];
 static int notify_until = 0;
-void NotifyBox(int t, const char *fmt, ...) { (void)t; va_list ap; va_start(ap, fmt); vsnprintf(last_notify, sizeof(last_notify), fmt, ap); va_end(ap);
+void (NotifyBox)(int t, const char *fmt, ...) { (void)t; va_list ap; va_start(ap, fmt); vsnprintf(last_notify, sizeof(last_notify), fmt, ap); va_end(ap);
 #ifdef IRIDE_WEB
     notify_until = web_ms() + t;                   /* la demo lo mostra sulla schermata di scatto */
 #endif
@@ -454,6 +475,7 @@ static void make_sky(float sigma, float amp, int sx, int sy)
 static int fails = 0, passes = 0;
 #define CHECK(cond, ...) do { if (!(cond)) { fails++; printf("FALLITO: "); printf(__VA_ARGS__); printf("\n"); } else { passes++; printf("ok: "); printf(__VA_ARGS__); printf("\n"); } } while (0)
 
+static int in_lang(const char *x) { for (int i = 0; i < LANG_EN_N; i++) if (!strcmp(x, lang_en[i][0])) return 1; return 0; }
 static void set_time(int y, int mo, int d, int h, int mi) { memset(&sim_tm, 0, sizeof(sim_tm)); sim_tm.tm_year = y - 1900; sim_tm.tm_mon = mo - 1; sim_tm.tm_mday = d; sim_tm.tm_hour = h; sim_tm.tm_min = mi; }
 
 static void camera_reset()
@@ -726,6 +748,46 @@ int main(void)
     job_running = JOB_SEQ; job_task(NULL);
     CHECK(mlv("Expo", "Auto exposure") == 0 && mlv("Shoot", "Post Deflicker") == 0 && shots_taken == 5, "giorno-notte: autoexpo e deflicker spenti di nuovo a fine sequenza");
 
+    /* ---------- LENR accesa: Iride se ne accorge dal tempo dello scatto */
+    preset_select(0); P.int_count = 3; P.int_pause = 0; P.int_delay_idx = 0; P.int_bulb = 0; opt_silent = 0;
+    shooting_mode = SHOOTMODE_M; lens_info.raw_shutter = 32;   /* 8 s */
+    lenr_seen = 0; sim_lenr = 1;
+    job_running = JOB_SEQ; job_task(NULL);
+    { FILE *lf = fopen("out/IRIDE.CSV", "r"); char ln[256]; int av = 0;
+      while (lf && fgets(ln, sizeof(ln), lf)) if (strstr(ln, "LENR accesa")) av++;
+      if (lf) fclose(lf);
+      CHECK(lenr_seen && av >= 1, "LENR accesa: riconosciuta dal tempo dello scatto (8 s diventano 16) e scritta nel registro"); }
+    { sim_text_seen[0] = 0; screen = SCR_INTERVAL; draw_form(&int_form, 0); int_extra();
+      CHECK(strstr(sim_text_seen, "Riduzione disturbo"), "LENR accesa: l'intervallometro lo ricorda nella scheda di destra"); }
+    sim_lenr = 0; lenr_seen = 0;
+    job_running = JOB_SEQ; job_task(NULL);
+    CHECK(!lenr_seen, "LENR spenta: nessun avviso");
+    lens_info.raw_shutter = 48; sim_lenr = 1;   /* 2 s: troppo corto per dirlo, niente falsi allarmi */
+    job_running = JOB_SEQ; job_task(NULL);
+    CHECK(!lenr_seen, "pose da 2 s: la LENR non si giudica (niente falsi allarmi)");
+    sim_lenr = 0;
+
+    /* ---------- dark a fine sessione */
+    lens_info.raw_shutter = 32; lens_info.raw_iso = 104; P.int_count = 12;
+    job_running = JOB_SEQ; job_task(NULL);
+    CHECK(dark_offer && dark_offer_shutter == 32 && dark_offer_iso == 104 && dark_offer_n == 12, "dopo 12 light: proposti 12 dark a 8 s e ISO 1600");
+    lens_info.raw_shutter = 104; lens_info.raw_iso = 72;      /* nel frattempo tempo e ISO cambiati */
+    app_running = 0; menu_open = 0;
+    open_on(SCR_HOME);
+    CHECK(screen == SCR_DARKS, "riaprendo Iride compare la proposta dei dark");
+    job_request = JOB_NONE; shots_taken = 0;
+    dk_activate(DK_START);
+    CHECK(job_request == JOB_SEQ && P.int_preset == PRESET_DARK && lens_info.raw_shutter == 32 && lens_info.raw_iso == 104 && !dark_offer,
+          "Avvia: preset Dark con la posa e l'ISO delle light, proposta chiusa");
+    job_request = JOB_NONE; job_running = JOB_SEQ; job_task(NULL);
+    CHECK(shots_taken == 12 && !dark_offer, "12 dark fatti, nessuna nuova proposta");
+    gui_stop_menu(); app_running = 0;
+    preset_select(0); P.int_count = 3; lens_info.raw_shutter = 56;
+    job_running = JOB_SEQ; job_task(NULL);
+    dk_activate(DK_SKIP);
+    CHECK(!dark_offer && screen == SCR_HOME, "Non ora: la proposta sparisce");
+    lens_info.raw_iso = 80;
+
     /* ---------- intervallometro da campo: sessione, scatto silenzioso, dithering, batteria */
     {
         char path[128];
@@ -853,6 +915,7 @@ int main(void)
     opt_light_key = 1;
 
     /* ---------- cestino dalla schermata di scatto */
+    dark_offer = 0;
     { int before = menu_opened_calls; screen = SCR_SHELF; menu_redraw_blocked = 0;
       CHECK(iride_keypress(MODULE_KEY_TRASH) == 0 && menu_opened_calls == before + 1 && screen == SCR_HOME && menu_redraw_blocked == 1,
           "cestino apre Iride sulla Home, senza lampo del menu ML");
@@ -1082,6 +1145,10 @@ int main(void)
     sel[SCR_ASTRO] = 4; screenshot(SCR_ASTRO, "02c_astro_calendario"); sel[SCR_ASTRO] = 1;
     P.npf_focal = 24; P.npf_ap10 = 28; sel[SCR_NPF] = 2; msg[0] = 0; screenshot(SCR_NPF, "03_npf");
     preset_select(PRESET_HG); sel[SCR_INTERVAL] = 0; screenshot(SCR_INTERVAL, "04_intervallometro");
+    { preset_select(0); P.int_bulb = 0; lenr_seen = 1; sel[SCR_INTERVAL] = 0; screenshot(SCR_INTERVAL, "04d_intervallometro_lenr"); lenr_seen = 0; preset_select(PRESET_HG); }
+    { dark_offer = 1; dark_offer_bulb = 0; dark_offer_shutter = 24; dark_offer_iso = 112; dark_offer_n = 20; dark_offer_temp = cam_temp_c() - 1;
+      sel[SCR_DARKS] = DK_START; screenshot(SCR_DARKS, "04e_dark_fine_sessione");
+      int th = opt_theme; opt_theme = 2; screenshot(SCR_DARKS, "04f_dark_notte"); opt_theme = th; dark_offer = 0; }
     lv = 1; lv_dispsize = 10; stars_reset();
     float seq[] = { 6.5f, 5.0f, 3.6f, 2.6f, 2.0f, 1.75f, 1.8f, 2.2f, 1.9f, 1.75f };
     for (unsigned i = 0; i < COUNT(seq); i++) { make_sky(seq[i] * 1.6f, 170.0f, 352, 222); stars_tick(); }
@@ -1212,6 +1279,77 @@ int main(void)
     { int rl = P.roll_loaded; P.roll_loaded = 0; pic_quality = PICQ_RAW; conf_mode = CONF_LOAD; screenshot(SCR_CONFIRM, "15b_carica_solo_raw");
       P.roll_loaded = 1; P.roll_paused = 0; screenshot(SCR_SHELF, "14b_scaffale_solo_raw"); P.roll_loaded = rl; pic_quality = PICQ_RAW_JPG_LARGE_FINE; }
     conf_mode = CONF_ROLL; sel[SCR_CONFIRM] = 1; screenshot(SCR_CONFIRM, "16_rullino");
+
+    /* ---------- le tue pellicole (ricette) */
+    {
+        int keep[2 * NUM_MINE]; memcpy(keep, &P.mine_a(0), sizeof(keep));
+        int k_loaded = P.roll_loaded, k_film = P.roll_film, k_paused = P.roll_paused, k_shots = P.roll_shots, k_num = P.roll_num;
+        memset(&P.mine_a(0), 0, sizeof(keep)); mine_sync_all();
+        shelf_cat = CAT_MINE;
+        CHECK(cat_list(CAT_MINE) == 0, "scaffale MIE vuoto all'inizio");
+        screenshot(SCR_SHELF, "14d_rullini_mie_vuoto");
+        screen = SCR_SHELF; shelf_key(MODULE_KEY_PRESS_SET, 0, 0);
+        CHECK(screen == SCR_SHELF, "MIE vuoto: SET non apre nulla");
+        /* da Portra 400: copia nel primo posto */
+        mine_open(1);
+        struct mine m; mine_get(0, &m);
+        CHECK(screen == SCR_MYFILM && mine_used(0) && m.base == 1 && m.iso == 400 && m.kelvin == 5300 && m.style == PS_PORTRAIT,
+              "La tua versione di Portra 400: copia con ISO 400, 5300 K, Ritratto");
+        my_change(MY_C, 1, 0); my_change(MY_C, 1, 0); my_change(MY_K, -1, 1); my_change(MY_GRAIN, 1, 0); my_change(MY_BOX, 1, 0);
+        mine_get(0, &m);
+        CHECK(films[NUM_BASE_FILMS].contrast == 1 && films[NUM_BASE_FILMS].kelvin == 4800 && m.grain == 2 && m.box == 1 && streq(films[NUM_BASE_FILMS].brand, "MIA 1"),
+              "ricetta cambiata: contrasto +1, 4800 K, grana media, scatola arancio (%s %s)", films[NUM_BASE_FILMS].brand, films[NUM_BASE_FILMS].name);
+        sel[SCR_MYFILM] = MY_C; screenshot(SCR_MYFILM, "14f_tua_pellicola");
+        /* tutti i valori estremi tornano uguali dal file */
+        struct mine x = { 1, NUM_BASE_FILMS - 1, 6400, PS_MONO, -4, 4, -3, 10000, 3, 3, (int)COUNT(mine_boxes) - 1 }, y;
+        mine_put(3, &x); mine_get(3, &y);
+        CHECK(!memcmp(&x, &y, sizeof(x)), "ricetta: tutti i valori estremi si rileggono uguali da IRIDE.DAT");
+        P.mine_a(3) = 0x7fffffff; P.mine_b(3) = -1; mine_get(3, &y);
+        CHECK(y.base < NUM_BASE_FILMS && y.iso <= 6400 && y.kelvin <= 10000 && y.contrast <= 4 && y.box < (int)COUNT(mine_boxes), "ricetta rovinata: valori rimessi nei limiti");
+        P.mine_a(3) = 0; P.mine_b(3) = 0; mine_sync(3);
+        /* caricata come rullino: la 6D prende i valori della ricetta, e li segue se cambiano */
+        if (P.roll_loaded) roll_rewind();
+        roll_load(NUM_BASE_FILMS, 36, 0);
+        CHECK(lens_info.raw_iso == val2raw_iso(400) && lens_info.kelvin == 4800, "rullino MIA 1: ISO 400 e 4800 K sulla 6D");
+        my_change(MY_ISO, 1, 0);
+        CHECK(lens_info.raw_iso == val2raw_iso(500), "ricetta cambiata col rullino dentro: ISO 500 subito");
+        my_activate(MY_DEL);
+        CHECK(mine_used(0) && strstr(msg, "riavvolgilo"), "non si elimina la ricetta del rullino caricato");
+        /* scheda sulla SD: si salva, si cambia, si rilegge */
+        remove("out/MIA1.TXT");
+        my_activate(MY_SAVE);
+        FILE *cf = fopen("out/MIA1.TXT", "r"); char ct[512] = ""; size_t cn = cf ? fread(ct, 1, sizeof(ct) - 1, cf) : 0; ct[cn] = 0; if (cf) fclose(cf);
+        CHECK(strstr(ct, "base: KODAK Portra 400") && strstr(ct, "contrasto: 1") && strstr(ct, "kelvin: 4800"), "scheda MIA1.TXT scritta");
+        my_change(MY_C, -1, 1); my_change(MY_C, -1, 0);
+        my_activate(MY_LOAD);
+        mine_get(0, &m);
+        CHECK(m.contrast == 1 && m.iso == 500 && strstr(msg, "letta"), "scheda riletta: contrasto +1 come salvato");
+        /* scheda di un amico: altra pellicola di partenza, a mano, con \r\n */
+        cf = fopen("out/MIA1.TXT", "w");
+        fputs("IRIDE RICETTA\r\nnome: Notte\r\nbase: CineStill 800T\r\niso: 1600\r\nstile: Neutro\r\ncontrasto: -2\r\nkelvin: 3600\r\ngrana: 3\r\n", cf); fclose(cf);
+        my_activate(MY_LOAD);
+        mine_get(0, &m);
+        CHECK(streq(films[m.base].name, "800T") && m.iso == 1600 && m.style == PS_NEUTRAL && m.contrast == -2 && m.kelvin == 3600 && m.grain == 3,
+              "scheda di un amico: CineStill 800T, ISO 1600, Neutro, -2, 3600 K, grana forte");
+        CHECK(lens_info.raw_iso == val2raw_iso(1600) && lens_info.kelvin == 3600, "letta col rullino dentro: la 6D la segue");
+        cf = fopen("out/MIA1.TXT", "w"); fputs("ciao\n", cf); fclose(cf);
+        my_activate(MY_LOAD);
+        CHECK(strstr(msg, "non e' una scheda"), "file che non e' una scheda: rifiutato");
+        roll_rewind();
+        /* fino a 4 ricette */
+        mine_open(3); mine_open(5); mine_open(8);
+        int full = mine_used(0) + mine_used(1) + mine_used(2) + mine_used(3);
+        mine_open(10);
+        CHECK(full == 4 && strstr(msg, "4 ricette"), "quinta ricetta: rifiutata, i posti sono 4");
+        shelf_cat = CAT_MINE; shelf_pos[CAT_MINE] = 1; screenshot(SCR_SHELF, "14e_rullini_mie");
+        conf_mode = CONF_LOAD; sel[SCR_CONFIRM] = 3; screenshot(SCR_CONFIRM, "15c_carica_mia");
+        /* eliminata: sparisce dallo scaffale */
+        mine_slot = 1; my_activate(MY_DEL);
+        CHECK(!mine_used(1) && cat_list(CAT_MINE) == 3 && screen == SCR_SHELF, "ricetta eliminata: nello scaffale ne restano 3");
+        memcpy(&P.mine_a(0), keep, sizeof(keep)); mine_sync_all();
+        P.roll_loaded = k_loaded; P.roll_film = k_film; P.roll_paused = k_paused; P.roll_shots = k_shots; P.roll_num = k_num;
+        shelf_cat = CAT_COLOR;
+    }
     sel[SCR_PROFILES] = 1; screenshot(SCR_PROFILES, "17_profili");
     { struct profile keep[NPROF]; memcpy(keep, P.prof, sizeof(keep)); int sd = P.persist_prof_seeded;
       for (int i = 0; i < NPROF; i++) { P.prof[i].valid = 0; P.prof[i].name = i; }
@@ -1314,12 +1452,23 @@ int main(void)
     /* ---------- descrizioni delle pellicole: due righe che stanno nel dialogo e nello scaffale */
     {
         int worst = 0; const char *wn = "";
-        for (int i = 0; i < NUM_FILMS; i++)
+        for (int i = 0; i < NUM_BASE_FILMS; i++)
         {
             int w = MAX(txt_w(FONT_MED, films[i].desc), txt_w(FONT_MED, films[i].use));
             if (w > worst) { worst = w; wn = films[i].name; }
             if (!films[i].desc[0] || !films[i].use[0]) worst = 9999;
         }
+        /* le ricette: ogni pellicola di partenza coi valori piu' lunghi da scrivere */
+        int keep[2 * NUM_MINE]; memcpy(keep, &P.mine_a(0), sizeof(keep));
+        for (int b = 0; b < NUM_BASE_FILMS; b++)
+        {
+            struct mine m = { 1, b, 6400, PS_LANDSCAPE, -4, -4, -4, 10000, 1, 3, 4 };
+            mine_put(0, &m); mine_sync(0);
+            const struct film *f = &films[NUM_BASE_FILMS];
+            int w = MAX(txt_w(FONT_MED, f->desc), txt_w(FONT_MED, f->use));
+            if (w > worst) { worst = w; wn = f->desc; }
+        }
+        memcpy(&P.mine_a(0), keep, sizeof(keep)); mine_sync_all();
         CHECK(worst <= SCR_W - 190 - 24, "descrizioni dei rullini: la riga piu' larga (%s) e' %d px, nel dialogo ce ne stanno %d", wn, worst, SCR_W - 214);
     }
 
@@ -1495,6 +1644,33 @@ int main(void)
     af_state = AF_IDLE; help_scr = -1;
     CHECK(crashes == 0, "tutte le %d schermate x 2 temi x %d tasti disegnate senza errori", SCR_COUNT, (int)COUNT(keys));
 
+    /* ---------- in inglese: ogni schermata, ogni riga e l'aiuto; niente fuori dallo schermo */
+    {
+        for (int i = 1; i < LANG_EN_N; i++) if (strcmp(lang_en[i - 1][0], lang_en[i][0]) >= 0) { printf("  tabella non ordinata: %s\n", lang_en[i][0]); fails++; }
+        opt_lang = 1; mine_sync_all(); opt_theme = 0;
+        offscreen = 0; offscreen_on = 1;
+        int untranslated = 0; char ut[96] = "";
+        for (int s = 0; s < SCR_COUNT; s++)
+        {
+            screen = s; help_scr = -1;
+            for (int r = 0; r < 20; r++) { handle_key(MODULE_KEY_PRESS_DOWN); if (screen != s) screen = s; render(0); }
+            handle_key(MODULE_KEY_INFO); render(0); help_scr = -1;
+            /* l'aiuto e il titolo vanno tradotti tutti */
+            if (help_text(s) && !in_lang(help_text(s))) { untranslated++; snprintf(ut, sizeof(ut), "aiuto di %s", screens[s].title); }
+            if (!in_lang(screens[s].title) && strcmp(screens[s].title, "6D") && strcmp(screens[s].title, "ETTR") && strcmp(screens[s].title, "Dual ISO"))
+                { untranslated++; printf("  non tradotto: %s\n", screens[s].title); snprintf(ut, sizeof(ut), "titolo %s", screens[s].title); }
+            char nm[32]; snprintf(nm, sizeof(nm), "en_%02d", s); sel[s] = 0; msg[0] = 0; msg_until = 0; screenshot(s, nm);
+        }
+        offscreen_on = 0;
+        CHECK(offscreen == 0, "in inglese: tutte le schermate, righe e aiuti senza testi fuori dallo schermo (%d)", offscreen);
+        CHECK(untranslated == 0, "in inglese: titoli e aiuti tutti tradotti (%d, %s)", untranslated, ut);
+        CHECK(streq(tr("Rullini"), "Rolls") && streq(tr("< no >"), "< no >") && streq(tr("< dopo ogni scatto >"), "< after every shot >") && streq(compass16(270.0f), "W"),
+              "in inglese: parole, valori \"< ... >\" e punti cardinali");
+        { char b2[64]; snprintf(b2, sizeof(b2), "%d scatti", 7); CHECK(streq(b2, "7 shots"), "in inglese: le stringhe di formato si traducono (%s)", b2); }
+        opt_lang = 0; mine_sync_all();
+        CHECK(streq(tr("Rullini"), "Rullini"), "di nuovo in italiano");
+    }
+
     /* ---------- casi estremi: date (ora legale, capodanno, bisestile), luoghi (sud, equatore,
        sole di mezzanotte, polo), fusi, cielo del luogo fuori scala; tasti a caso in ognuno */
     {
@@ -1579,7 +1755,7 @@ int main(void)
             if (!seen[screen]) { seen[screen] = 1; screens_seen++; }
         }
         /* con un seme diverso si controllano solo gli errori: quante schermate visita dipende dal caso */
-        CHECK(getenv("IRIDE_FUZZ_SEED") || screens_seen >= SCR_COUNT - 2, "%d tasti a caso: %d schermate visitate, nessun errore", fuzz_n, screens_seen);
+        CHECK(getenv("IRIDE_FUZZ_SEED") || screens_seen >= SCR_COUNT - 3, "%d tasti a caso: %d schermate visitate, nessun errore", fuzz_n, screens_seen);
         offscreen_on = 0; offshape_on = 0;
         for (int i = 0; i < offscreen && i < 8; i++) printf("  fuori schermo: %s\n", offscreen_txt[i]);
         if (offshape) printf("  forme fuori schermo: %d, la prima: %s\n", offshape, offshape_txt);

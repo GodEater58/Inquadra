@@ -36,7 +36,7 @@
 #include <math.h>
 #include <battery.h>
 
-#define IRIDE_VERSION "1.5.2"
+#define IRIDE_VERSION "1.6"
 
 /* ------------------------------------------------------------------ compatibilita' API */
 
@@ -130,6 +130,42 @@ static CONFIG_INT("iride.silent",   opt_silent, 0);       /* intervallometro: ot
 static CONFIG_INT("iride.dither.n", opt_dither_n, 0);     /* pausa per il dithering ogni n scatti (0 = no) */
 static CONFIG_INT("iride.dither.s", opt_dither_s, 10);    /* durata della pausa per il dithering, s */
 static CONFIG_INT("iride.npf.dec",  opt_npf_dec, 0);      /* NPF: punto del cielo (indice della declinazione) */
+static CONFIG_INT("iride.lang",     opt_lang, 0);         /* 0 italiano, 1 inglese */
+
+/* ------------------------------------------------------------------ lingua
+
+   Il testo resta scritto in italiano nel codice; in inglese tr() lo cerca nella tabella (per
+   bisezione, ordinata) e restituisce la traduzione. Passano da tr(): i testi disegnati (txt),
+   le stringhe di formato di snprintf e NotifyBox (vedi le macro piu' sotto) e gli avvisi.
+   Quello che non e' in tabella (nomi di file, CSV, nomi del menu ML) resta com'e'. */
+#include "lang_en.inc"
+
+static const char *tr(const char *s)
+{
+    if (!opt_lang || !s || !s[0]) return s;
+    int lo = 0, hi = LANG_EN_N - 1;
+    while (lo <= hi)
+    {
+        int m = (lo + hi) / 2, c = strcmp(s, lang_en[m][0]);
+        if (!c) return lang_en[m][1];
+        if (c < 0) hi = m - 1; else lo = m + 1;
+    }
+    /* valore di una riga "< ... >": si traduce quello che c'e' dentro */
+    int n = strlen(s);
+    if (n > 4 && n < 90 && s[0] == '<' && s[1] == ' ' && s[n - 2] == ' ' && s[n - 1] == '>')
+    {
+        static char ring[4][96];
+        static int k = 0;
+        char in[96];
+        memcpy(in, s + 2, n - 4); in[n - 4] = 0;
+        const char *t = tr(in);
+        if (t == in) return s;
+        char *o = ring[k++ & 3];
+        snprintf(o, sizeof(ring[0]), "< %s >", t);
+        return o;
+    }
+    return s;
+}
 
 /* ------------------------------------------------------------------ stato salvato su scheda */
 
@@ -192,7 +228,7 @@ enum
 {
     SCR_HOME, SCR_ASTRO, SCR_FOTO, SCR_NPF, SCR_INTERVAL, SCR_STARS, SCR_POLAR, SCR_SKY,
     SCR_SHELF, SCR_CONFIRM, SCR_HDR, SCR_FSTACK, SCR_DUAL, SCR_ETTR, SCR_MOTION, SCR_LVTOOLS,
-    SCR_ND, SCR_PROFILES, SCR_OPTIONS, SCR_RESTORE, SCR_KEYS, SCR_BENCH, SCR_MOON, SCR_MWPLAN, SCR_WB, SCR_COUNT
+    SCR_ND, SCR_PROFILES, SCR_OPTIONS, SCR_RESTORE, SCR_KEYS, SCR_BENCH, SCR_MOON, SCR_MWPLAN, SCR_WB, SCR_DARKS, SCR_MYFILM, SCR_COUNT
 };
 
 static volatile int app_running = 0;
@@ -276,6 +312,19 @@ static void session_watch_external(int fn);
 static void log_warning(const char *text);
 static int persist_touch_ms = 0;
 static void persist_touch() { persist_dirty = 1; persist_touch_ms = get_ms_clock(); }
+
+/* da qui in poi le stringhe di formato passano dalla traduzione; (snprintf)(...) scrive senza
+   tradurre (file, CSV, registri: restano in italiano e leggibili da AstroStack) */
+static int snprintf_tr(char *buf, size_t len, const char *fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    int r = vsnprintf(buf, len, tr(fmt), ap);
+    va_end(ap);
+    return r;
+}
+#define snprintf(buf, len, ...) snprintf_tr(buf, len, __VA_ARGS__)
+#define NotifyBox(ms, fmt, ...) NotifyBox(ms, (char *)tr(fmt), ##__VA_ARGS__)
 
 #include "ui.inc"
 #include "moon.inc"
@@ -481,6 +530,7 @@ static void open_on(int scr)
     /* menu ML sulla scheda Shoot, voce Iride: niente indicatori audio (scheda Audio) sotto Iride,
        e il cestino da Iride riporta proprio qui */
     select_menu_by_name("Shoot", "Iride");
+    if (scr == SCR_HOME && dark_offer_due()) scr = SCR_DARKS;   /* light finite: prima i dark */
     screen = COERCE(scr, 0, SCR_COUNT - 1);
     hl_reset();
     if (screens[screen].enter) screens[screen].enter();

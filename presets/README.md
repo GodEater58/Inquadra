@@ -25,6 +25,17 @@ Questi 16 preset (uno per pellicola, stessi nomi del firmware) danno il caratter
 2. Applica il preset della pellicola del rullino (il registro `ML/LOGS/IRIDE.CSV` dice quale era).
 3. Il bilanciamento del bianco non viene toccato: la temperatura della pellicola è già nel RAW ("As Shot").
 
+## Le tue pellicole (ricette dalla 6D)
+
+Nella scheda **MIE** dello scaffale si fanno fino a 4 pellicole proprie: *Salva la scheda* scrive `ML/IRIDE/MIA1.TXT` (2, 3, 4).
+Per averne il preset:
+
+```
+python3 make_presets.py --ricetta MIA1.TXT MIA2.TXT cartella
+```
+
+Il preset è quello della pellicola di partenza con le modifiche della ricetta: contrasto e saturazione, tonalità (rossi e arancioni della pelle), bianco e nero se lo stile è Monocromo, grana (nessuna, leggera, media, forte) e vignettatura. La scheda è un testo semplice: si può mandare a un amico, che la legge nella sua 6D con *Leggi la scheda dalla SD*.
+
 Ogni preset scrive lo stesso gruppo di cursori: passando da una pellicola all'altra non restano residui della precedente.
 Con il cursore *Amount* (LightCraft 0–200 %, Lightroom 0–200) si dosa l'effetto.
 

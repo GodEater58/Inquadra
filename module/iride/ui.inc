@@ -13,7 +13,7 @@ static int astro_screen(int s)
 {
     /* tutte le schermate di Astro (anche Luna e Dove puntare, aggiunte dalla 1.2) */
     return s == SCR_ASTRO || s == SCR_NPF || s == SCR_INTERVAL || s == SCR_STARS ||
-           s == SCR_POLAR || s == SCR_SKY || s == SCR_MOON || s == SCR_MWPLAN;
+           s == SCR_POLAR || s == SCR_SKY || s == SCR_MOON || s == SCR_MWPLAN || s == SCR_DARKS;
 }
 
 static void theme_apply()
@@ -234,12 +234,14 @@ static void txt(int font, int fg, int x, int y, const char *s)
     /* fuori dallo schermo non si scrive: ML sposterebbe il testo sul bordo (si vedrebbe un pezzo
        in alto mentre un rullino vola via o una lista scorre) */
     if (y < 0 || y > SCR_H - 12 || x < -8 || x > SCR_W - 4) return;
+    s = tr(s);
     if (font == FONT_SMALL) { fs_draw(fg, x, y, s); return; }
     bmp_printf(FONT(font, fg, NO_BG_ERASE), x, y, "%s", s);
 }
 
 static int txt_w(int font, const char *s)
 {
+    s = tr(s);
     if (font == FONT_SMALL) return fs_width(s);
     return bmp_string_width(FONT(font, COLOR_WHITE, NO_BG_ERASE), s);
 }
@@ -1184,6 +1186,7 @@ static void txt_fit(int c, int x, int y, int w, const char *s)
 static int txt_wrap(int font, int c, int x, int y, int w, const char *s, int lh)
 {
     char line[96];
+    s = tr(s);
     while (*s)
     {
         while (*s == ' ') s++;

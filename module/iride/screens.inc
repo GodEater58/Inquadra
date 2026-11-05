@@ -259,7 +259,7 @@ static void astro_status(int i, char *buf, int len, int *on)
             snprintf(buf, len, "%s s con %d mm f/%s", a, P.npf_focal, b);
             break;
         }
-        case SCR_INTERVAL: snprintf(buf, len, "%s, %d scatti", presets[COERCE(P.int_preset, 0, NUM_PRESETS - 1)].name, P.int_count); break;
+        case SCR_INTERVAL: snprintf(buf, len, "%s, %d scatti", tr(presets[COERCE(P.int_preset, 0, NUM_PRESETS - 1)].name), P.int_count); break;
         case SCR_STARS: *on = lv; snprintf(buf, len, lv ? "Live View acceso: pronta" : "START/STOP accende il Live View"); break;
         case SCR_POLAR:
         {
@@ -342,7 +342,7 @@ static void foto_status(int i, char *buf, int len, int *on)
             int n = 0;
             for (int k = 0; k < 6; k++) n += ml_get(lv_feats[k]) == 1;
             *on = n > 0;
-            if (n) snprintf(buf, len, "%d strument%s acces%s", n, n == 1 ? "o" : "i", n == 1 ? "o" : "i");
+            if (n) snprintf(buf, len, n == 1 ? "%d strumento acceso" : "%d strumenti accesi", n);
             else snprintf(buf, len, "tutti spenti");
             break;
         }
@@ -512,7 +512,7 @@ static void foto_key(int key, int dx, int dy)
 /* ------------------------------------------------------------------ scaffale */
 
 static int shelf_cat = CAT_COLOR;
-static int shelf_pos[CAT_COUNT] = { 1, 0, 0, 0 };
+static int shelf_pos[CAT_COUNT] = { 1, 0, 0, 0, 0 };
 static struct glider shelf_g = { -1, 0, 0, 0 }, tab_g = { -1, 0, 0, 0 };
 static int pop_t0 = -100000;                                /* cambio categoria: i rullini spuntano */
 static int bump_t0 = -100000, bump_dir = 0;                 /* fine dello scaffale: piccolo urto */
@@ -522,7 +522,8 @@ static int cat_films[NUM_FILMS];
 static int cat_list(int cat)
 {
     int n = 0;
-    for (int i = 0; i < NUM_FILMS; i++) if (films[i].cat == cat) cat_films[n++] = i;
+    for (int i = 0; i < NUM_FILMS; i++)
+        if (films[i].cat == cat && (!is_mine(i) || mine_used(i - NUM_BASE_FILMS))) cat_films[n++] = i;
     return n;
 }
 
@@ -539,11 +540,23 @@ static void draw_shelf()
     draw_header("Rullini");
     int now = get_ms_clock();
     for (int c = 0; c < CAT_COUNT; c++)
-        txt_c(FONT_MED, c == shelf_cat ? C_TEXT : C_DIM, 120 + c * 160, 52, cat_names[c]);
+        txt_c(FONT_MED, c == shelf_cat ? C_TEXT : C_DIM, 88 + c * 136, 52, cat_names[c]);
     int tv = glide(&tab_g, shelf_cat * 1000, 220);
-    fill(C_ACCENT, 120 + tv * 160 / 1000 - 34, 80, 68, 3);
+    fill(C_ACCENT, 88 + tv * 136 / 1000 - 34, 80, 68, 3);
 
     int n = cat_list(shelf_cat);
+    if (n == 0)
+    {
+        /* nessuna ricetta ancora: si spiega come farla */
+        fill(cc(COLOR_GRAY(16)), 40, 250, SCR_W - 80, 8);
+        fill(cc(COLOR_GRAY(36)), 40, 258, SCR_W - 80, 2);
+        txt_c(FONT_LARGE, C_TEXT, 360, 150, "Le tue pellicole");
+        txt_c(FONT_MED, C_DIM, 360, 280, "Scegli una pellicola, SET, poi \"La tua versione\":");
+        txt_c(FONT_MED, C_DIM, 360, 306, "cambi ISO, stile, contrasto, bianco, grana.");
+        txt_c(FONT_MED, C_DIM, 360, 340, "Fino a 4 ricette, salvabili sulla scheda per condividerle.");
+        draw_footer("^/v tipo   MENU indietro");
+        return;
+    }
     int pos = COERCE(shelf_pos[shelf_cat], 0, MAX(n - 1, 0));
     int vis = glide(&shelf_g, pos * 1000, 260);
 
@@ -613,6 +626,239 @@ static void draw_shelf()
     draw_footer(P.roll_loaded ? "</> pellicola  ^/v tipo  SET carica  Q rullino attuale" : "</> pellicola  ^/v tipo  SET carica");
 }
 
+/* ------------------------------------------------------------------ la tua pellicola (ricetta) */
+
+static int mine_slot = 0;                       /* ricetta aperta nell'editor */
+static const short mine_isos[] = { 50, 64, 80, 100, 125, 160, 200, 250, 320, 400, 500, 640, 800, 1000, 1250, 1600,
+    2000, 2500, 3200, 4000, 5000, 6400 };
+static const char *const my_labels[] = { "Partenza", "ISO", "Stile foto", "Contrasto", "Saturazione",
+    "Tonalita' colore", "Bianco", "Grana (preset PC)", "Vignettatura (preset PC)", "Colore della scatola",
+    "Salva la scheda sulla SD", "Leggi la scheda dalla SD", "Elimina la ricetta" };
+enum { MY_BASE, MY_ISO, MY_STYLE, MY_C, MY_S, MY_T, MY_K, MY_GRAIN, MY_VIG, MY_BOX, MY_SAVE, MY_LOAD, MY_DEL, MY_N };
+static const char *const my_heads[] = { 0, "NELLA 6D (JPEG)", 0, 0, 0, 0, 0, "SUL PC (LIGHTROOM, LIGHTCRAFT)", 0, "SCAFFALE", "SCHEDA", 0, 0 };
+
+static void mine_card_path(char *buf, int len, int i) { snprintf(buf, len, "ML/IRIDE/MIA%d.TXT", i + 1); }
+
+/* da una pellicola: la sua ricetta (se e' gia' tua) o una copia nel primo posto libero */
+static void mine_open(int film)
+{
+    if (is_mine(film)) mine_slot = film - NUM_BASE_FILMS;
+    else
+    {
+        int i = 0;
+        while (i < NUM_MINE && mine_used(i)) i++;
+        if (i == NUM_MINE) { say(C_WARN, "4 ricette gia' fatte: eliminane una nello scaffale MIE"); return; }
+        const struct film *b = &films[film];
+        struct mine m = { 1, film, b->iso, b->style, b->contrast, b->saturation, b->tone, b->kelvin,
+            b->iso >= 800 ? 2 : b->iso >= 200 ? 1 : 0, 0, 0 };
+        if (mine_style_index(m.style) == 0 && m.style != PS_STD) m.style = PS_STD;
+        mine_slot = i;
+        mine_put(i, &m);
+        mine_sync(i);
+        persist_touch();
+        say(C_OK, "Nuova ricetta: la trovi nello scaffale MIE");
+    }
+    sel[SCR_MYFILM] = MY_C;
+    go(SCR_MYFILM, 1);
+}
+
+static void my_value(int row, char *buf, int len, int *kind)
+{
+    struct mine m;
+    mine_get(mine_slot, &m);
+    const struct film *b = &films[m.base];
+    switch (row)
+    {
+        case MY_BASE: snprintf(buf, len, "%s %s", b->brand, b->name); *kind = VK_INFO; break;
+        case MY_ISO: snprintf(buf, len, "< %d >", m.iso); break;
+        case MY_STYLE: snprintf(buf, len, "< %s >", style_name(m.style)); break;
+        case MY_C: snprintf(buf, len, "< %+d >", m.contrast); break;
+        case MY_S: snprintf(buf, len, "< %+d >", m.saturation); break;
+        case MY_T: snprintf(buf, len, "< %+d >", m.tone); break;
+        case MY_K: snprintf(buf, len, "< %d K >", m.kelvin); break;
+        case MY_GRAIN: snprintf(buf, len, "< %s >", mine_fx_names[m.grain]); break;
+        case MY_VIG: snprintf(buf, len, "< %s >", mine_fx_names[m.vignette]); break;
+        case MY_BOX: snprintf(buf, len, "< %s >", mine_box_names[m.box]); break;
+        case MY_SAVE: case MY_LOAD: case MY_DEL: *kind = VK_ACTION; snprintf(buf, len, "SET"); break;
+    }
+}
+
+static void my_change(int row, int dir, int big)
+{
+    struct mine m;
+    mine_get(mine_slot, &m);
+    switch (row)
+    {
+        case MY_ISO:
+        {
+            int k = 0;
+            while (k < (int)COUNT(mine_isos) - 1 && mine_isos[k] < m.iso) k++;
+            m.iso = mine_isos[COERCE(k + dir * (big ? 3 : 1), 0, (int)COUNT(mine_isos) - 1)];
+            break;
+        }
+        case MY_STYLE: m.style = mine_styles[MOD(mine_style_index(m.style) + dir, (int)COUNT(mine_styles))]; break;
+        case MY_C: m.contrast = COERCE(m.contrast + dir, -4, 4); break;
+        case MY_S: m.saturation = COERCE(m.saturation + dir, -4, 4); break;
+        case MY_T: m.tone = COERCE(m.tone + dir, -4, 4); break;
+        case MY_K: m.kelvin = COERCE(m.kelvin + dir * (big ? 500 : 100), 2500, 10000); break;
+        case MY_GRAIN: m.grain = COERCE(m.grain + dir, 0, 3); break;
+        case MY_VIG: m.vignette = COERCE(m.vignette + dir, 0, 3); break;
+        case MY_BOX: m.box = MOD(m.box + dir, (int)COUNT(mine_boxes)); break;
+        default: return;
+    }
+    mine_put(mine_slot, &m);
+    mine_sync(mine_slot);
+    if (P.roll_film == NUM_BASE_FILMS + mine_slot) film_refresh();
+    persist_touch();
+}
+
+/* la scheda della ricetta: testo semplice, si legge, si copia a un amico, si rilegge in un'altra 6D.
+   Sul PC presets/make_presets.py la trasforma in un preset XMP completo (pellicola di partenza + modifiche). */
+static int mine_save_card(int i)
+{
+    struct mine m;
+    mine_get(i, &m);
+    const struct film *b = &films[m.base];
+    char path[40];
+    mine_card_path(path, sizeof(path), i);
+    FIO_CreateDirectory("ML/IRIDE");
+    FILE *f = FIO_CreateFile(path);
+    if (!f) return 0;
+    my_fprintf(f, "IRIDE RICETTA\nnome: MIA %d\nbase: %s %s\niso: %d\nstile: %s\ncontrasto: %d\nsaturazione: %d\n"
+        "tonalita: %d\nkelvin: %d\ngrana: %d\nvignetta: %d\nscatola: %d\n",
+        i + 1, b->brand, b->name, m.iso, style_name(m.style), m.contrast, m.saturation, m.tone, m.kelvin,
+        m.grain, m.vignette, m.box);
+    FIO_CloseFile(f);
+    return 1;
+}
+
+/* valore dopo "chiave:" nella scheda (0 se manca) */
+static const char *card_field(const char *txt, const char *key)
+{
+    int kl = strlen(key);
+    for (const char *p = txt; *p; )
+    {
+        if (!strncmp(p, key, kl) && p[kl] == ':') { p += kl + 1; while (*p == ' ') p++; return p; }
+        while (*p && *p != '\n') p++;
+        if (*p) p++;
+    }
+    return 0;
+}
+
+static int card_int(const char *txt, const char *key, int def)
+{
+    const char *v = card_field(txt, key);
+    if (!v) return def;
+    int sign = 1, n = 0, any = 0;
+    if (*v == '-') { sign = -1; v++; } else if (*v == '+') v++;
+    while (*v >= '0' && *v <= '9') { n = n * 10 + (*v++ - '0'); any = 1; }
+    return any ? sign * n : def;
+}
+
+static int mine_load_card(int i)
+{
+    char path[40], txt[512];
+    mine_card_path(path, sizeof(path), i);
+    FILE *f = FIO_OpenFile(path, O_RDONLY | O_SYNC);
+    if (!f) return 0;
+    int r = FIO_ReadFile(f, txt, sizeof(txt) - 1);
+    FIO_CloseFile(f);
+    if (r <= 0) return 0;
+    txt[r] = 0;
+    for (int k = 0; k < r; k++) if (txt[k] == '\r') txt[k] = ' ';
+    if (strncmp(txt, "IRIDE RICETTA", 13)) return -1;
+    struct mine m;
+    mine_get(i, &m);
+    /* la pellicola di partenza per nome ("Kodak Portra 400" o solo "Portra 400") */
+    const char *bv = card_field(txt, "base");
+    if (bv)
+        for (int k = 0; k < NUM_BASE_FILMS; k++)
+        {
+            const char *nm = films[k].name;
+            for (const char *q = bv; *q && *q != '\n'; q++)
+                if (!strncmp(q, nm, strlen(nm)) && (q[strlen(nm)] == '\n' || q[strlen(nm)] == ' ' || !q[strlen(nm)])) { m.base = k; break; }
+        }
+    const char *sv = card_field(txt, "stile");
+    if (sv) for (int k = 0; k < (int)COUNT(mine_styles); k++)
+    {
+        const char *nm = style_name(mine_styles[k]);
+        if (!strncmp(sv, nm, strlen(nm))) m.style = mine_styles[k];
+    }
+    m.used = 1;
+    m.iso = card_int(txt, "iso", m.iso);
+    m.contrast = card_int(txt, "contrasto", m.contrast);
+    m.saturation = card_int(txt, "saturazione", m.saturation);
+    m.tone = card_int(txt, "tonalita", m.tone);
+    m.kelvin = card_int(txt, "kelvin", m.kelvin);
+    m.grain = COERCE(card_int(txt, "grana", m.grain), 0, 3);
+    m.vignette = COERCE(card_int(txt, "vignetta", m.vignette), 0, 3);
+    m.box = COERCE(card_int(txt, "scatola", m.box), 0, (int)COUNT(mine_boxes) - 1);
+    mine_put(i, &m);                            /* mine_put rimette tutto nei limiti */
+    mine_sync(i);
+    return 1;
+}
+
+static void my_activate(int row)
+{
+    char path[40], m[80];
+    mine_card_path(path, sizeof(path), mine_slot);
+    switch (row)
+    {
+        case MY_SAVE:
+            if (mine_save_card(mine_slot)) { snprintf(m, sizeof(m), "Salvata in %s", path); say(C_OK, m); }
+            else say(C_WARN, "Non riesco a scrivere sulla scheda");
+            return;
+        case MY_LOAD:
+        {
+            int r = mine_load_card(mine_slot);
+            if (r > 0)
+            {
+                if (P.roll_film == NUM_BASE_FILMS + mine_slot) film_refresh();
+                persist_touch();
+                snprintf(m, sizeof(m), "Ricetta letta da %s", path); say(C_OK, m);
+            }
+            else
+            {
+                if (r < 0) snprintf(m, sizeof(m), "%s non e' una scheda di Iride", path);
+                else snprintf(m, sizeof(m), "Manca %s sulla scheda", path);
+                say(C_WARN, m);
+            }
+            return;
+        }
+        case MY_DEL:
+            if (P.roll_loaded && P.roll_film == NUM_BASE_FILMS + mine_slot) { say(C_WARN, "C'e' un rullino caricato con questa ricetta: riavvolgilo prima"); return; }
+            P.mine_a(mine_slot) = 0; P.mine_b(mine_slot) = 0;
+            mine_sync(mine_slot);
+            persist_touch();
+            shelf_cat = CAT_MINE; shelf_pos[CAT_MINE] = 0;
+            go(SCR_SHELF, -1);
+            say(C_OK, "Ricetta eliminata");
+            return;
+        case MY_BASE: return;
+    }
+    my_change(row, 1, 0);
+}
+
+static void my_extra()
+{
+    const int x = 456, w = SCR_W - 24 - x;
+    info_card(x, 52, w, 384, "LA TUA PELLICOLA");
+    const struct film *fm = &films[NUM_BASE_FILMS + mine_slot];
+    draw_canister(fm, x + w / 2, 80, 80, 0);
+    txt_c(FONT_MED, C_DIM, x + w / 2, 240, fm->brand);
+    txt_c(FONT_MED_LARGE, C_ACCENT, x + w / 2, 264, fm->name);
+    char buf[64];
+    snprintf(buf, sizeof(buf), "ISO %d   %d K", fm->iso, fm->kelvin);
+    txt_c(FONT_MED, C_TEXT, x + w / 2, 304, buf);
+    txt_wrap(FONT_SMALL, C_DIM, x + 16, 338, w - 32,
+        "Grana e vignettatura vanno nel preset del PC: la 6D non le fa. Salva la scheda e convertila con make_presets.py.", 14);
+}
+
+static const struct form my_form = { MY_N, my_labels, my_value, my_change, my_activate, my_extra,
+    "^/v riga   </> cambia   SET   MENU scaffale", 52, 44, my_heads, 420, 0 };
+
+static void my_enter() { shelf_cat = CAT_MINE; shelf_pos[CAT_MINE] = 0; for (int k = 0, n = cat_list(CAT_MINE); k < n; k++) if (cat_films[k] == NUM_BASE_FILMS + mine_slot) shelf_pos[CAT_MINE] = k; }
+
 /* dialogo sopra lo scaffale: caricamento o rullino attuale */
 enum { CONF_LOAD, CONF_ROLL };
 static int conf_mode = CONF_LOAD;
@@ -629,7 +875,7 @@ static void shelf_key(int key, int dx, int dy)
         else { shelf_pos[shelf_cat] = np; info_t0 = now; info_dir = dx; }
     }
     else if (dy) { shelf_cat = MOD(shelf_cat + dy, CAT_COUNT); shelf_g.vis = -1; pop_t0 = now; info_t0 = now; info_dir = 0; }
-    else if (key == MODULE_KEY_PRESS_SET) { conf_mode = CONF_LOAD; sel[SCR_CONFIRM] = 2; go(SCR_CONFIRM, 2); }
+    else if (key == MODULE_KEY_PRESS_SET && n > 0) { conf_mode = CONF_LOAD; sel[SCR_CONFIRM] = 2; go(SCR_CONFIRM, 2); }
     else if (key == MODULE_KEY_Q && P.roll_loaded) { conf_mode = CONF_ROLL; sel[SCR_CONFIRM] = 1; go(SCR_CONFIRM, 2); }
 }
 
@@ -645,7 +891,7 @@ static void shelf_enter()
     tab_g.vis = -1;
 }
 
-static const char *const load_labels[] = { "Pose", "Push / pull", "Carica il rullino" };
+static const char *const load_labels[] = { "Pose", "Push / pull", "Carica il rullino", "La tua versione" };
 static const char *const roll_labels[] = { "Stato", "", "Riavvolgi" };
 
 static void conf_value(int row, char *buf, int len, int *kind)
@@ -659,7 +905,8 @@ static void conf_value(int row, char *buf, int len, int *kind)
             if (load_push) snprintf(buf, len, "< %s%d stop, ISO %d >", load_push > 0 ? "+" : "", load_push, film_iso_exposed(fm, load_push));
             else snprintf(buf, len, "< normale, ISO %d >", film_iso_exposed(fm, 0));
         }
-        else { *kind = VK_ACTION; snprintf(buf, len, P.roll_loaded ? "riavvolge l'attuale  SET >" : "SET >"); }
+        else if (row == 2) { *kind = VK_ACTION; snprintf(buf, len, P.roll_loaded ? "riavvolge l'attuale  SET >" : "SET >"); }
+        else { *kind = VK_ACTION; snprintf(buf, len, is_mine(shelf_film()) ? "modifica la ricetta  SET >" : "copia da cambiare  SET >"); }
     }
     else
     {
@@ -679,6 +926,7 @@ static void conf_activate(int row)
 {
     if (conf_mode == CONF_LOAD)
     {
+        if (row == 3) { mine_open(shelf_film()); return; }
         if (row != 2) { conf_change(row, 1, 0); return; }
         int fi = shelf_film();
         if (P.roll_loaded)
@@ -723,8 +971,8 @@ static void draw_confirm()
     char buf[96];
     struct form f;
     memset(&f, 0, sizeof(f));
-    f.n = 3; f.value = conf_value; f.y0 = 200; f.row_h = 46;
-    static const char *labels[3];
+    f.n = conf_mode == CONF_LOAD ? 4 : 3; f.value = conf_value; f.y0 = 196; f.row_h = 46;
+    static const char *labels[4];
     if (conf_mode == CONF_LOAD)
     {
         const struct film *fm = &films[shelf_film()];
@@ -739,7 +987,7 @@ static void draw_confirm()
             txt(FONT_MED, C_WARN, 190, 166, buf);
         }
         else if (picq_raw_only()) txt(FONT_MED, C_WARN, 190, 166, "Solo RAW: il look va solo nei JPEG");
-        for (int i = 0; i < 3; i++) labels[i] = load_labels[i];
+        for (int i = 0; i < 4; i++) labels[i] = load_labels[i];
     }
     else
     {
@@ -768,7 +1016,7 @@ static void draw_confirm()
 static void confirm_key(int key, int dx, int dy)
 {
     int s = sel[SCR_CONFIRM];
-    if (dy) sel[SCR_CONFIRM] = COERCE(s + dy, conf_mode == CONF_ROLL ? 1 : 0, 2);
+    if (dy) sel[SCR_CONFIRM] = COERCE(s + dy, conf_mode == CONF_ROLL ? 1 : 0, conf_mode == CONF_LOAD ? 3 : 2);
     else if (dx) conf_change(s, dx, 0);
     else if (key == MODULE_KEY_PRESS_SET) conf_activate(s);
 }
@@ -869,7 +1117,7 @@ static void profiles_key(int key, int dx, int dy)
 
 static const char *const opt_labels[] = { "Tema", "Animazioni", "Schermata iniziale", "Apri all'accensione",
     "Cestino apre Iride", "Tasto luce LCD", "SET apre il bianco", "Anteprima col rullino", "Avviso posa", "Luogo", "Latitudine", "Longitudine",
-    "Fuso orario", "Cielo del luogo", "Diagnostica tasti", "Prova della 6D" };
+    "Fuso orario", "Cielo del luogo", "Diagnostica tasti", "Prova della 6D", "Lingua / Language" };
 
 /* buio del cielo di casa (mag/arcsec^2 come un SQM): serve a stimare le stelle visibili con la Luna */
 static const short sqm_steps[] = { 220, 215, 210, 205, 200, 195, 190, 185 };
@@ -901,8 +1149,8 @@ static void opt_value(int row, char *buf, int len, int *kind)
         case 9:
         {
             int ci = city_find();
-            if (ci >= 0) snprintf(buf, len, "< %s >", cities[ci].name);
-            else snprintf(buf, len, "< vicino a %s >", cities[city_nearest()].name);
+            if (ci >= 0) snprintf(buf, len, "< %s >", tr(cities[ci].name));
+            else snprintf(buf, len, "< vicino a %s >", tr(cities[city_nearest()].name));
             break;
         }
         case 10: snprintf(buf, len, "< %d.%02d %c >", ABS(P.lat100) / 100, ABS(P.lat100) % 100, P.lat100 < 0 ? 'S' : 'N'); break;
@@ -921,6 +1169,7 @@ static void opt_value(int row, char *buf, int len, int *kind)
             break;
         }
         case 14: case 15: *kind = VK_ACTION; snprintf(buf, len, ">"); break;
+        case 16: snprintf(buf, len, "< %s >", opt_lang ? "English" : "italiano"); break;
     }
 }
 
@@ -948,6 +1197,7 @@ static void opt_change(int row, int dir, int big)
         case 11: P.lon100 = COERCE(P.lon100 + dir * (big ? 100 : 1), -18000, 18000); persist_touch(); break;
         case 12: P.tz_mode = tz_next(tz_valid(P.tz_mode) ? P.tz_mode : 0, dir * (big ? 4 : 1)); persist_touch(); break;
         case 13: opt_sqm10 = sqm_steps[COERCE(sqm_index() - dir, 0, (int)COUNT(sqm_steps) - 1)]; break;   /* destra = piu' buio */
+        case 16: opt_lang = !opt_lang; mine_sync_all(); break;            /* le descrizioni delle ricette nella lingua nuova */
     }
 }
 
@@ -958,8 +1208,8 @@ static void opt_activate(int row)
     opt_change(row, 1, 0);
 }
 
-static const char *const opt_heads[] = { "ASPETTO", 0, 0, "APERTURA DI IRIDE", 0, 0, 0, "SCATTO", 0, "LUOGO E ORA", 0, 0, 0, 0, "STRUMENTI", 0 };
-static const struct form opt_form = { 16, opt_labels, opt_value, opt_change, opt_activate, 0,
+static const char *const opt_heads[] = { "ASPETTO", 0, 0, "APERTURA DI IRIDE", 0, 0, 0, "SCATTO", 0, "LUOGO E ORA", 0, 0, 0, 0, "STRUMENTI", 0, "LINGUA" };
+static const struct form opt_form = { 17, opt_labels, opt_value, opt_change, opt_activate, 0,
     "^/v riga   </> cambia (ghiera superiore x100)   MENU indietro", 54, 42, opt_heads, 0, 0 };
 
 /* ------------------------------------------------------------------ diagnostica tasti */
@@ -1134,7 +1384,7 @@ static void draw_restore()
     for (int f = 0; f < MLF_COUNT; f++) if (P.ml_touched & (1 << f)) nml++;
     if (nml)
     {
-        snprintf(buf, sizeof(buf), "%d impostazion%s di Magic Lantern (HDR, overlay...)", nml, nml == 1 ? "e" : "i");
+        snprintf(buf, sizeof(buf), nml == 1 ? "%d impostazione di Magic Lantern (HDR, overlay...)" : "%d impostazioni di Magic Lantern (HDR, overlay...)", nml);
         RITEM(RI_ML, buf);
     }
     if (P.astro_tag) RITEM(RI_FILE, "Nomi dei file: di nuovo IMG_");
@@ -1223,6 +1473,8 @@ static const struct screen_def screens[SCR_COUNT] = {
     [SCR_MOON]     = { "Luna",                SCR_ASTRO, &moon_form,   0,             0,            moonshot_enter, moonshot_tick, 1000 },
     [SCR_WB]       = { "Bilanciamento del bianco", SCR_FOTO, &wb_form, 0,           0,            0,           0, 0 },
     [SCR_MWPLAN]   = { "Dove puntare",        SCR_ASTRO, 0,            draw_mwplan,   mwplan_key,   mwplan_enter, mwplan_tick, 1 },
+    [SCR_DARKS]    = { "Dark della sessione", SCR_HOME,  &dk_form,     0,             0,            0,           0, 0 },
+    [SCR_MYFILM]   = { "La tua pellicola",    SCR_SHELF, &my_form,     0,             0,            my_enter,    0, 0 },
 };
 
 /* titolo della schermata madre per il percorso nell'intestazione (NULL se non serve) */
@@ -1332,6 +1584,16 @@ static const char *help_text(int scr)
         case SCR_BENCH: return
             "Prova le parti di Iride su questa 6D e misura i tempi. SET avvia.\n"
             "Il risultato resta nella scheda, in ML/LOGS/IRIDEBEN.TXT: allegalo se qualcosa non va.";
+        case SCR_MYFILM: return
+            "Una ricetta tua partendo da una pellicola di Iride. ISO, stile, contrasto, saturazione, tonalita' e bianco li applica la 6D al JPEG.\n"
+            "Grana e vignettatura la 6D non le sa fare: finiscono nella scheda e nel preset per Lightroom/LightCraft.\n"
+            "Salva: ML/IRIDE/MIA1.TXT (2, 3, 4). Copiala a un amico o in un'altra 6D e usa Leggi.\n"
+            "Sul PC: python3 make_presets.py --ricetta MIA1.TXT cartella crea il preset XMP.";
+        case SCR_DARKS: return
+            "Le light sono finite: ora servono i dark, foto col tappo con la stessa posa e lo stesso ISO.\n"
+            "Farli subito vuol dire stessa temperatura del sensore: AstroStack li usa per togliere pixel caldi e bagliore.\n"
+            "Meglio dei dark della 6D (riduzione disturbo lunghe esposizioni): quella raddoppia ogni scatto e aggiunge rumore.\n"
+            "MENU: dopo. Non ora: la proposta sparisce.";
         case SCR_MOON: return
             "Esposizione per la Luna con la regola Looney 11 (f/11 a 1/ISO con la Luna piena), corretta per la fase e per l'altezza sull'orizzonte.\n"
             "Soggetto: la parte illuminata, o la luce cinerea (la parte scura rischiarata dalla Terra).\n"
@@ -1373,13 +1635,13 @@ static int wrap_lines(int font, int w, const char *s, int n)
 
 static void draw_help()
 {
-    const char *t = help_text(screen);
+    const char *t = tr(help_text(screen));
     if (!t) return;
     int x = 10, y = 52, w = SCR_W - 20, h = 386;
     fill_r(C_BG, x, y, w, h, R_CARD);
     ring_r(C_ACCENT, x, y, w, h, R_CARD, 2);
     char buf[64];
-    snprintf(buf, sizeof(buf), "Aiuto: %s", screens[screen].title);
+    snprintf(buf, sizeof(buf), "Aiuto: %s", tr(screens[screen].title));
     txt(FONT_MED, C_ACCENT, x + 18, y + 12, buf);
     /* testo medio se ci sta, altrimenti piccolo */
     int tw = w - 36, font = FONT_MED, lh = 25, need = 0;

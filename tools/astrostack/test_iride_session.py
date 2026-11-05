@@ -2,7 +2,7 @@
 import os
 import tempfile
 
-from iride_session import abbina_silenziosi, darks_for, find_sessions, load_folder, riepilogo
+from iride_session import abbina_silenziosi, darks_for, find_sessions, load_folder, piano_stack, riepilogo
 
 CSV = """# Iride 6D 1.2 - sessione del 2026-11-02
 # luogo 45.10 N 11.90 E, cielo del luogo 21.0 mag/arcsec2, fuso +60 min
@@ -34,6 +34,15 @@ def main():
         sil = abbina_silenziosi(["B:/DCIM/100CANON/7_0001.DNG"], sess)
         assert sil["7_0001.DNG"].iso == 1600
         print(riepilogo(sess[0]))
+        piano = piano_stack(d)
+        g20 = next(g for g in piano if g.exposure_s == 20.0)
+        assert [f.file for f in g20.light] == ["LGHT0101.CR2", "LGHT0102.CR2"]
+        assert [f.file for f in g20.dark] == ["DARK0103.CR2"]
+        assert any("solo 1 dark" in a for a in g20.avvisi) and any("flat" in a for a in g20.avvisi)
+        gs = next(g for g in piano if g.exposure_s == 2.0)
+        assert not gs.dark and any("silenzios" in a for a in gs.avvisi)
+        assert len(g20.migliori(0.5)) == 1
+        assert g20.come_dict()["dark"] == ["DARK0103.CR2"]
     print("ok")
 
 

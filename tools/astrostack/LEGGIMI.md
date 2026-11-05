@@ -10,6 +10,8 @@ Iride scrive un registro per ogni notte nella cartella delle foto (`DCIM/100CANO
 | `darks_for(light, scatti)` | i dark adatti a una light: stessa posa e ISO, temperatura entro 3 gradi |
 | `abbina_silenziosi(dng, sessioni)` | abbina i DNG degli scatti silenziosi alle righe del registro, in ordine |
 | `riepilogo(sessione)` | "IS261102.CSV: 120 LGHT, 30 DARK, 20-24 gradi" |
+| `piano_stack(cartella)` | gli stack già pronti: light con la stessa posa, ISO e focale, con dark alla stessa temperatura, flat della stessa focale, bias dello stesso ISO e gli avvisi su quello che manca |
+| `gruppo.migliori(0.9)` | il 90 % delle light col cielo migliore (magnitudine limite alta, Luna bassa) |
 
 ## Dove collegarlo in AstroStack
 
@@ -19,4 +21,19 @@ Iride scrive un registro per ogni notte nella cartella delle foto (`DCIM/100CANO
 
 Senza registro AstroStack continua a funzionare come prima.
 
-Prova veloce: `python iride_session.py cartella_delle_foto`
+Prova veloce: `python iride_session.py cartella_delle_foto` (con `--json` il piano di stacking per AstroStack).
+
+### Esempio in AstroStack
+
+```python
+from iride_session import piano_stack
+
+for g in piano_stack(cartella):
+    lights = [os.path.join(cartella, f.file) for f in g.migliori(0.9)]
+    darks = [os.path.join(cartella, f.file) for f in g.dark]
+    for a in g.avvisi:
+        log.warning(a)              # "nessun flat a questa focale", "solo 6 dark"...
+    pipeline.stack(lights, darks=darks)
+```
+
+I dark fatti da Iride a fine sessione (1.6) hanno già posa, ISO e temperatura giuste: `piano_stack` li abbina da solo.

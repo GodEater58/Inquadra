@@ -1,5 +1,19 @@
 # Novità
 
+## 1.6 – 5 novembre 2026
+- **Dark a fine sessione**: finita una serie di light (Via Lattea, Deep sky, Star trails), alla prossima apertura Iride propone i dark con la stessa posa e lo stesso ISO, da fare subito col tappo, quando il sensore è ancora alla stessa temperatura. Mostra la temperatura di adesso e quella delle light e avvisa se il sensore si è scaldato. *Non ora* toglie la proposta
+- **Avviso della riduzione disturbo lunghe esposizioni (LENR)**: Magic Lantern non ne conosce la proprietà, così Iride la riconosce dal tempo dello scatto (una posa da 8 s che tiene occupata la macchina per 16). Con la LENR accesa ogni scatto dura il doppio: Iride lo dice con tre bip e un avviso, lo scrive nel registro e lo ricorda nella scheda dell'intervallometro. Sotto i 4 s non giudica (niente falsi allarmi)
+- **Le tue pellicole (ricette)**: nuova scheda **MIE** nello scaffale. Da qualunque pellicola, SET → *La tua versione* crea una copia da cambiare: ISO, stile, contrasto, saturazione, tonalità e bianco (li applica la 6D al JPEG), grana e vignettatura (per il preset del PC) e colore della scatola. Fino a 4 ricette; se il rullino è nella macchina la 6D segue le modifiche subito
+  - **scheda sulla SD**: *Salva* scrive `ML/IRIDE/MIA1.TXT`, un testo semplice da condividere; *Leggi* carica la scheda di un amico (anche scritta a mano)
+  - sul PC `presets/make_presets.py --ricetta MIA1.TXT cartella` la trasforma in un preset XMP completo (pellicola di partenza + modifiche + grana e vignettatura)
+- **Interfaccia in inglese**: Opzioni › *Lingua / Language*. Menu, righe, valori, avvisi e aiuti di Iride in inglese (circa 800 testi); i registri sulla scheda restano in italiano, così AstroStack li legge sempre. Le traduzioni stanno in `tools/i18n/en.py`
+- **Giorno-notte**: durante la sequenza la barra in alto mostra tempo e ISO, per vedere la rampa dell'esposizione di Magic Lantern
+- **AstroStack**: `piano_stack()` raggruppa le light per posa, ISO e focale e sceglie dark (stessa temperatura), flat e bias, con gli avvisi su quello che manca; `python3 iride_session.py cartella --json` dà il piano già pronto
+- **Release con un clic**: Actions › Build › *Run workflow* con *Pubblica la release* compila, crea il tag della versione scritta in `iride.c` e pubblica la release con le note del CHANGELOG
+- **Prova sulla 6D vera**: lista da spuntare in [docs/PROVA_6D.md](docs/PROVA_6D.md), anche nel pacchetto SD (`PROVA_6D.txt`)
+- Demo nel browser: in Live View si vede il cielo con una stella sfocata, e *Fuoco stelle* la mette a fuoco davvero (a mano o con Q); **PLAY** rivede le foto scattate, con nome del file, pellicola, ISO e bianco del rullino
+- Simulatore: 30 test nuovi (211): LENR, dark a fine sessione, ricette e schede, inglese su tutte le schermate senza testi fuori dallo schermo
+
 ## 1.5.2 – 5 novembre 2026
 - **Corretto il tema "notte in Astro"**: le schermate *Luna da fotografare* e *Dove puntare* (aggiunte nella 1.2) restavano bianche e arancioni invece che rosse, e di notte rovinavano l'adattamento al buio. Un test nuovo controlla che tutte le schermate di Astro diventino rosse
 - Demo nel browser:

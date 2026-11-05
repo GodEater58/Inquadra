@@ -306,10 +306,12 @@
       <h3>COSA PROVARE</h3>
       <ul>
         <li><b>Astro</b>: Polare, Luna e calendario del cielo con l'ora del tuo computer</li>
-        <li><b>Rullini</b>: scegli la pellicola, SET, guarda il caricamento</li>
+        <li><b>Rullini</b>: scegli la pellicola, SET, guarda il caricamento; <i>La tua versione</i> crea una pellicola tua (scheda MIE)</li>
+        <li><b>Astro › Fuoco stelle</b>: START/STOP accende il Live View, la stella e' sfocata; frecce o Q la mettono a fuoco</li>
+        <li><b>Mezzo scatto</b> per scattare, <b>PLAY</b> per rivedere le foto del rullino</li>
         <li><b>Foto › Bilanciamento bianco</b>: il tasto WB che manca alla 6D</li>
         <li><b>Profili</b>: Ritratto, Paesaggio, Street, Sport, Notte</li>
-        <li><b>Opzioni</b>: tema notte rosso, animazioni, luogo</li>
+        <li><b>Opzioni</b>: tema notte rosso, animazioni, luogo, <b>Lingua / Language</b> (English)</li>
       </ul>
     </div>
     <div class="card">
@@ -353,12 +355,19 @@
   let started = false;
 
   window.Module = {
-    iridePresent(ptr) {
+    iridePresent(ptr, lv) {
       if (!started) { started = true; document.getElementById('loading').style.display = 'none'; }
       const h = Module.HEAPU8;
       for (let y = 0; y < 480; y++) {
-        const s = ptr + y * 960, d = y * 720;
-        for (let x = 0; x < 720; x++) px[d + x] = PAL[h[s + x]];
+        const s = ptr + y * 960, d = y * 720, l = lv + y * 1440 + 1;
+        if (lv) {
+          /* pixel trasparenti di Iride: sotto c'e' il Live View (luminanza del cielo finto) */
+          for (let x = 0; x < 720; x++) {
+            const c = h[s + x];
+            if (c) px[d + x] = PAL[c];
+            else { const g = h[l + 2 * x]; px[d + x] = 0xFF000000 | (g << 16) | (g << 8) | g; }
+          }
+        } else for (let x = 0; x < 720; x++) px[d + x] = PAL[h[s + x]];
       }
       ctx.putImageData(img, 0, 0);
     },

@@ -563,14 +563,18 @@ static const struct menu_row foto_rows[] = {
 
 static int job_index = 0, job_total = 0;
 static const char *job_name = "";
+static int job_show_expo = 0;            /* giorno-notte: si vede la rampa dell'esposizione */
 
 static void job_overlay(const char *state)
 {
     int b = cam_battery();
-    char bt[16] = "";
+    char bt[16] = "", ex[32] = "";
     if (b >= 0) snprintf(bt, sizeof(bt), "  batt %d%%", b);
-    bmp_printf(FONT(FONT_MED, COLOR_WHITE, COLOR_BLACK), 10, 10, " IRIDE  %s  %d/%d  %s%s   [cestino = stop] ",
-        job_name, job_index, job_total, state, bt);
+    if (job_show_expo && lens_info.raw_shutter)
+        snprintf(ex, sizeof(ex), "  %s ISO %s", lens_format_shutter(lens_info.raw_shutter),
+                 lens_info.raw_iso ? lens_format_iso(lens_info.raw_iso) : "Auto");
+    bmp_printf(FONT(FONT_MED, COLOR_WHITE, COLOR_BLACK), 10, 10, opt_lang ? " IRIDE  %s  %d/%d  %s%s%s   [trash = stop] " : " IRIDE  %s  %d/%d  %s%s%s   [cestino = stop] ",
+        tr(job_name), job_index, job_total, tr(state), ex, bt);
 }
 
 static int job_wait(int seconds, const char *what)
@@ -578,7 +582,7 @@ static int job_wait(int seconds, const char *what)
     for (int s = seconds; s > 0; s--)
     {
         char st[32];
-        snprintf(st, sizeof(st), "%s %ds", what, s);
+        snprintf(st, sizeof(st), "%s %ds", tr(what), s);
         job_overlay(st);
         for (int k = 0; k < 10; k++)
         {
@@ -601,6 +605,24 @@ static int wait_file_saved(int fn0)
     return MOD(fn0, 9999) + 1;
 }
 
+/* Riduzione disturbo lunghe esposizioni (LENR) della 6D: dopo ogni posa da 1 s in su la macchina
+   fa un dark lungo quanto la posa e resta occupata. In astro raddoppia i tempi e i dark fatti a parte
+   funzionano meglio. ML non ne conosce la proprieta': la si riconosce dal tempo dello scatto. */
+
+static int lenr_suspect(int elapsed_ms, float expo_s)
+{
+    if (expo_s < LENR_MIN_S) return 0;
+    return elapsed_ms > (int)(expo_s * 1600.0f) + 1500;
+}
+
+/* aspetta che la macchina sia libera (fine posa + eventuale LENR) e dice quanto e' durato lo scatto */
+static int shot_busy_ms(int t0, float expo_s)
+{
+    int lim = (int)(expo_s * 2000.0f) + 8000;
+    while (lens_info.job_state && get_ms_clock() - t0 < lim && !job_abort && !ml_shutdown_requested) msleep(50);
+    return get_ms_clock() - t0;
+}
+
 static void seq_run()
 {
     int preset = COERCE(P.int_preset, 0, NUM_PRESETS - 1);
@@ -616,6 +638,7 @@ static void seq_run()
     const char *why = 0;                         /* perche' si e' fermata prima della fine */
     prefix_refresh();
 
+    job_show_expo = is_hg;
     if (is_hg) { ml_set(MLF_AUTOEXPO, 1); ml_set(MLF_DEFLICK, 1); }
     if (silent)
     {
@@ -642,6 +665,7 @@ static void seq_run()
             job_overlay("scatto");
             int fn0 = current_file_number();
             float t = bulb > 0 ? (float)bulb : raw2shutterf(lens_info.raw_shutter);
+            int t0 = get_ms_clock();
             if (bulb > 0)
             {
                 if (bulb_take_pic(bulb * 1000)) { job_abort = 1; break; }
@@ -649,6 +673,17 @@ static void seq_run()
             else if (silent) take_a_pic(AF_DISABLE);
             else lens_take_picture(64 + 2 * (int)t, AF_DISABLE);
             done++;
+            /* le prime due pose lunghe dicono se la LENR e' accesa (il silenzioso non la usa) */
+            if (!silent && done <= 2 && t >= LENR_MIN_S && lenr_suspect(shot_busy_ms(t0, t), t))
+            {
+                if (!lenr_seen)
+                {
+                    lenr_seen = 1;
+                    log_line("AVVISO,LENR accesa: ogni posa lunga raddoppia");
+                    beep_times(3);
+                    NotifyBox(8000, "Iride: riduzione disturbo lunghe esposizioni ACCESA: ogni scatto dura il doppio");
+                }
+            }
             session_frame(silent ? 0 : wait_file_saved(fn0), seq_tag, t, silent, "intervallometro");
             if (i < job_total - 1)
             {
@@ -660,16 +695,29 @@ static void seq_run()
         if (screen_off) display_on();
         if (is_bias) lens_set_rawshutter(saved_shutter);
     }
+    job_show_expo = 0;
     if (is_hg) { ml_restore(MLF_AUTOEXPO); ml_restore(MLF_DEFLICK); }
     if (opt_silent) { ml_restore(MLF_SILENT_MODE); ml_restore(MLF_SILENT); }
+
+    /* dopo una serie di light: Iride, alla prossima apertura, propone i dark uguali */
+    if (seq_tag == 1 && done >= 2 && !silent && !is_hg)
+    {
+        dark_offer = 1;
+        dark_offer_bulb = bulb;
+        dark_offer_shutter = lens_info.raw_shutter;
+        dark_offer_iso = lens_info.raw_iso;
+        dark_offer_n = COERCE(done, 10, 30);
+        dark_offer_temp = cam_temp_c();
+    }
+    else if (seq_tag == 2) dark_offer = 0;        /* dark fatti */
 
     char line[128];
     snprintf(line, sizeof(line), "ASTRO,%s,%s,%d,%d,%d,%s,%s", ps->name, tag_names[seq_tag], done, job_total, bulb,
              silent ? "silenzioso" : "meccanico", why ? why : (job_abort ? "interrotta" : "finita"));
     log_line(line);
     beep_times(2);
-    if (why) NotifyBox(8000, "Iride: %s fermata, %s: %d/%d scatti", ps->name, why, done, job_total);
-    else NotifyBox(6000, "Iride: %s %s, %d/%d scatti", ps->name, job_abort ? "interrotta" : "finita", done, job_total);
+    if (why) NotifyBox(8000, "Iride: %s fermata, %s: %d/%d scatti", tr(ps->name), tr(why), done, job_total);
+    else NotifyBox(6000, "Iride: %s %s, %d/%d scatti", tr(ps->name), tr(job_abort ? "interrotta" : "finita"), done, job_total);
 }
 
 static void bulb_run()

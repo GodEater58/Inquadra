@@ -182,7 +182,7 @@ EM_JS(void, js_opts_save, (const int *o, int n), { try { localStorage.setItem("i
 EM_JS(int, js_opts_load, (int *o, int n), { try { const a = JSON.parse(localStorage.getItem("iride.opts") || "null"); if (!a || a.length != n) return 0;
                                                    for (let i = 0; i < n; i++) HEAP32[(o >> 2) + i] = a[i]; return 1; } catch (e) { return 0; } });
 static int *const web_opts[] = { &opt_theme, &opt_anim, &opt_splash, &opt_boot_open, &opt_trash_open, &opt_light_key, &opt_set_wb,
-                                 &opt_review_off, &opt_wind, &opt_sqm10, &opt_session, &opt_silent, &opt_dither_n, &opt_dither_s };
+                                 &opt_review_off, &opt_wind, &opt_sqm10, &opt_session, &opt_silent, &opt_dither_n, &opt_dither_s, &opt_lang };
 #define WEB_NOPTS ((int)COUNT(web_opts))
 static int web_opts_last[WEB_NOPTS];
 static void web_opts_sync(int load)
@@ -195,7 +195,7 @@ static void web_opts_sync(int load)
 
 /* ------------------------------------------------------------------ schermo */
 
-EM_JS(void, js_present, (const uint8_t *vram), { if (Module.iridePresent) Module.iridePresent(vram); });
+EM_JS(void, js_present, (const uint8_t *vram, const uint8_t *lv), { if (Module.iridePresent) Module.iridePresent(vram, lv); });
 EM_JS(int, js_pop_key, (), { return Module.iridePopKey ? Module.iridePopKey() : -1; });
 EM_JS(void, js_state, (int open, int live, int screen_id), { if (Module.irideState) Module.irideState(open, live, screen_id); });
 
@@ -204,11 +204,14 @@ static void web_deliver(int key);
 
 static void web_present(void)
 {
-    js_present(vram_a + 30 * 960);
+    /* Live View dietro i pixel trasparenti: il cielo con la stella si vede in Fuoco stelle */
+    int show_lv = lv && !sim_play && (!app_running || screen == SCR_STARS);
+    js_present(vram_a + 30 * 960, show_lv ? lvbuf : 0);
     js_state(app_running, lv, screen);
 }
 
 static void web_shooting_screen(void);
+static void web_play_screen(void);
 static int web_last_shoot_draw = 0;
 
 void web_sleep(int ms)
@@ -219,7 +222,7 @@ void web_sleep(int ms)
     if (!app_running && job_running == JOB_NONE && now - web_last_shoot_draw > 150)
     {
         web_last_shoot_draw = now;
-        web_shooting_screen();
+        if (sim_play) web_play_screen(); else web_shooting_screen();
     }
     if (now - web_last_present >= 16) { web_last_present = now; web_present(); }
     emscripten_sleep(ms > 0 ? ms : 1);
@@ -276,9 +279,33 @@ static int web_raw_param(int key)
 static int web_canon_msg_until = 0;
 static const char *web_canon_msg = "";
 
+/* ------------------------------------------------------------------ foto scattate (per PLAY) */
+
+struct web_shot { int fn, film, roll, iso, kelvin, style, contrast; char pre[8]; };
+#define WEB_SHOTS 48
+static struct web_shot web_shots[WEB_SHOTS];
+static int web_nshots = 0, web_play_i = 0;
+
+static void web_play_keys(int key)
+{
+    int n = MIN(web_nshots, WEB_SHOTS);
+    switch (key)
+    {
+        case MODULE_KEY_PLAY: case MODULE_KEY_MENU: case MODULE_KEY_PRESS_HALFSHUTTER:
+            sim_play = 0; return;
+        case MODULE_KEY_PRESS_LEFT: case MODULE_KEY_WHEEL_LEFT: case MODULE_KEY_WHEEL_UP:
+            if (n) web_play_i = MAX(web_play_i - 1, 0); return;
+        case MODULE_KEY_PRESS_RIGHT: case MODULE_KEY_WHEEL_RIGHT: case MODULE_KEY_WHEEL_DOWN:
+            if (n) web_play_i = MIN(web_play_i + 1, n - 1); return;
+        case MODULE_KEY_TRASH:
+            web_canon_msg = "Qui la 6D chiederebbe se cancellare la foto"; web_canon_msg_until = web_ms() + 2500; return;
+    }
+}
+
 static void web_deliver(int key)
 {
     static struct event ev;
+    if (sim_play) { web_play_keys(key); return; }          /* in riproduzione i tasti sono di Canon */
     memset(&ev, 0, sizeof(ev));
     ev.param = web_raw_param(key);
     key_fake = 0;
@@ -300,7 +327,10 @@ static void web_deliver(int key)
         if (key == MODULE_KEY_MENU) { web_canon_msg = "Il menu Canon non e' nella demo"; web_canon_msg_until = web_ms() + 2500; }
         if (key == MODULE_KEY_TRASH) { web_canon_msg = "Il menu di Magic Lantern non e' nella demo"; web_canon_msg_until = web_ms() + 2500; }
         if (key == MODULE_KEY_PRESS_SET) { web_canon_msg = "SET: in Opzioni puoi farlo aprire il bianco"; web_canon_msg_until = web_ms() + 2500; }
-        if (key == MODULE_KEY_PLAY) { web_canon_msg = "La riproduzione delle foto non e' nella demo"; web_canon_msg_until = web_ms() + 2500; }
+        if (key == MODULE_KEY_PLAY)
+        {
+            sim_play = 1; web_play_i = MAX(MIN(web_nshots, WEB_SHOTS) - 1, 0);
+        }
     }
 }
 
@@ -313,17 +343,8 @@ static void web_shooting_screen(void)
 {
     to_idle = 0;
     uint8_t *b = bmp_vram();
-    for (int y = 0; y < 480; y++) memset(b + y * 960, lv ? 2 : COLOR_GRAY(6), 720);
-    if (lv)
-    {
-        /* "Live View": un cielo con qualche stella */
-        for (int i = 0; i < 160; i++)
-        {
-            unsigned h = (unsigned)i * 2654435761u;
-            int x = (int)(h % 720), y = (int)((h >> 10) % 400) + 40;
-            web_put(b, x, y, i % 7 ? COLOR_GRAY(20 + i % 20) : COLOR_WHITE);
-        }
-    }
+    /* in Live View lo sfondo e' trasparente: sotto la pagina mette il cielo con la stella */
+    for (int y = 0; y < 480; y++) memset(b + y * 960, lv ? 0 : COLOR_GRAY(6), 720);
     char line[96];
     int a10 = web_raw2ap(lens_info.raw_aperture);
     snprintf(line, sizeof(line), "%s   %s   f/%d.%d   ISO %s", get_shootmode_name_short(shooting_mode),
@@ -337,7 +358,7 @@ static void web_shooting_screen(void)
         web_text(FONT(FONT_MED, COLOR_ORANGE, 0xFF), 360 - web_str_width(2, line) / 2, 200, line);
     }
     const char *h1 = "CESTINO o LUCE LCD: apri Iride";
-    const char *h2 = "LV: Live View    MEZZO SCATTO: scatta una foto";
+    const char *h2 = "LV: Live View   MEZZO SCATTO: foto   PLAY: rivedi";
     web_text(FONT(FONT_MED, COLOR_WHITE, 0xFF), 360 - web_str_width(2, h1) / 2, 300, h1);
     web_text(FONT(FONT_MED, COLOR_GRAY(30), 0xFF), 360 - web_str_width(2, h2) / 2, 334, h2);
     if (web_ms() < web_canon_msg_until)
@@ -355,8 +376,74 @@ static void web_shooting_screen(void)
 /* mezzo scatto a Iride chiusa: una "foto" (il contatore Canon avanza, il rullino conta) */
 EMSCRIPTEN_KEEPALIVE void web_shoot(void)
 {
-    if (app_running) return;
+    if (app_running || sim_play) return;
     card.file_number = card.file_number % 9999 + 1;
+    if (web_nshots >= WEB_SHOTS) { memmove(web_shots, web_shots + 1, sizeof(web_shots[0]) * (WEB_SHOTS - 1)); web_nshots = WEB_SHOTS - 1; }
+    struct web_shot *s = &web_shots[web_nshots++];
+    s->fn = card.file_number;
+    s->roll = P.roll_loaded && !P.roll_paused;
+    s->film = P.roll_film;
+    s->iso = lens_info.raw_iso;
+    s->kelvin = lens_info.wb_mode == WB_KELVIN ? lens_info.kelvin : 0;
+    s->style = s->roll ? films[s->film].style : PS_STD;
+    s->contrast = s->roll ? films[s->film].contrast : 0;
+    snprintf(s->pre, sizeof(s->pre), "%s", sim_prefix);
+}
+
+/* una "foto": paesaggio al tramonto disegnato con la tavolozza di ML, diverso per ogni scatto,
+   col carattere del rullino (contrasto, bianco caldo o freddo, bianco e nero) */
+static void web_play_screen(void)
+{
+    to_idle = 0;
+    uint8_t *b = bmp_vram();
+    int n = MIN(web_nshots, WEB_SHOTS);
+    for (int y = 0; y < 480; y++) memset(b + y * 960, COLOR_BLACK, 720);
+    if (!n)
+    {
+        const char *t = "Nessuna foto: premi PLAY per uscire, poi MEZZO SCATTO per scattare";
+        web_text(FONT(FONT_MED, COLOR_WHITE, 0xFF), 360 - web_str_width(2, t) / 2, 220, t);
+        return;
+    }
+    web_play_i = COERCE(web_play_i, 0, n - 1);
+    struct web_shot *s = &web_shots[web_play_i];
+    unsigned h = (unsigned)s->fn * 2654435761u;
+    int bw = s->roll && films[s->film].style == PS_MONO;
+    int c = COERCE(s->contrast, -4, 4);
+    int k = s->kelvin ? s->kelvin : 5200;
+    /* cielo: gradiente di grigi, piu' ampio col contrasto alto */
+    int top = 52 + c * 3, bot = 92 - c, horizon = 250 + (int)(h % 60);
+    for (int y = 0; y < 410; y++)
+    {
+        int g = top + (bot - top) * MIN(y, horizon) / MAX(horizon, 1);
+        memset(b + y * 960 + 0, COLOR_GRAY(COERCE(g, 0, 100)), 720);
+    }
+    /* sole: caldo o freddo secondo il bianco della pellicola */
+    int sx = 120 + (int)((h >> 8) % 480), sy = horizon - 40 - (int)((h >> 16) % 80);
+    int sun = bw ? COLOR_WHITE : k < 4500 ? COLOR_LIGHT_BLUE : k > 6000 ? COLOR_ORANGE : COLOR_YELLOW;
+    web_fill_circle(sx, sy, 34, COLOR_GRAY(COERCE(bot + 4, 0, 100)));
+    web_fill_circle(sx, sy, 24, sun);
+    /* colline e prato */
+    for (int x = 0; x < 720; x++)
+    {
+        int hy = horizon + (int)(18.0f * sinf((float)x * 0.013f + (float)(h % 7))) + (int)(10.0f * sinf((float)x * 0.041f));
+        int g1 = COERCE(26 - c * 3, 2, 60);
+        for (int y = hy; y < 410; y++)
+            web_put(b, x, y, y < hy + 4 ? COLOR_GRAY(g1 + 12) : COLOR_GRAY(COERCE(g1 - (y - hy) / 12, 0, 100)));
+    }
+    /* barra delle informazioni, come in riproduzione */
+    bmp_fill(COLOR_BLACK, 0, 410, 720, 70);
+    char line[128], name[24];
+    snprintf(name, sizeof(name), "%s%04d.CR2", s->pre, s->fn % 10000);
+    const char *iso = s->iso ? lens_format_iso(s->iso) : "Auto";
+    if (s->roll)
+        snprintf(line, sizeof(line), "%s   %s %s   ISO %s   %d K   %s", name, films[s->film].brand, films[s->film].name, iso, k, style_name(s->style));
+    else
+        snprintf(line, sizeof(line), "%s   ISO %s   %s", name, iso, s->kelvin ? "bianco in K" : "bianco auto");
+    web_text(FONT(FONT_MED, COLOR_WHITE, 0xFF), 16, 418, line);
+    snprintf(line, sizeof(line), "foto %d di %d   </> sfoglia   PLAY o mezzo scatto: esci", web_play_i + 1, n);
+    web_text(FONT(FONT_MED, COLOR_GRAY(40), 0xFF), 16, 448, line);
+    if (web_ms() < web_canon_msg_until)
+        web_text(FONT(FONT_MED, COLOR_YELLOW, 0xFF), 360 - web_str_width(2, web_canon_msg) / 2, 40, web_canon_msg);
 }
 
 /* ------------------------------------------------------------------ avvio */
@@ -372,7 +459,8 @@ int main(void)
     lens_info.raw_aperture_min = 40; lens_info.raw_aperture_max = 80;      /* f/4 - f/22 */
     lens_info.iso = 400;
     menu_open = 0; app_running = 0; gui_state = 0; lv = 0;
-    make_sky(1.8f, 34.0f, 360, 240);                    /* una stella per Fuoco sulle stelle */
+    /* obiettivo finto: la stella parte sfocata, Fuoco stelle (a mano o con Q) la mette a fuoco */
+    sim_af = 1; sim_fpos = sim_fmot = 0; sim_fbest = 22; sim_focus_sky();
     web_load_file("IRIDE.DAT"); web_load_file("IRIDE.BAK");
     web_opts_sync(1);
     iride_init();

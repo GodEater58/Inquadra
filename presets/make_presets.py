@@ -2,6 +2,7 @@
 """Genera i preset XMP (crs:) delle pellicole di Iride 6D e un'anteprima indicativa.
 
 Uso: make_presets.py OUT_DIR [IMMAGINE ...]
+     make_presets.py --ricetta MIA1.TXT [MIA2.TXT ...] OUT_DIR   (ricette fatte sulla 6D)
 """
 import os
 import sys
@@ -111,7 +112,83 @@ def fname(f, idx):
     return f"Iride {idx + 1:02d} - {safe}.xmp"
 
 
+# ------------------------------------------------------------------ ricette fatte sulla 6D (ML/IRIDE/MIAn.TXT)
+
+GRAIN = [(0, 0, 0), (15, 20, 40), (30, 28, 50), (50, 40, 60)]   # nessuna, leggera, media, forte
+VIGNETTE = [0, -10, -20, -35]
+
+
+def read_card(path):
+    """Scheda di una ricetta: righe "chiave: valore"."""
+    with open(path, encoding="utf-8", errors="replace") as fh:
+        lines = fh.read().replace("\r", "").split("\n")
+    if not lines or not lines[0].startswith("IRIDE RICETTA"):
+        raise ValueError(f"{path}: non e' una scheda di Iride")
+    card = {}
+    for ln in lines[1:]:
+        if ":" in ln:
+            k, v = ln.split(":", 1)
+            card[k.strip().lower()] = v.strip()
+    return card
+
+
+def _int(card, key, default=0, lo=-99999, hi=99999):
+    try:
+        return max(lo, min(hi, int(card.get(key, default))))
+    except ValueError:
+        return default
+
+
+def recipe_film(card):
+    """Pellicola di partenza + modifiche della ricetta, nel formato di films.py."""
+    import copy
+    base_txt = card.get("base", "").lower()
+    matches = [f for f in FILMS if f["name"].lower() in base_txt]
+    if not matches:
+        raise ValueError(f"pellicola di partenza sconosciuta: {card.get('base')!r}")
+    base = max(matches, key=lambda f: len(f["name"]))
+    f = copy.deepcopy(base)
+    c, s, t = _int(card, "contrasto", 0, -4, 4), _int(card, "saturazione", 0, -4, 4), _int(card, "tonalita", 0, -4, 4)
+    f["light"]["Contrast2012"] = f["light"].get("Contrast2012", 0) + 8 * c
+    col = f.setdefault("color", {})
+    col["Saturation"] = max(-100, min(100, col.get("Saturation", 0) + 8 * s))
+    if t:   # tonalita' Canon: + verso il giallo, - verso il rosso (pelle)
+        hsl = f.setdefault("hsl", {})
+        for band, k in (("Red", 3), ("Orange", 4)):
+            h, sa, lu = hsl.get(band, (0, 0, 0))
+            hsl[band] = (h + k * t, sa, lu)
+    if card.get("stile", "").lower().startswith("monocromo") and not f.get("bw"):
+        f["bw"] = True
+        f["mix"] = {}
+    f["grain"] = GRAIN[_int(card, "grana", 0, 0, 3)]
+    f["vignette"] = VIGNETTE[_int(card, "vignetta", 0, 0, 3)]
+    nome = card.get("nome", "MIA")
+    f["brand"] = f"Iride {nome}"
+    f["name"] = f"da {base['brand']} {base['name']}"
+    f["iso"] = _int(card, "iso", base["iso"], 50, 25600)
+    f["desc"] = f"Ricetta {nome}: contrasto {c:+d}, saturazione {s:+d}, tonalita' {t:+d}"
+    f["use"] = f"partita da {base['brand']} {base['name']}"
+    return f
+
+
+def recipe_main(cards, out):
+    os.makedirs(out, exist_ok=True)
+    for i, path in enumerate(cards):
+        f = recipe_film(read_card(path))
+        stem = os.path.splitext(os.path.basename(path))[0].upper()
+        p = os.path.join(out, f"Iride {stem} - {f['name'].replace('/', '-')}.xmp")
+        with open(p, "w", encoding="utf-8") as fh:
+            fh.write(xmp(f, 50 + i))
+        print(p)
+
+
 def main():
+    if "--ricetta" in sys.argv:
+        args = [a for a in sys.argv[1:] if a != "--ricetta"]
+        if len(args) < 2:
+            sys.exit("Uso: make_presets.py --ricetta MIA1.TXT [MIA2.TXT ...] CARTELLA")
+        recipe_main(args[:-1], args[-1])
+        return
     out = sys.argv[1]
     os.makedirs(out, exist_ok=True)
     files = []

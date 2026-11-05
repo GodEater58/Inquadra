@@ -1,8 +1,8 @@
 /* film.inc - pellicole, rullino (carica, pausa, riprendi, riavvolgi, push/pull),
  * contatore delle pose, contatore nel Live View, disegno e animazioni dei rullini */
 
-enum { CAT_COLOR, CAT_SLIDE, CAT_BW, CAT_CINE, CAT_COUNT };
-static const char *const cat_names[CAT_COUNT] = { "COLORE", "DIA", "B/N", "CINE" };
+enum { CAT_COLOR, CAT_SLIDE, CAT_BW, CAT_CINE, CAT_MINE, CAT_COUNT };
+static const char *const cat_names[CAT_COUNT] = { "COLORE", "DIA", "B/N", "CINE", "MIE" };
 
 struct film
 {
@@ -14,7 +14,7 @@ struct film
 };
 
 /* approssimazione del carattere della pellicola sul JPEG: il RAW resta neutro */
-static const struct film films[] = {
+static struct film films[] = {
     { "KODAK",    "Portra 160",
         "Grana finissima, colori tenui, pelle naturale", "Ritratti e moda con tanta luce o col flash",
         CAT_COLOR, 160,  "C-41", PS_PORTRAIT,  -1, -1,  0, 5200, COLOR_ALMOST_WHITE, COLOR_ORANGE,   COLOR_BLACK },
@@ -63,8 +63,98 @@ static const struct film films[] = {
     { "CINESTILL","50D",
         "Cinema diurna, grana finissima, colori puliti", "Sole e paesaggi; lievi aloni sulle luci forti",
         CAT_CINE,  50,   "C-41", PS_STD,        1,  1,  0, 5500, COLOR_LIGHT_BLUE,   COLOR_GRAY(20), COLOR_WHITE },
+    /* le pellicole tue (ricette): riempite da mine_sync() con i valori salvati in P */
+#define MINE_SLOT { "MIA", "", "", "", CAT_MINE, 400, "C-41", PS_STD, 0, 0, 0, 5200, COLOR_GRAY(50), COLOR_WHITE, COLOR_BLACK }
+    MINE_SLOT, MINE_SLOT, MINE_SLOT, MINE_SLOT,
 };
 #define NUM_FILMS ((int)COUNT(films))
+#define NUM_MINE 4
+#define NUM_BASE_FILMS (NUM_FILMS - NUM_MINE)
+
+/* ------------------------------------------------------------------ pellicole tue (ricette)
+
+   Una ricetta parte da una pellicola di Iride e cambia ISO, stile, contrasto, saturazione, tonalita'
+   e bianco (quello che la 6D mette nel JPEG), piu' grana e vignettatura per il preset del PC.
+   Due interi per ricetta nello spazio riservato di IRIDE.DAT: niente cambio di formato, e una
+   versione vecchia di Iride che riscrive il file le lascia dove sono. */
+#define mine_a(i) reserved[2 + 2 * (i)]
+#define mine_b(i) reserved[3 + 2 * (i)]
+
+struct mine
+{
+    int used, base, iso, style, contrast, saturation, tone, kelvin, grain, vignette, box;
+};
+
+static const int mine_styles[] = { PS_STD, PS_PORTRAIT, PS_LANDSCAPE, PS_NEUTRAL, PS_FAITHFUL, PS_MONO };
+static const int mine_boxes[] = { 0, COLOR_ORANGE, COLOR_YELLOW, COLOR_RED, COLOR_DARK_RED, COLOR_GREEN2, COLOR_LIGHT_BLUE,
+    COLOR_BLUE, COLOR_ALMOST_WHITE, COLOR_GRAY(70), COLOR_GRAY(20) };   /* 0 = come la pellicola di partenza */
+static const char *const mine_box_names[] = { "come l'originale", "arancio", "giallo", "rosso", "bordeaux", "verde",
+    "azzurro", "blu", "bianco", "argento", "nero" };
+static const char *const mine_fx_names[] = { "nessuna", "leggera", "media", "forte" };
+static char mine_brand[NUM_MINE][8], mine_desc[NUM_MINE][64], mine_use[NUM_MINE][64];
+
+static int mine_style_index(int id)
+{
+    for (int i = 0; i < (int)COUNT(mine_styles); i++) if (mine_styles[i] == id) return i;
+    return 0;
+}
+
+static void mine_get(int i, struct mine *m)
+{
+    int a = P.mine_a(i), b = P.mine_b(i);
+    m->used = a & 1;
+    m->base = COERCE((a >> 1) & 31, 0, NUM_BASE_FILMS - 1);
+    m->iso = COERCE((a >> 6) & 8191, 50, 6400);
+    m->style = mine_styles[COERCE((a >> 19) & 15, 0, (int)COUNT(mine_styles) - 1)];
+    m->box = COERCE((a >> 23) & 15, 0, (int)COUNT(mine_boxes) - 1);
+    m->contrast = COERCE((b & 15) - 8, -4, 4);
+    m->saturation = COERCE(((b >> 4) & 15) - 8, -4, 4);
+    m->tone = COERCE(((b >> 8) & 15) - 8, -4, 4);
+    m->kelvin = COERCE(((b >> 12) & 127) * 100, 2500, 10000);
+    m->grain = (b >> 19) & 3;
+    m->vignette = (b >> 21) & 3;
+}
+
+static void mine_put(int i, const struct mine *m)
+{
+    P.mine_a(i) = (m->used & 1) | (COERCE(m->base, 0, 31) << 1) | (COERCE(m->iso, 50, 6400) << 6) |
+                  (mine_style_index(m->style) << 19) | (COERCE(m->box, 0, (int)COUNT(mine_boxes) - 1) << 23);
+    P.mine_b(i) = (COERCE(m->contrast, -4, 4) + 8) | ((COERCE(m->saturation, -4, 4) + 8) << 4) |
+                  ((COERCE(m->tone, -4, 4) + 8) << 8) | ((COERCE(m->kelvin, 2500, 10000) / 100) << 12) |
+                  ((m->grain & 3) << 19) | ((m->vignette & 3) << 21);
+}
+
+static int mine_used(int i) { return i >= 0 && i < NUM_MINE && (P.mine_a(i) & 1); }
+static int is_mine(int film) { return film >= NUM_BASE_FILMS && film < NUM_FILMS; }
+static int mine_base(int film) { struct mine m; mine_get(film - NUM_BASE_FILMS, &m); return m.base; }
+
+/* la voce dello scaffale prende i valori salvati */
+static void mine_sync(int i)
+{
+    struct film *f = &films[NUM_BASE_FILMS + i];
+    struct mine m;
+    mine_get(i, &m);
+    const struct film *b = &films[m.base];
+    snprintf(mine_brand[i], sizeof(mine_brand[i]), "MIA %d", i + 1);
+    f->brand = mine_brand[i];
+    f->name = b->name;
+    f->iso = m.iso;
+    f->process = b->process;
+    f->style = m.style;
+    f->contrast = m.contrast; f->saturation = m.saturation; f->tone = m.tone;
+    f->kelvin = m.kelvin;
+    f->body = m.box ? mine_boxes[m.box] : b->body;
+    f->label = m.box ? (mine_boxes[m.box] == COLOR_BLACK || mine_boxes[m.box] == COLOR_GRAY(20) ? COLOR_ORANGE : COLOR_GRAY(20)) : b->label;
+    f->ink = m.box ? COLOR_WHITE : b->ink;
+    if (f->label == COLOR_ORANGE) f->ink = COLOR_BLACK;
+    snprintf(mine_desc[i], sizeof(mine_desc[i]), "La tua ricetta da %s %s", b->brand, b->name);
+    snprintf(mine_use[i], sizeof(mine_use[i]), "Contrasto %+d, saturazione %+d, grana %s",
+        m.contrast, m.saturation, mine_fx_names[m.grain]);
+    f->desc = mine_desc[i];
+    f->use = mine_use[i];
+}
+
+static void mine_sync_all() { for (int i = 0; i < NUM_MINE; i++) mine_sync(i); }
 
 static const struct film *cur_film() { return &films[COERCE(P.roll_film, 0, NUM_FILMS - 1)]; }
 
@@ -108,6 +198,17 @@ static void film_activate()
     P.roll_last_fn = current_file_number();
     persist_touch();
     prefix_refresh();
+}
+
+/* ricetta cambiata mentre il suo rullino e' nella macchina: subito sulla 6D */
+static void film_refresh()
+{
+    if (!P.roll_loaded || P.roll_paused) return;
+    const struct film *fm = cur_film();
+    style_set_sliders(fm->style, fm->contrast, fm->saturation, fm->tone);
+    int raw = val2raw_iso(film_iso_exposed(fm, P.roll_push));
+    if (raw > 0) lens_set_rawiso(raw);
+    lens_set_kelvin(fm->kelvin);
 }
 
 static void roll_log(const char *event)
@@ -253,7 +354,9 @@ static struct lvinfo_item roll_info_items[] = {
 static void film_init()
 {
     /* lo stato e' gia' in P: la pellicola deve esistere in questa versione */
+    mine_sync_all();
     P.roll_film = COERCE(P.roll_film, 0, NUM_FILMS - 1);
+    if (is_mine(P.roll_film) && !mine_used(P.roll_film - NUM_BASE_FILMS)) P.roll_film = 1;
 }
 
 /* ------------------------------------------------------------------ disegno dei rullini */
@@ -409,7 +512,8 @@ static void draw_canister(const struct film *fm, int cx, int top, int scale, int
     int cap = MAX(10 * scale / 100, 3);
     int fine = scale >= 78;                     /* dettagli fini solo da vicino */
     int label = cc(fm->label), ink = cc(fm->ink);
-    int art = film_art[film_index(fm)];
+    int fi = film_index(fm);
+    int art = film_art[is_mine(fi) ? mine_base(fi) : fi];
     int by = top + 2 * cap;
     int d = MAX(2 * scale / 100, 1);
 

@@ -172,7 +172,15 @@ static const struct preset presets[] = {
 };
 #define NUM_PRESETS ((int)COUNT(presets))
 #define PRESET_HG 4
+#define PRESET_DARK 5
 #define PRESET_BIAS 7
+
+/* riduzione disturbo lunghe esposizioni (LENR) vista accesa durante una sequenza */
+static int lenr_seen = 0;
+#define LENR_MIN_S 4.0f                   /* sotto i 4 s la differenza si confonde coi tempi di scrittura */
+
+/* proposta dei dark a fine sessione: stessa posa e ISO delle light appena fatte */
+static int dark_offer = 0, dark_offer_bulb = 0, dark_offer_shutter = 0, dark_offer_iso = 0, dark_offer_n = 0, dark_offer_temp = 0;
 
 static void preset_select(int p)
 {
@@ -363,19 +371,85 @@ static void int_extra()
         snprintf(buf, sizeof(buf), "La batteria basta per circa %d scatti: Iride si ferma da sola al 4%%.", MIN(left / per, P.int_count));
         y = txt_wrap(FONT_SMALL, C_WARN, ix, y, iw, buf, 14) + 4;
     }
+    if (lenr_seen && !opt_silent)
+    {
+        y = txt_wrap(FONT_SMALL, C_WARN, ix, y, iw, "Riduzione disturbo lunghe esposizioni accesa: spegnila nel menu Canon, ogni scatto dura il doppio.", 14) + 4;
+    }
     if (opt_silent)
     {
         y = txt_wrap(FONT_SMALL, C_DIM, ix, y, iw, "Silenzioso: DNG senza otturatore, da 0,3 a 30 s; i dati di scatto vanno nel registro.", 14) + 4;
     }
     if (y < 400)
     {
-        snprintf(buf, sizeof(buf), "%s %s", ps->note1, ps->note2);
+        snprintf(buf, sizeof(buf), "%s %s", tr(ps->note1), tr(ps->note2));
         txt_wrap(FONT_SMALL, C_DIM, ix, y, iw, buf, 14);
     }
 }
 
 static const struct form int_form = { IR_N, int_labels, int_value, int_change, int_activate, int_extra,
     "^/v riga   </> cambia   SET avvia   MENU indietro", 52, 48, 0, 420, 0 };
+
+/* ------------------------------------------------------------------ dark a fine sessione */
+
+/* Finite le light, Iride propone i dark: stessa posa, stesso ISO, subito (il sensore e' alla stessa
+   temperatura). Dark fatti a parte invece della LENR: la serie di light non raddoppia e i dark,
+   mediati in AstroStack, tolgono i pixel caldi senza aggiungere rumore. */
+static const char *const dk_labels[] = { "Dark", "Posa", "ISO", "Temperatura", "Avvia: tappo sull'obiettivo", "Non ora" };
+enum { DK_COUNT, DK_POSA, DK_ISO, DK_TEMP, DK_START, DK_SKIP, DK_N };
+
+static void dk_value(int row, char *buf, int len, int *kind)
+{
+    switch (row)
+    {
+        case DK_COUNT: snprintf(buf, len, "< %d >", dark_offer_n); break;
+        case DK_POSA:
+            if (dark_offer_bulb > 0) snprintf(buf, len, "%d s (posa B)", dark_offer_bulb);
+            else snprintf(buf, len, "%s", lens_format_shutter(dark_offer_shutter));
+            *kind = VK_INFO; break;
+        case DK_ISO: snprintf(buf, len, "%s", dark_offer_iso ? lens_format_iso(dark_offer_iso) : "Auto"); *kind = VK_INFO; break;
+        case DK_TEMP: snprintf(buf, len, "ora %d, light %d gradi", cam_temp_c(), dark_offer_temp); *kind = VK_INFO; break;
+        case DK_START: *kind = VK_ACTION; snprintf(buf, len, "SET  >"); break;
+        case DK_SKIP: *kind = VK_ACTION; snprintf(buf, len, "SET"); break;
+    }
+}
+
+static void dk_change(int row, int dir, int big)
+{
+    if (row == DK_COUNT) dark_offer_n = COERCE(dark_offer_n + dir * (big ? 10 : 5), 5, 60);
+}
+
+static void dk_activate(int row)
+{
+    if (row == DK_SKIP) { dark_offer = 0; go(SCR_HOME, -1); return; }
+    if (row != DK_START) { dk_change(row, 1, 0); return; }
+    /* la stessa esposizione delle light, anche se nel frattempo e' cambiata */
+    P.int_preset = PRESET_DARK;
+    P.int_count = dark_offer_n;
+    P.int_pause = presets[PRESET_DARK].pause;
+    P.int_bulb = dark_offer_bulb;
+    if (!dark_offer_bulb && dark_offer_shutter) lens_set_rawshutter(dark_offer_shutter);
+    if (dark_offer_iso) lens_set_rawiso(dark_offer_iso);
+    persist_touch();
+    if (!interval_check()) return;
+    dark_offer = 0;
+    job_request = JOB_SEQ;
+    gui_stop_menu();
+}
+
+static void dk_extra()
+{
+    int dt = cam_temp_c() - dark_offer_temp;
+    const char *t = ABS(dt) <= 3 ? "Temperatura uguale a quella delle light: i dark valgono per tutta la serie."
+                  : dt < 0 ? "Il sensore si e' raffreddato: i dark escono un poco piu' puliti delle light."
+                           : "Il sensore e' piu' caldo delle light: aspetta qualche minuto o fanne di piu'.";
+    txt_wrap(FONT_MED, ABS(dt) <= 3 ? C_DIM : C_WARN, 44, 352, SCR_W - 88, t, 25);
+}
+
+static const struct form dk_form = { DK_N, dk_labels, dk_value, dk_change, dk_activate, dk_extra,
+    "^/v riga   </> numero   SET avvia   MENU dopo", 60, 46, 0, 0, 0 };
+
+/* all'apertura di Iride, se le light sono finite e i dark non sono ancora stati fatti */
+static int dark_offer_due() { return dark_offer && job_running == JOB_NONE && !job_request; }
 
 /* ------------------------------------------------------------------ fuoco sulle stelle (HFR) */
 
@@ -1395,7 +1469,7 @@ static void draw_polar()
     int ci = city_find();
     fmt_latlon(ll, sizeof(ll));
     fmt_utc(u, sizeof(u), off);
-    snprintf(buf, sizeof(buf), "%s%s%s   %s", ci >= 0 ? cities[ci].name : "", ci >= 0 ? "  " : "", ll, u);
+    snprintf(buf, sizeof(buf), "%s%s%s   %s", ci >= 0 ? tr(cities[ci].name) : "", ci >= 0 ? "  " : "", ll, u);
     txt_in(FONT_SMALL, C_DIM, x2, 398, buf, e4, 0, 6);
     draw_footer("SET o </> cambia vista   INFO aiuto   MENU indietro");
 }
@@ -1717,7 +1791,7 @@ static void sky_key(int key, int dx, int dy)
     if (s != sky_sel) { sky_sel = s; sky_t0 = get_ms_clock(); }
 }
 
-static const char *moon_phase_name(int illum, int waxing)
+static const char *moon_phase_name_it(int illum, int waxing)
 {
     if (illum < 30) return "Luna nuova";
     if (illum > 970) return "Luna piena";
@@ -1725,6 +1799,7 @@ static const char *moon_phase_name(int illum, int waxing)
     if (illum < 500) return waxing ? "Falce crescente" : "Falce calante";
     return waxing ? "Gibbosa crescente" : "Gibbosa calante";
 }
+static const char *moon_phase_name(int illum, int waxing) { return tr(moon_phase_name_it(illum, waxing)); }
 
 static void draw_moon_icon(int cx, int cy, int r, int illum, int waxing)
 {
@@ -1816,7 +1891,7 @@ static void fmt_day(char *buf, int len, int day1970)
     int doe = z - era * 146097, yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
     int doy = doe - (365 * yoe + yoe / 4 - yoe / 100), mp = (5 * doy + 2) / 153;
     int dd = doy - (153 * mp + 2) / 5 + 1, mm = mp + (mp < 10 ? 3 : -9);
-    snprintf(buf, len, "%s %d/%d", wd[weekday(day1970)], dd, mm);
+    snprintf(buf, len, "%s %d/%d", tr(wd[weekday(day1970)]), dd, mm);
 }
 
 /* striscia della notte dalle 16 alle 8: cielo (giorno -> crepuscoli -> notte), Luna in alto,

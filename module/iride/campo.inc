@@ -141,7 +141,7 @@ static void session_frame(int fn, int tag, float expo_s, int silent, const char 
     char name[24], ex[16], ap[12];
     const char *pre = tag > 0 && tag < NUM_TAGS ? tag_names[tag] : "IMG_";
     int raw = (pic_quality & 0x60000) != 0;
-    if (silent) snprintf(name, sizeof(name), "silenzioso");
+    if (silent) (snprintf)(name, sizeof(name), "%s", "silenzioso");
     else snprintf(name, sizeof(name), "%s%04d.%s", pre, fn % 10000, raw ? "CR2" : "JPG");
     int e1000 = (int)(expo_s * 1000.0f + 0.5f);
     snprintf(ex, sizeof(ex), "%d.%03d", e1000 / 1000, e1000 % 1000);

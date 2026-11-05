@@ -1,5 +1,5 @@
-IRIDE 6D 1.5.2 per Canon EOS 6D (firmware Canon 1.1.6)
-=====================================================
+IRIDE 6D 1.6 per Canon EOS 6D (firmware Canon 1.1.6)
+====================================================
 
 Magic Lantern per 6D 1.1.6 (build ufficiale del 20/06/2025, commit ed3e7c0)
 con il core modificato per Iride (modalita' schermo intero: Canon non disegna
@@ -67,6 +67,12 @@ ASTRO       Via Lattea: regola NPF, SET applica tempo, diaframma, ISO, 3900 K.
               foto, un file per notte (fino a mezzogiorno vale la sera
               prima), uno scatto per riga (anche quelli dal cavo, se
               l'etichetta file e' attiva). Per AstroStack.
+              Dark a fine sessione: finite le light, riaprendo Iride compare
+              la proposta dei dark con la stessa posa e ISO. Tappo, SET.
+              LENR: se la riduzione disturbo lunghe esposizioni della 6D e'
+              accesa (ogni scatto dura il doppio) Iride lo dice con 3 bip:
+              spegnila nel menu Canon, i dark fatti a parte sono meglio.
+              Giorno-notte: in alto si vedono tempo e ISO che cambiano.
             Fuoco stelle: START/STOP accende il Live View (Iride si chiude
               un attimo e torna qui), SET zoom x5/x10, sinistra/destra fuoco,
               HFR piu' basso = piu' a fuoco, accanto "meglio" o "peggio".
@@ -106,6 +112,12 @@ RULLINI     Ogni pellicola ha due righe: carattere e uso ideale.
             Il "look" vale per il JPEG: il RAW resta neutro.
             Se la macchina e' in solo RAW Iride lo segnala in rosso: metti
             RAW+L (Menu Canon > Qualita' immagine) oppure usa i preset.
+            LE TUE PELLICOLE (scheda MIE, fino a 4): su una pellicola SET >
+            "La tua versione": ISO, stile, contrasto, saturazione, tonalita',
+            bianco, grana e vignettatura (queste due solo nel preset PC),
+            colore della scatola. "Salva la scheda" scrive ML/IRIDE/MIA1.TXT
+            (testo da condividere), "Leggi" carica quella di un amico.
+            Sul PC: python3 make_presets.py --ricetta MIA1.TXT cartella.
 
 PRESET PC   16 preset XMP (cartella presets del progetto), uno per
             pellicola, per dare il look anche al RAW.
@@ -142,7 +154,8 @@ OPZIONI     Tema (normale / notte rossa / notte solo in Astro), animazioni
             automatica, oppure fisso da UTC-12 a UTC+14), cielo del luogo,
             diagnostica tasti (ultimi tasti ricevuti, anche in
             ML/LOGS/IRIDEKEY.TXT), prova della 6D (tempi di disegno e
-            calcolo, in ML/LOGS/IRIDEBEN.TXT).
+            calcolo, in ML/LOGS/IRIDEBEN.TXT), Lingua / Language
+            (italiano o inglese; i registri restano in italiano).
 
 Registro di rullini, sessioni astro e avvisi: ML/LOGS/IRIDE.CSV
 Stato di Iride: ML/SETTINGS/IRIDE.DAT (se lo cancelli, riparte da zero)
@@ -150,6 +163,8 @@ Stato di Iride: ML/SETTINGS/IRIDE.DAT (se lo cancelli, riparte da zero)
 
 PRIMA PROVA CONSIGLIATA (IN CASA)
 ---------------------------------
+La lista completa da spuntare e' in PROVA_6D.txt (40 minuti circa).
+In breve:
 1. Cestino: si apre Iride con l'animazione. Cestino di nuovo = menu ML.
 2. Profili: SET su Street (ghiera su Av), poi INFO per risalvarlo a modo tuo.
 3. Rullini: carica Portra 400, scatta 2 foto, Q > Pausa, poi Riprendi.
