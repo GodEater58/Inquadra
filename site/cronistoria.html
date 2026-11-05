@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cronistoria di Iride 6D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Lo schermo della 6D con Iride: nero, grigi caldi, arancione di Iride. Una colonna del tempo a sinistra,
+   le versioni come fotogrammi di un rullino. Tema unico, scelto. */
+:root {
+  --bg: #0d0d0f;
+  --panel: #17171a;
+  --line: #2a2a2f;
+  --text: #e8e8ea;
+  --dim: #9a9aa2;
+  --film: #1f1a14;
+  --accent: #ff8c00;
+  --ok: #4fc06a;
+  --err: #ec4b43;
+  --redo: #6fa8ff;
+  --mod: #b9b6b0;
+  --display: "Archivo Narrow", "Arial Narrow", sans-serif;
+  --body: "IBM Plex Sans", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--body); font-size: 16px; line-height: 1.5; }
+a { color: var(--accent); }
+.wrap { max-width: 1040px; margin: 0 auto; padding: 32px 20px 64px; }
+
+header { display: grid; gap: 18px; border-bottom: 2px solid var(--accent); padding-bottom: 24px; }
+.brand { font-family: var(--display); font-weight: 700; letter-spacing: .02em; color: var(--accent); font-size: 15px; text-transform: uppercase; }
+h1 { font-family: var(--display); font-size: clamp(34px, 6vw, 56px); line-height: 1.02; margin: 0; text-wrap: balance; font-weight: 700; }
+.lede { color: var(--dim); max-width: 64ch; margin: 0; }
+
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.tile { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+.tile b { display: block; font-family: var(--display); font-size: 34px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.tile span { color: var(--dim); font-size: 13px; }
+.tile.err b { color: var(--err); } .tile.ok b { color: var(--ok); } .tile.redo b { color: var(--redo); } .tile.acc b { color: var(--accent); }
+
+section.chart { margin-top: 28px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 16px 8px; }
+section.chart h2, .phase h2 { font-family: var(--display); font-weight: 700; margin: 0 0 4px; font-size: 22px; }
+.sub { color: var(--dim); font-size: 14px; margin: 0 0 10px; }
+.chartbox { overflow-x: auto; }
+svg text { font-family: var(--mono); font-size: 11px; fill: var(--dim); }
+
+.filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 30px 0 6px; align-items: center; }
+.filters span { color: var(--dim); font-size: 14px; margin-right: 4px; }
+.filters button { font: 500 14px var(--body); background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; cursor: pointer; display: inline-flex; gap: 8px; align-items: center; }
+.filters button[aria-pressed="true"] { border-color: var(--accent); background: #2a1e10; }
+.filters button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+
+.phase { position: relative; margin-top: 34px; padding-left: 30px; }
+.phase::before { content: ""; position: absolute; left: 9px; top: 6px; bottom: -34px; width: 2px; background: var(--line); }
+.phase:last-of-type::before { bottom: 0; }
+.phase > .pin { position: absolute; left: 0; top: 4px; width: 20px; height: 20px; border-radius: 50%; background: var(--bg); border: 3px solid var(--accent); }
+.when { font-family: var(--mono); color: var(--accent); font-size: 13px; letter-spacing: .03em; }
+
+.ver { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; margin-top: 12px; overflow: hidden; }
+.ver header { all: unset; display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; padding: 10px 14px; border-bottom: 1px solid var(--line); background: #141416; }
+.ver .num { font-family: var(--display); font-weight: 700; font-size: 20px; color: var(--text); min-width: 52px; }
+.ver .title { font-weight: 600; }
+.ver .tests { margin-left: auto; font-family: var(--mono); font-size: 12px; color: var(--dim); font-variant-numeric: tabular-nums; }
+.ver ul { list-style: none; margin: 0; padding: 6px 14px 10px; display: grid; gap: 6px; }
+.ver li { display: grid; grid-template-columns: 86px 1fr; gap: 10px; align-items: baseline; font-size: 15px; }
+.chip { font: 600 11px var(--mono); letter-spacing: .05em; text-transform: uppercase; border-radius: 4px; padding: 2px 6px; text-align: center; border: 1px solid; }
+.k-ok .chip { color: var(--ok); border-color: #2c5a37; background: #13241a; }
+.k-err .chip { color: var(--err); border-color: #6a2622; background: #2a1312; }
+.k-fix .chip { color: #ffb15c; border-color: #6a4517; background: #2a1d0e; }
+.k-redo .chip { color: var(--redo); border-color: #2c4670; background: #121c2c; }
+.k-mod .chip { color: var(--mod); border-color: #3a3936; background: #1d1d1f; }
+.k-err { color: #ffd9d6; }
+li.hide, .ver.hide, .phase.hide { display: none; }
+
+.lessons { margin-top: 40px; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.lessons div { background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 8px; padding: 12px 14px; }
+.lessons h3 { margin: 0 0 4px; font-family: var(--display); font-size: 18px; }
+.lessons p { margin: 0; color: var(--dim); font-size: 14px; }
+footer { margin-top: 40px; color: var(--dim); font-size: 13px; border-top: 1px solid var(--line); padding-top: 14px; }
+
+/* barra in alto: torna alla demo e al repository */
+.top { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: center; margin-bottom: 22px; }
+.top .logo { font-family: var(--display); font-weight: 700; font-size: 22px; letter-spacing: .04em; text-decoration: none; color: var(--text); }
+.top .logo span { color: var(--accent); }
+.top nav { display: flex; gap: 8px; flex-wrap: wrap; }
+.top nav a { text-decoration: none; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; font-size: 14px; }
+.top nav a.primary { border-color: var(--accent); color: var(--accent); }
+.top nav a:focus-visible, .days a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* salto ai giorni: una striscia di pellicola con i fotogrammi */
+.days { position: sticky; top: 0; z-index: 5; margin: 26px -20px 0; padding: 10px 20px; background: rgba(13,13,15,.94);
+        backdrop-filter: blur(6px); border-bottom: 1px solid var(--line); display: flex; gap: 6px; overflow-x: auto; }
+.days a { flex: 0 0 auto; text-decoration: none; color: var(--dim); font: 500 13px var(--mono); padding: 5px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); }
+.days a:hover { color: var(--text); border-color: var(--accent); }
+
+/* intestazione della giornata come un pezzo di pellicola con le perforazioni */
+.strip { position: relative; background: var(--film); border-radius: 8px; padding: 18px 16px; margin-left: -6px;
+         border: 1px solid #3a2d1c; }
+.strip::before, .strip::after { content: ""; position: absolute; left: 10px; right: 10px; height: 6px;
+         background: repeating-linear-gradient(90deg, #0d0d0f 0 10px, transparent 10px 22px); border-radius: 2px; }
+.strip::before { top: 5px; } .strip::after { bottom: 5px; }
+.strip .when { display: block; }
+.strip h2 { margin: 2px 0 0; }
+.phase { scroll-margin-top: 64px; }
+
+@media (max-width: 560px) {
+  .ver li { grid-template-columns: 1fr; gap: 2px; }
+  .chip { justify-self: start; }
+  .ver .tests { margin-left: 0; width: 100%; }
+}
+@media (prefers-reduced-motion: no-preference) { .filters button { transition: background .15s, border-color .15s; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="top">
+  <a class="logo" href="./">IRIDE <span>6D</span></a>
+  <nav aria-label="Collegamenti">
+    <a class="primary" href="./">&#9654; Prova la demo</a>
+    <a href="https://github.com/GodEater58/Iride-6D">Codice su GitHub</a>
+    <a href="https://github.com/GodEater58/Iride-6D/releases/latest">Ultima release</a>
+  </nav>
+</div>
+<header>
+  <div class="brand">Cronistoria · firmware per Canon EOS 6D</div>
+  <h1>Dalla 0.1 alla 1.6, in cinque giorni</h1>
+  <p class="lede">Tutte le versioni, dal primo modulo sopra Magic Lantern al firmware con il core modificato, la demo nel browser e l'inglese. Con quello che è andato bene, quello che si è rotto e quello che è stato rifatto da capo.</p>
+  <div class="tiles" aria-label="Numeri del progetto">
+    <div class="tile acc"><b>28</b><span>versioni, dall'1 al 5 novembre 2026</span></div>
+    <div class="tile ok"><b>0 → 211</b><span>test sul simulatore</span></div>
+    <div class="tile"><b>11.400</b><span>righe del modulo Iride</span></div>
+    <div class="tile err"><b id="n-err">0</b><span>errori trovati e corretti</span></div>
+    <div class="tile redo"><b id="n-redo">0</b><span>rifacimenti da capo</span></div>
+  </div>
+</header>
+
+<section class="chart" aria-labelledby="ch-t">
+  <h2 id="ch-t">I test crescono con le funzioni</h2>
+  <p class="sub">Test del simulatore a ogni versione: ogni bug corretto ha lasciato un test che lo ricontrolla.</p>
+  <div class="chartbox"><svg id="chart" viewBox="0 0 980 230" width="980" height="230" role="img" aria-label="Numero di test per versione, da 0 nella 0.1 a 211 nella 1.6"></svg></div>
+</section>
+
+<div class="filters" role="group" aria-label="Mostra">
+  <span>Mostra:</span>
+  <button id="f-all" aria-pressed="true" data-f="all">Tutto</button>
+  <button id="f-ok" aria-pressed="false" data-f="k-ok"><i class="dot" style="background:var(--ok)"></i>Novità</button>
+  <button id="f-err" aria-pressed="false" data-f="k-err"><i class="dot" style="background:var(--err)"></i>Errori</button>
+  <button id="f-redo" aria-pressed="false" data-f="k-redo"><i class="dot" style="background:var(--redo)"></i>Rifacimenti</button>
+  <button id="f-mod" aria-pressed="false" data-f="k-mod"><i class="dot" style="background:var(--mod)"></i>Modifiche</button>
+</div>
+
+<nav class="days" id="days" aria-label="Vai al giorno"></nav>
+<main id="timeline"></main>
+
+<section class="lessons" aria-label="Cosa ha insegnato">
+  <div><h3>La 6D vera trova cose che il PC non vede</h3><p>Il ciclo del Live View col cambio di rullino, il "%" che spostava i valori nella Prova della 6D, le lettere piccole lente: tutti scoperti sulla macchina o coi suoi tempi.</p></div>
+  <div><h3>Ogni bug lascia un test</h3><p>Da 49 a 211 test: tasti a caso con AddressSanitizer, casi estremi di date e luoghi, testi fuori dallo schermo, anche in inglese.</p></div>
+  <div><h3>I caratteri veri contano</h3><p>Passando ai caratteri RBF di Magic Lantern sono usciti quattro testi che sulla 6D andavano oltre il loro spazio.</p></div>
+  <div><h3>Le release si rompono in modi nuovi</h3><p>Tag su un commit rotto, tag rifiutati dalla sessione, caricamenti bloccati: ora basta un clic su Run workflow.</p></div>
+</section>
+
+<footer>Fonti: il <a href="https://github.com/GodEater58/Iride-6D/blob/main/CHANGELOG.md">CHANGELOG</a> e la cronologia dei commit di GodEater58/Iride-6D (prima GodEater58/Inquadra), e le conversazioni di lavoro. Il core modificato della 1.4 non è ancora stato provato su una 6D vera: la lista è in docs/PROVA_6D.md.</footer>
+</div>
+
+<script>
+/* k: ok = novita', err = errore, fix = correzione di un errore (conta come errore), redo = rifatto da capo, mod = modifica */
+const PHASES = [
+ { when: "1 novembre · sabato", title: "Nascita: un modulo sopra Magic Lantern", vers: [
+  { v: "prima", t: "L'idea e la 6D pronta", tests: null, items: [
+    ["ok", "Idea: i rullini simulati come nel video R-FILM per la 5D3, più un menu Astro come quello dell'app Iride per Android"],
+    ["mod", "La 6D riportata dal firmware Canon 1.1.9 alla 1.1.6, quello richiesto da Magic Lantern"],
+  ]},
+  { v: "0.1", t: "Prima versione", tests: 0, items: [
+    ["ok", "Via Lattea con la regola NPF, intervallometro, fuoco sulle stelle (HFR), etichetta dei file, scaffale dei rullini"],
+  ]},
+  { v: "0.2", t: "Interfaccia riscritta", tests: 49, items: [
+    ["redo", "Interfaccia rifatta da capo: doppio buffer senza sfarfallio, transizioni, schermata iniziale, tema notte rosso"],
+    ["ok", "Home con Astro, Foto, Rullini, Torna alla 6D, Profili, Opzioni; HDR, focus stacking, Dual ISO, ETTR, ND, polare, calendario"],
+    ["ok", "Simulatore con 49 test e confronto astronomico con astropy"],
+  ]},
+  { v: "0.3", t: "Preset per il PC", tests: 55, items: [
+    ["ok", "16 preset XMP per LightCraft e Lightroom: il carattere della pellicola anche nel RAW"],
+    ["ok", "Avviso se la macchina è in solo RAW (Iride legge la qualità ma non la cambia: Magic Lantern lo considera rischioso)"],
+  ]},
+  { v: "0.4", t: "Animazioni dei rullini", tests: 65, items: [
+    ["ok", "Caricamento e riavvolgimento animati, scaffale con mensola, cestino che apre Iride, diagnostica dei tasti"],
+  ]},
+  { v: "0.5", t: "Rullini disegnati", tests: null, items: [
+    ["redo", "Rullini ridisegnati con perno, coperchi zigrinati, codice DX e tre impaginazioni originali, senza loghi reali"],
+  ]},
+  { v: "0.6", t: "Icone e apertura all'accensione", tests: 70, items: [
+    ["redo", "Icone della Home ridisegnate"],
+    ["ok", "All'accensione la 6D mostra subito la Home di Iride"],
+  ]},
+  { v: "0.7", t: "Cose che sbucavano sopra Iride", tests: 72, items: [
+    ["err", "In basso comparivano gli indicatori audio di Magic Lantern sopra la riga d'aiuto"],
+    ["err", "All'avvio il menu Canon si vedeva sopra Iride"],
+    ["fix", "Menu ML portato su Shoot › Iride, attesa del menu Canon, ridisegno completo periodico"],
+  ]},
+  { v: "0.8", t: "Live View", tests: 78, items: [
+    ["ok", "START/STOP accende e spegne il Live View e riapre Iride sulla stessa schermata"],
+    ["err", "In Live View la grafica di Iride poteva restare invisibile"],
+  ]},
+  { v: "0.9", t: "Il nome Iride 6D", tests: 81, items: [
+    ["mod", "Il progetto prende il nome Iride 6D"],
+    ["err", "Cambiando rullino si vedeva solo il riavvolgimento: gli eventi interni di Canon venivano presi per tasti"],
+  ]},
+  { v: "1.0", t: "Animazioni ovunque", tests: 86, items: [
+    ["ok", "Diaframma all'avvio, zoom dal riquadro alla schermata, fogli che salgono, barra elastica, contapose a rullo"],
+    ["redo", "Allineamento polare e calendario del cielo rifatti"],
+    ["fix", "Descrizioni dei rullini verificate: la Delta 3200 è una ISO 1000 reale, la CineStill 800T vira al blu di giorno"],
+    ["err", "Dopo Torna alla 6D l'avviso \"Fatto\" non compariva"],
+  ]},
+ ]},
+ { when: "2 novembre · domenica", title: "L'astrofotografia diventa seria", vers: [
+  { v: "1.1", t: "Mai uscita come release", tests: 108, items: [
+    ["redo", "Sottomenu ridisegnati come la Home, con anteprima della voce scelta"],
+    ["ok", "Luna disegnata dal vero con mari e 45 crateri; magnitudine limite con la Luna (Krisciunas e Schaefer)"],
+    ["err", "Sfarfallio nello zoom tra Home e schermate"],
+    ["err", "Fuoco stelle: HFR bloccato a 12 con la stella sfocata, ricerca sotto il pannello, pixel caldi presi per stelle"],
+    ["err", "Testi spostati da ML sul bordo quando uscivano dallo schermo; Luna non capovolta dall'emisfero sud"],
+    ["ok", "Controllo a tappeto con AddressSanitizer e 6000 tasti a caso"],
+  ]},
+  { v: "1.2", t: "Intervallometro da campo", tests: 148, items: [
+    ["ok", "Fuoco automatico sulle stelle a curva a V, otturatore silenzioso, dithering, registro della sessione"],
+    ["ok", "Luna da fotografare, Dove puntare, 57 città e fusi orari controllati col database IANA, Prova della 6D"],
+  ]},
+  { v: "1.2.1", t: "Primo dato dalla 6D vera", tests: null, items: [
+    ["err", "Nella Prova della 6D il \"%\" spostava i valori: la temperatura mostrava i MB liberi (30387)"],
+    ["fix", "Nuovo controllo automatico dei formati (check_formats.py) prima della compilazione"],
+  ]},
+  { v: "1.2.2", t: "Calendario più leggero", tests: null, items: [
+    ["err", "Il calendario costava 62 ms per fotogramma: oltre 5.500 piccoli riempimenti"],
+    ["fix", "Luna e barre disegnate a blocchi"],
+  ]},
+ ]},
+ { when: "3 novembre · lunedì", title: "Prestazioni e aspetto, misurati sulla macchina", vers: [
+  { v: "1.2.3", t: "Manovella", tests: null, items: [
+    ["redo", "Manovella di riavvolgimento ridisegnata come sulle reflex a pellicola"],
+  ]},
+  { v: "1.3", t: "Carattere e angoli", tests: null, items: [
+    ["redo", "Il testo piccolo passa dal Terminus di ML a Inter Medium proporzionale con bordi sfumati"],
+    ["ok", "Angoli arrotondati, interruttori a pillola, 15 icone nuove, striscia di stato nella Home"],
+  ]},
+  { v: "1.3.1", t: "", tests: null, items: [["mod", "Angoli arrotondati anche dove mancavano"]] },
+  { v: "1.3.2", t: "Disegno a blocchi", tests: null, items: [
+    ["mod", "La memoria dello schermo della 6D è lenta un byte alla volta: testo, Luna e icone scritti a righe intere"],
+  ]},
+  { v: "1.3.3", t: "Testo piccolo più veloce", tests: null, items: [
+    ["err", "28 µs per lettera piccola contro 20 per quelle di ML"],
+    ["fix", "Caratteri decompressi una volta, righe vuote saltate, sfumature in cache"],
+    ["mod", "Repository: il ramo main di GodEater58/Inquadra diventa il firmware, poi tutto si chiama Iride 6D"],
+  ]},
+ ]},
+ { when: "5 novembre · mattina", title: "Il bug sulla 6D e il core di Magic Lantern", vers: [
+  { v: "1.3.4", t: "Ciclo del Live View", tests: 153, items: [
+    ["err", "Sulla 6D: dopo un cambio di rullino il Live View si accendeva e tornava sui Rullini in un ciclo fino al pulsante di scatto"],
+    ["fix", "Iride si riapre solo se il Live View è cambiato, START/STOP doppio ignorato, 5 test nuovi"],
+  ]},
+  { v: "1.4", t: "Magic Lantern modificato", tests: 158, items: [
+    ["ok", "Core di ML modificato: modalità schermo intero, dialogo Canon tenuto sveglio, apertura senza attese fisse"],
+    ["ok", "Tasti \"finti\" premuti da ML riconosciuti; funzioni del core collegate deboli (va anche con ML ufficiale)"],
+  ]},
+  { v: "1.4.1", t: "Revisione completa", tests: 163, items: [
+    ["ok", "Salvataggio in due copie (IRIDE.DAT e IRIDE.BAK) con somma di controllo"],
+    ["err", "Numeri del rullino e della sessione sbagliati oltre il file 9999"],
+    ["err", "Cerchio pieno disegnato con un ciclo sbagliato e uno spostamento a sinistra di un numero negativo"],
+    ["fix", "Cerchi a righe intere, verificati pixel per pixel da raggio 0 a 170"],
+  ]},
+  { v: "1.4.2", t: "Una notte, un file", tests: 165, items: [
+    ["ok", "Registro della sessione per notte, lavori su scheda in un task, sanitizer in GitHub Actions"],
+    ["err", "La release v1.4.2 uscì vuota: il tag puntava a un commit con la compilazione rotta"],
+    ["err", "CI rossa: con un seme diverso i tasti a caso non visitavano abbastanza schermate"],
+    ["err", "La sessione non può creare tag su GitHub (errore 403): da allora le release si creano dal sito"],
+    ["fix", "Release ricreata sul commit giusto; controllo delle schermate visitate solo col seme di partenza"],
+  ]},
+  { v: "1.4.3", t: "Profili di partenza", tests: 171, items: [
+    ["ok", "Ritratto, Paesaggio, Street, Sport e Notte nei posti vuoti, una volta sola"],
+    ["ok", "Diaframma adattato ai limiti dell'obiettivo, con avviso"],
+    ["err", "L'avviso del diaframma confrontava il valore dopo averlo già cambiato"],
+  ]},
+ ]},
+ { when: "5 novembre · pomeriggio", title: "La vetrina: bianco, demo nel browser, retro della 6D", vers: [
+  { v: "1.5", t: "Bilanciamento del bianco", tests: 180, items: [
+    ["ok", "Il tasto WB che manca alla 6D, anche col SET dalla schermata di scatto"],
+    ["mod", "Avvio appena ML è pronto (circa 1 s invece di 2,5)"],
+  ]},
+  { v: "1.5.1", t: "Demo nel browser", tests: 180, items: [
+    ["ok", "Lo stesso codice di Iride compilato in WebAssembly e pubblicato su GitHub Pages"],
+    ["redo", "Simulatore coi caratteri RBF veri di Magic Lantern"],
+    ["err", "Coi caratteri veri: 4 testi uscivano dal loro spazio (piede della Home, Dove puntare, Bilanciamento, nota del Live View)"],
+  ]},
+  { v: "demo", t: "Correzioni della demo", tests: null, items: [
+    ["err", "La freccia giù, dopo averla premuta, saltava in alto a sinistra"],
+    ["redo", "Retro della 6D rifatto due volte: prima generico, poi ricalcato sulla foto ufficiale Canon"],
+    ["err", "Il mirino non somigliava a quello della 6D: ridisegnato con pentaprisma, conchiglia e diottrie"],
+    ["err", "START/STOP non faceva vedere nulla: ora il Live View resta visibile circa 2 s"],
+    ["err", "Su telefono la pagina scorreva di lato"],
+  ]},
+  { v: "1.5.2", t: "Tema notte completo", tests: 181, items: [
+    ["err", "Luna da fotografare e Dove puntare restavano bianche e arancioni col tema notte in Astro"],
+    ["ok", "Demo con salvataggio nel browser e pulsante per ripartire da capo"],
+  ]},
+ ]},
+ { when: "5 novembre · sera", title: "1.6: idee dalle ricerche online", vers: [
+  { v: "1.6", t: "Fai tutto", tests: 211, items: [
+    ["ok", "Dark proposti a fine sessione con la stessa posa, ISO e temperatura"],
+    ["ok", "Avviso della riduzione disturbo lunghe esposizioni, riconosciuta dal tempo dello scatto"],
+    ["ok", "Fino a 4 pellicole tue (ricette) con scheda di testo da condividere e preset XMP sul PC"],
+    ["ok", "Interfaccia in inglese: circa 800 testi, registri sempre in italiano"],
+    ["ok", "Piano di stacking per AstroStack, release con un clic, lista di prova sulla 6D"],
+    ["ok", "Demo: stella da mettere a fuoco in Live View e PLAY per rivedere le foto"],
+    ["err", "I test di apertura fallivano: la proposta dei dark si apriva al posto della Home"],
+    ["err", "La macro della traduzione si applicava anche alla definizione di NotifyBox nel simulatore"],
+    ["err", "In inglese il registro della sessione avrebbe scritto \"silent\" invece di \"silenzioso\", illeggibile per AstroStack"],
+    ["err", "L'estrazione dei testi saltava tutte le righe con un tasto (MODULE_KEY): \"Profilo cancellato\" restava in italiano"],
+    ["fix", "Scrittura dei file senza traduzione, test in inglese su tutte le schermate: nessun testo fuori dallo schermo"],
+  ]},
+ ]},
+];
+
+const LABEL = { ok: "nuovo", err: "errore", fix: "corretto", redo: "rifatto", mod: "modifica" };
+const main = document.getElementById("timeline");
+let nErr = 0, nRedo = 0, dayN = 0;
+const days = document.getElementById("days");
+for (const p of PHASES) {
+  const sec = document.createElement("section");
+  sec.className = "phase";
+  sec.id = "giorno-" + (++dayN);
+  sec.innerHTML = `<i class="pin" aria-hidden="true"></i><div class="strip"><span class="when">${p.when}</span><h2>${p.title}</h2></div>`;
+  const a = document.createElement("a");
+  a.href = "#" + sec.id; a.textContent = p.when.replace(" · ", " ");
+  days.appendChild(a);
+  for (const v of p.vers) {
+    const art = document.createElement("article");
+    art.className = "ver";
+    const tests = v.tests !== null ? `${v.tests} test` : "";
+    art.innerHTML = `<header><span class="num">${v.v}</span><span class="title">${v.t}</span><span class="tests">${tests}</span></header>`;
+    const ul = document.createElement("ul");
+    for (const [k, txt] of v.items) {
+      if (k === "err") nErr++;
+      if (k === "redo") nRedo++;
+      const li = document.createElement("li");
+      li.className = "k-" + (k === "fix" ? "err" : k) + (k === "fix" ? " k-fix" : "");
+      li.innerHTML = `<span class="chip">${LABEL[k]}</span><span>${txt}</span>`;
+      ul.appendChild(li);
+    }
+    art.appendChild(ul);
+    sec.appendChild(art);
+  }
+  main.appendChild(sec);
+}
+document.getElementById("n-err").textContent = nErr;
+document.getElementById("n-redo").textContent = nRedo;
+
+/* filtro: nasconde righe, versioni e giornate rimaste vuote */
+document.querySelectorAll(".filters button").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll(".filters button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+  const f = b.dataset.f;
+  document.querySelectorAll(".ver li").forEach(li => li.classList.toggle("hide", f !== "all" && !li.classList.contains(f)));
+  document.querySelectorAll(".ver").forEach(v => v.classList.toggle("hide", !v.querySelector("li:not(.hide)")));
+  document.querySelectorAll(".phase").forEach(s => s.classList.toggle("hide", !s.querySelector(".ver:not(.hide)")));
+}));
+
+/* grafico dei test: solo le versioni con un numero noto */
+(function () {
+  const pts = [["0.1",0],["0.2",49],["0.3",55],["0.4",65],["0.6",70],["0.7",72],["0.8",78],["0.9",81],["1.0",86],["1.1",108],["1.2",148],
+               ["1.3.4",153],["1.4",158],["1.4.1",163],["1.4.2",165],["1.4.3",171],["1.5",180],["1.5.2",181],["1.6",211]];
+  const W = 980, H = 230, L = 44, R = 34, T = 18, B = 34, max = 240;
+  const x = i => L + i * (W - L - R) / (pts.length - 1), y = v => T + (H - T - B) * (1 - v / max);
+  let s = "";
+  for (const g of [0, 60, 120, 180, 240]) s += `<line x1="${L}" x2="${W - R}" y1="${y(g)}" y2="${y(g)}" stroke="#2c2c30"/><text x="${L - 8}" y="${y(g) + 4}" text-anchor="end">${g}</text>`;
+  const line = pts.map((p, i) => `${x(i)},${y(p[1])}`).join(" ");
+  s += `<polygon points="${x(0)},${y(0)} ${line} ${x(pts.length - 1)},${y(0)}" fill="#ff8c00" fill-opacity=".12"/>`;
+  s += `<polyline points="${line}" fill="none" stroke="#ff8c00" stroke-width="2.5" stroke-linejoin="round"/>`;
+  pts.forEach((p, i) => {
+    const last = i === pts.length - 1;
+    s += `<circle cx="${x(i)}" cy="${y(p[1])}" r="${last ? 5.5 : 3}" fill="${last ? "#ff8c00" : "#0d0d0e"}" stroke="#ff8c00" stroke-width="2"/>`;
+    s += `<text x="${x(i)}" y="${H - 12}" text-anchor="middle">${p[0]}</text>`;
+  });
+  s += `<text x="${x(pts.length - 1) - 10}" y="${y(211) - 10}" text-anchor="end" style="fill:#ecebe8;font-size:12px">211</text>`;
+  s += `<text x="${x(10)}" y="${y(148) - 10}" text-anchor="middle" style="fill:#ecebe8">148</text>`;
+  document.getElementById("chart").innerHTML = s;
+})();
+</script>
+</body>
+</html>

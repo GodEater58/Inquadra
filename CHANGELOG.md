@@ -12,6 +12,7 @@
 - **Release con un clic**: Actions › Build › *Run workflow* con *Pubblica la release* compila, crea il tag della versione scritta in `iride.c` e pubblica la release con le note del CHANGELOG
 - **Prova sulla 6D vera**: lista da spuntare in [docs/PROVA_6D.md](docs/PROVA_6D.md), anche nel pacchetto SD (`PROVA_6D.txt`)
 - Demo nel browser: in Live View si vede il cielo con una stella sfocata, e *Fuoco stelle* la mette a fuoco davvero (a mano o con Q); **PLAY** rivede le foto scattate, con nome del file, pellicola, ISO e bianco del rullino
+- **Cronistoria** sul sito: [godeater58.github.io/Iride-6D/cronistoria.html](https://godeater58.github.io/Iride-6D/cronistoria.html), tutte le versioni con novità, errori e rifacimenti
 - Simulatore: 30 test nuovi (211): LENR, dark a fine sessione, ricette e schede, inglese su tutte le schermate senza testi fuori dallo schermo
 
 ## 1.5.2 – 5 novembre 2026
