@@ -127,7 +127,7 @@ static void roll_load(int film, int exposures, int push)
     P.roll_exp = exposures;
     P.roll_push = push;
     P.roll_shots = 0;
-    P.roll_first_fn = current_file_number() + 1;
+    P.roll_first_fn = MOD(current_file_number(), 9999) + 1;   /* dopo 9999 viene 0001 */
     P.roll_loaded = 1;
     film_activate();
     roll_log("CARICATO");
@@ -235,7 +235,8 @@ static struct lvinfo_item roll_info_items[] = {
 
 static void film_init()
 {
-    /* niente da fare all'avvio: lo stato e' gia' in P */
+    /* lo stato e' gia' in P: la pellicola deve esistere in questa versione */
+    P.roll_film = COERCE(P.roll_film, 0, NUM_FILMS - 1);
 }
 
 /* ------------------------------------------------------------------ disegno dei rullini */
@@ -540,7 +541,7 @@ static void icon_rolls(const struct film *fm, int x, int y, int t)
             {
                 fill(cc(COLOR_ORANGE), fx, fy, fw, fh * 6 / 10);
                 fill(cc(COLOR_DARK_RED), fx, fy + fh * 6 / 10, fw, fh - fh * 6 / 10);
-                fill_circle(fx + fw / 2, fy + fh * 6 / 10, 4, cc(COLOR_YELLOW));
+                disc(fx + fw / 2, fy + fh * 6 / 10, 4, cc(COLOR_YELLOW));
                 fill(cc(COLOR_DARK_RED), fx, fy + fh * 6 / 10 + 1, fw, fh - fh * 6 / 10 - 1);
             }
             else
@@ -737,7 +738,7 @@ static void draw_crank(int top, int turn_milli, int open)
         crank_bar(cx, hy - 4, ex, ey - 2, metal_l, 2);
         crank_handle(ex, ey - 1, knob, knob_l, C_ACCENT);
     }
-    fill_circle(cx, hy - 4, 2, behind ? metal_l : metal);   /* rivetto del braccio */
+    disc(cx, hy - 4, 2, behind ? metal_l : metal);   /* rivetto del braccio */
 }
 
 /* sportello che si chiude (da destra) con finestrella promemoria e contapose.

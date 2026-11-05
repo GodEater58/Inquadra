@@ -36,63 +36,110 @@ static void persist_defaults()
     for (int i = 0; i < NPROF; i++) P.prof[i].name = i;
 }
 
-static void persist_path(char *buf, int len)
+/* due copie sulla scheda, scritte a turno (IRIDE.DAT e IRIDE.BAK) col numero del salvataggio:
+   se la batteria si stacca o la scheda esce mentre si scrive, l'altra copia e' ancora buona e
+   non si perdono rullino e "Torna alla 6D". Una 1.3 o precedente legge solo IRIDE.DAT. */
+#define persist_seq reserved[0]
+static int persist_next_slot = 0;
+static struct semaphore *persist_sem = 0;
+
+static void persist_path(char *buf, int len, int slot)
 {
-    snprintf(buf, len, "%sIRIDE.DAT", get_config_dir());
+    snprintf(buf, len, "%s%s", get_config_dir(), slot ? "IRIDE.BAK" : "IRIDE.DAT");
 }
+
+/* 2 = file v3 valido, 1 = file v2 (1.0/1.1) valido, 0 = niente */
+static int persist_read(int slot, struct persist *buf)
+{
+    char path[96];
+    persist_path(path, sizeof(path), slot);
+    FILE *f = FIO_OpenFile(path, O_RDONLY | O_SYNC);
+    if (!f) return 0;
+    int r = FIO_ReadFile(f, buf, sizeof(struct persist));
+    FIO_CloseFile(f);
+    const int *w = (const int *)buf;
+    int v2_bytes = PERSIST_V2_WORDS * (int)sizeof(int);
+    if (r == (int)sizeof(struct persist) && buf->magic == PERSIST_MAGIC &&
+        buf->version == PERSIST_VERSION && buf->size == (int)sizeof(struct persist) &&
+        buf->checksum == persist_sum(buf))
+        return 2;
+    if (r == v2_bytes && buf->magic == PERSIST_MAGIC && buf->version == 2 && buf->size == v2_bytes &&
+        w[PERSIST_V2_WORDS - 1] == persist_sum_n(buf, PERSIST_V2_WORDS - 1))
+        return 1;
+    return 0;
+}
+
+static void persist_sanitize();
 
 static void persist_load()
 {
     persist_defaults();
-    char path[96];
-    persist_path(path, sizeof(path));
-    FILE *f = FIO_OpenFile(path, O_RDONLY | O_SYNC);
-    if (!f) return;
-    struct persist *buf = fio_malloc(sizeof(struct persist));
-    if (buf)
+    struct persist *a = fio_malloc(sizeof(struct persist));
+    struct persist *b = fio_malloc(sizeof(struct persist));
+    if (a && b)
     {
-        int r = FIO_ReadFile(f, buf, sizeof(struct persist));
-        const int *w = (const int *)buf;
-        int v2_bytes = PERSIST_V2_WORDS * (int)sizeof(int);
-        if (r == (int)sizeof(struct persist) && buf->magic == PERSIST_MAGIC &&
-            buf->version == PERSIST_VERSION && buf->size == (int)sizeof(struct persist) &&
-            buf->checksum == persist_sum(buf))
+        int ka = persist_read(0, a), kb = persist_read(1, b);
+        /* la copia v3 col salvataggio piu' recente; il file v2 vale solo se e' l'unico */
+        struct persist *best = 0;
+        int slot = 0;
+        if (ka == 2 && (kb != 2 || a->persist_seq - b->persist_seq >= 0)) { best = a; slot = 0; }
+        else if (kb == 2) { best = b; slot = 1; }
+        if (best)
         {
-            memcpy(&P, buf, sizeof(P));
+            memcpy(&P, best, sizeof(P));
+            persist_next_slot = !slot;
         }
-        else if (r == v2_bytes && buf->magic == PERSIST_MAGIC && buf->version == 2 && buf->size == v2_bytes &&
-                 w[PERSIST_V2_WORDS - 1] == persist_sum_n(buf, PERSIST_V2_WORDS - 1))
+        else if (ka == 1)
         {
             /* file della 1.0/1.1: stessa struttura fino ai profili, il resto parte da zero */
-            memcpy(&P, buf, __builtin_offsetof(struct persist, ml_prev2));
+            memcpy(&P, a, __builtin_offsetof(struct persist, ml_prev2));
             P.version = PERSIST_VERSION;
             P.size = sizeof(struct persist);
+            persist_next_slot = 1;               /* l'originale resta finche' non c'e' una copia nuova */
             persist_touch();
         }
-        fio_free(buf);
     }
-    FIO_CloseFile(f);
+    if (a) fio_free(a);
+    if (b) fio_free(b);
+    persist_sanitize();
 }
 
 static void persist_save()
 {
-    P.magic = PERSIST_MAGIC;
-    P.version = PERSIST_VERSION;
-    P.size = sizeof(struct persist);
-    P.checksum = persist_sum(&P);
-    char path[96];
-    persist_path(path, sizeof(path));
+    /* si salva da piu' task (contatore, chiusura di Iride, ML allo spegnimento): uno alla volta */
+    if (persist_sem && take_semaphore(persist_sem, 2000) != 0) return;
     struct persist *buf = fio_malloc(sizeof(struct persist));
-    if (!buf) return;
-    memcpy(buf, &P, sizeof(P));
-    FILE *f = FIO_CreateFile(path);
-    if (f)
+    if (buf)
     {
-        FIO_WriteFile(f, buf, sizeof(struct persist));
-        FIO_CloseFile(f);
+        /* prima si azzera il "da salvare", poi si copia: una modifica che arriva durante la
+           scrittura resta da salvare. La somma si calcola sulla copia, non su P che puo'
+           cambiare nel frattempo (prima un rullino che avanzava poteva rendere il file illeggibile) */
         persist_dirty = 0;
+        P.persist_seq++;
+        memcpy(buf, &P, sizeof(P));
+        buf->magic = PERSIST_MAGIC;
+        buf->version = PERSIST_VERSION;
+        buf->size = sizeof(struct persist);
+        buf->checksum = persist_sum(buf);
+        char path[96];
+        persist_path(path, sizeof(path), persist_next_slot);
+        FILE *f = FIO_CreateFile(path);
+        int ok = 0;
+        if (f)
+        {
+            ok = FIO_WriteFile(f, buf, sizeof(struct persist)) == (int)sizeof(struct persist);
+            FIO_CloseFile(f);
+        }
+        if (ok) persist_next_slot = !persist_next_slot;
+        else
+        {
+            /* scheda piena o protetta: si riprova piu' tardi, non ogni secondo */
+            persist_dirty = 1;
+            persist_touch_ms = get_ms_clock() + 30000;
+        }
+        fio_free(buf);
     }
-    fio_free(buf);
+    if (persist_sem) give_semaphore(persist_sem);
 }
 
 static void persist_save_if_dirty()
@@ -110,6 +157,23 @@ static int seq_tag = 0;
 
 static const char *const tag_names[] = { "OFF", "LGHT", "DARK", "FLAT", "BIAS" };
 #define NUM_TAGS ((int)COUNT(tag_names))
+
+/* valori fuori posto (file di un'altra versione, scheda rovinata ma somma giusta): si rimettono
+   nei limiti, cosi' nessun indice esce dalle tabelle */
+static void persist_sanitize()
+{
+    P.roll_exp = COERCE(P.roll_exp, 1, 99);
+    P.roll_push = COERCE(P.roll_push, -2, 3);
+    P.roll_shots = COERCE(P.roll_shots, 0, 999);
+    P.roll_num = MAX(P.roll_num, 0);
+    if (P.astro_tag < 0 || P.astro_tag >= NUM_TAGS) P.astro_tag = 0;
+    P.dual_rec = COERCE(P.dual_rec, 0, 2);
+    P.nd_idx = COERCE(P.nd_idx, 0, 8);
+    P.lat100 = COERCE(P.lat100, -9000, 9000);
+    P.lon100 = COERCE(P.lon100, -18000, 18000);
+    for (int i = 0; i < NPROF; i++) if (P.prof[i].name < 0 || P.prof[i].name >= NPROF_NAMES) P.prof[i].name = i % NPROF_NAMES;
+}
+
 
 static void prefix_apply(const char *p)
 {

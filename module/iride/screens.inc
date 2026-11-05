@@ -160,11 +160,11 @@ static void draw_home()
         fill_r(C_PANEL, 24, y, SCR_W - 48, 72, R_CARD);
         /* obiettivo disegnato: anelli e vetro con il riflesso */
         int lx = 58, ly = y + 36;
-        fill_circle(lx, ly, 21, C_LINE);
-        fill_circle(lx, ly, 18, C_BG);
-        fill_circle(lx, ly, 13, C_PANEL2);
+        disc(lx, ly, 21, C_LINE);
+        disc(lx, ly, 18, C_BG);
+        disc(lx, ly, 13, C_PANEL2);
         draw_circle(lx, ly, 9, C_ACCENT);
-        fill_circle(lx - 5, ly - 5, 3, C_DIM);
+        disc(lx - 5, ly - 5, 3, C_DIM);
         int tx = 94;
         if (lens_info.lens_exists && lens_info.name[0])
         {
@@ -423,7 +423,7 @@ static void draw_menu_md(const struct menu_row *rows, const struct md_item *it, 
             txt(FONT_MED, P.astro_tag ? C_ACCENT : C_DIM, xr - 12 - vw, y + (ph - 23) / 2, buf);
             arrow(xr - 24 - vw, mid, -1, mine ? C_ACCENT : C_LINE);
         }
-        else if (on) fill_circle(lx + lw - 20, y + ph / 2, 4, C_OK);
+        else if (on) disc(lx + lw - 20, y + ph / 2, 4, C_OK);
     }
 
     /* pannello della voce scelta */
@@ -451,7 +451,7 @@ static void draw_menu_md(const struct menu_row *rows, const struct md_item *it, 
     snprintf(buf, sizeof(buf), "%s", st_txt[MIN(s, 7)]);
     fill(C_LINE, px + 18, y0 + 324, pw - 36, 1);
     txt_in(FONT_SMALL, C_DIM, px + 18, y0 + 332, "ADESSO", e2, 0, 6);
-    if (on && e2 >= 1000) fill_circle(px + 24, y0 + 361, 4, C_OK);
+    if (on && e2 >= 1000) disc(px + 24, y0 + 361, 4, C_OK);
     if (e2 >= 1000) txt_fit(on ? C_OK : C_TEXT, px + (on ? 36 : 18), y0 + 350, pw - (on ? 52 : 34), buf);
     else if (txt_w(FONT_MED, buf) <= pw - (on ? 52 : 34)) txt_in(FONT_MED, on ? C_OK : C_TEXT, px + (on ? 36 : 18), y0 + 350, buf, e2, 0, 6);
 }
@@ -788,8 +788,8 @@ static void draw_profiles()
         char buf[48];
         /* tondo con il modo di scatto (o il numero se il posto e' vuoto) */
         int cx = 70, cy = y + ph / 2;
-        fill_circle(cx, cy, 25, p->valid ? (mine ? C_ACCENT : C_LINE) : C_PANEL2);
-        fill_circle(cx, cy, 22, C_BG);
+        disc(cx, cy, 25, p->valid ? (mine ? C_ACCENT : C_LINE) : C_PANEL2);
+        disc(cx, cy, 22, C_BG);
         if (p->valid) txt_c(FONT_MED_LARGE, mine ? C_ACCENT : C_TEXT, cx, cy - 15, get_shootmode_name_short(p->mode));
         snprintf(buf, sizeof(buf), "%d", i + 1);
         if (!p->valid) txt_c(FONT_MED, C_DIM, cx, cy - 12, buf);
@@ -1041,13 +1041,13 @@ static void restore_icon(int kind, int cx, int cy)
     switch (kind)
     {
         case RI_EXPO:       /* ghiera dei modi */
-            fill_circle(cx, cy, 11, C_DIM); fill_circle(cx, cy, 8, C_BG);
+            disc(cx, cy, 11, C_DIM); disc(cx, cy, 8, C_BG);
             for (int i = 0; i < 8; i++) { float a = (float)i * 0.785f; fill(C_DIM, cx + (int)(9.5f * cosf(a)), cy + (int)(9.5f * sinf(a)), 2, 2); }
             fill(C_ACCENT, cx - 1, cy - 8, 3, 6);
             break;
         case RI_STYLE:      /* tavolozza */
-            fill_circle(cx, cy, 11, C_DIM); fill_circle(cx + 5, cy + 5, 4, C_BG);
-            fill_circle(cx - 4, cy - 4, 2, tc(COLOR_RED)); fill_circle(cx + 3, cy - 5, 2, tc(COLOR_YELLOW)); fill_circle(cx - 5, cy + 3, 2, tc(COLOR_LIGHT_BLUE));
+            disc(cx, cy, 11, C_DIM); disc(cx + 5, cy + 5, 4, C_BG);
+            disc(cx - 4, cy - 4, 2, tc(COLOR_RED)); disc(cx + 3, cy - 5, 2, tc(COLOR_YELLOW)); disc(cx - 5, cy + 3, 2, tc(COLOR_LIGHT_BLUE));
             break;
         case RI_SLIDERS:    /* cursori */
             for (int i = 0; i < 3; i++) { int x = cx - 8 + i * 8; fill(C_LINE, x, cy - 10, 2, 20); fill(C_ACCENT, x - 3, cy - 4 + (i == 1 ? -5 : i * 4), 8, 4); }

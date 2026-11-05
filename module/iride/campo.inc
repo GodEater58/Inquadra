@@ -140,7 +140,7 @@ static void session_watch_external(int fn)
     if (!opt_session || P.astro_tag <= 0 || job_running != JOB_NONE || lens_info.job_state) { sess_ext_fn = fn; return; }
     if (sess_ext_fn < 0) { sess_ext_fn = fn; return; }
     if (fn == sess_ext_fn) return;
-    int n = MOD(fn - sess_ext_fn, 10000);
+    int n = MOD(fn - sess_ext_fn, 9999);             /* i numeri dei file vanno da 0001 a 9999 */
     if (n > 0 && n < 50)
     {
         float t = lens_info.raw_shutter > 0 ? raw2shutterf(lens_info.raw_shutter) : 0.0f;

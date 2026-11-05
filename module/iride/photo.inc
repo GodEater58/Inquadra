@@ -438,8 +438,8 @@ static void nd_extra()
     txt(FONT_MED_LARGE, C_TEXT, 44, 290, lens_format_shutter(P.nd_base));
     int fx = 300, fy = 302;
     fill(C_LINE, 170, fy, 100, 2); arrow(272, fy + 1, 1, C_LINE);
-    fill_circle(fx, fy, 26, C_LINE);
-    fill_circle(fx, fy, 21, night ? COLOR_BLACK : COLOR_GRAY(16));
+    disc(fx, fy, 26, C_LINE);
+    disc(fx, fy, 21, night ? COLOR_BLACK : COLOR_GRAY(16));
     txt_c(FONT_SMALL, C_TEXT, fx, fy - 6, nd_names[COERCE(P.nd_idx, 0, NUM_ND - 1)]);
     fill(C_LINE, 330, fy, 100, 2); arrow(432, fy + 1, 1, C_LINE);
     txt(FONT_SMALL, C_DIM, 450, 281, t10 > 300 ? "CON (POSA B)" : "CON");

@@ -35,7 +35,7 @@ static int bench_time(void (*fn)(void), int n)
     fn();                                        /* un giro a vuoto: Luna e conti gia' in memoria, come nell'uso */
     int t0 = get_us_clock();
     for (int i = 0; i < n; i++) fn();
-    int dt = get_us_clock() - t0;
+    int dt = (int)((unsigned)get_us_clock() - (unsigned)t0);
     bmp_draw_to_idle(0);
     return dt / MAX(n, 1);
 }
@@ -80,7 +80,7 @@ static int bench_brick(int s)
         case BT_LINE: for (int i = 0; i < 100; i++) draw_line(60, 150 + i, 260, 250 - i / 2, C_LINE); break;
         case BT_CIRC: for (int i = 0; i < 50; i++) fill_circle(100 + (i % 10) * 50, 200 + (i / 10) * 30, 20, C_PANEL2); break;
     }
-    int dt = get_us_clock() - t0;
+    int dt = (int)((unsigned)get_us_clock() - (unsigned)t0);
     bmp_draw_to_idle(0);
     return dt;
 }
@@ -119,7 +119,7 @@ static int bench_tick()
             jt_now(&d70, &mins, &off);
             t0 = get_us_clock();
             sky_compute_night(0, d70);
-            bench_us[s] = get_us_clock() - t0;
+            bench_us[s] = (int)((unsigned)get_us_clock() - (unsigned)t0);
             break;
         }
         case BT_GCSCAN:
@@ -130,7 +130,7 @@ static int bench_tick()
             gcn_state = 1; gcn_from = gcn_day = d70 + 1;
             t0 = get_us_clock();
             while (gcn_state == 1) gc_scan_step();
-            bench_us[s] = get_us_clock() - t0;
+            bench_us[s] = (int)((unsigned)get_us_clock() - (unsigned)t0);
             break;
         }
         case BT_SKY:

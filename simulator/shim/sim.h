@@ -183,6 +183,11 @@ FILE *FIO_CreateFile(const char *n);
 FILE *FIO_OpenFile(const char *n, unsigned mode);
 int FIO_ReadFile(FILE *f, void *p, size_t n);
 int FIO_WriteFile(FILE *f, const void *p, size_t n);
+struct semaphore;
+#define SEM_CREATE_UNLOCKED 1
+struct semaphore *create_named_semaphore(const char *name, int starts_unlocked);
+int take_semaphore(struct semaphore *s, int timeout);
+int give_semaphore(struct semaphore *s);
 void FIO_CloseFile(FILE *f);
 #define fio_malloc malloc
 #define fio_free free

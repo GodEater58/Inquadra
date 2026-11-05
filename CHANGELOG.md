@@ -1,5 +1,20 @@
 # Novità
 
+## 1.4.1 – 5 novembre 2026
+Revisione completa del codice: simulatore con AddressSanitizer e UndefinedBehaviorSanitizer (6 serie da 15.000 tasti a caso), analisi statica con cppcheck, compilazione per la 6D con avvisi extra.
+- **Salvataggio più sicuro** (`IRIDE.DAT`)
+  - due copie scritte a turno (`IRIDE.DAT` e `IRIDE.BAK`) col numero del salvataggio: se la batteria si stacca o la scheda esce mentre si scrive resta la copia di prima, e non si perdono rullino e impostazioni di "Torna alla 6D"
+  - corretto: la somma di controllo era calcolata su P e poi P veniva copiato; se nel frattempo il contatore del rullino cambiava, il file risultava rovinato al riavvio e si ripartiva dai valori di fabbrica. Ora si calcola sulla copia
+  - corretto: una modifica arrivata durante la scrittura veniva segnata come già salvata
+  - un salvataggio alla volta anche quando lo chiedono insieme contatore, chiusura di Iride e spegnimento
+  - scheda piena o protetta: si riprova dopo 30 s invece che ogni secondo
+  - dopo la lettura i valori fuori posto vengono rimessi nei limiti
+- **Corretto il registro della sessione** per gli scatti dal cavo: passando da 9999 a 0001 contava due foto invece di una
+- Corretto il primo fotogramma del rullino caricato col contatore Canon a 9999
+- **Cerchi pieni 10-20 volte più veloci**: quello di Magic Lantern scrive colonne un pixel alla volta ripassando sugli stessi punti (270 µs per raggio 20 misurati sulla 6D, circa 15 ms per il reticolo dell'allineamento polare). Il nuovo li disegna a righe intere con gli stessi pixel, verificato punto per punto da raggio 0 a 170. Più leggeri Allineamento polare, Home, icone e Luna
+- Prova della 6D: tempi giusti anche quando l'orologio in microsecondi passa il limite
+- Simulatore: 5 test nuovi sul salvataggio (copie a turno, scrittura interrotta, valori fuori posto), stima del costo di disegno per schermata (`IRIDE_PROFILE=1`), tasti a caso configurabili (`IRIDE_FUZZ_SEED`, `IRIDE_FUZZ_N`)
+
 ## 1.4 – 5 novembre 2026
 - **Magic Lantern modificato per Iride** (`module/magiclantern.patch`, `src/menu.c`): nuova *modalità schermo intero* per i moduli che disegnano tutto lo schermo sopra il menu ML
   - finito il primo disegno del dialogo Canon sotto il menu, ML impedisce a Canon di copiare la sua grafica sullo schermo: niente più disegni Canon che sbucano sopra Iride

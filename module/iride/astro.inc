@@ -759,7 +759,7 @@ static void draw_stars()
         for (int i = 0; i < af_n; i++)
         {
             int x = gx + 6 + (af_px[i] - lo) * (gw - 12) / span, y = gy + gh - 4 - af_ph[i] * (gh - 10) / mx;
-            fill_circle(x, y, i == af_min ? 4 : 2, i == af_min ? C_OK : C_ACCENT);
+            disc(x, y, i == af_min ? 4 : 2, i == af_min ? C_OK : C_ACCENT);
         }
         if (af_state == AF_DONE)
         {
@@ -1240,7 +1240,7 @@ static void sky_xy(int cx, int cy, float ha_deg, float r, int *x, int *y)
 static void draw_north_map(int mx, int my, int mr, float lst, float lat)
 {
     const float k = (float)mr / 46.0f;                /* 46 gradi dal polo fino al bordo */
-    fill_circle(mx, my, mr, C_PANEL);
+    disc(mx, my, mr, C_PANEL);
     /* terreno: sotto l'orizzonte, a "lat" gradi dal polo verso il basso */
     int hy = my + (int)(lat * k);
     for (int yy = MAX(hy, my - mr); yy <= my + mr; yy++)
@@ -1260,16 +1260,16 @@ static void draw_north_map(int mx, int my, int mr, float lst, float lat)
         sky_xy(mx, my, lst - uma[i].ra_h * 15.0f, (90.0f - uma[i].dec) * k, &px[i], &py[i]);
     for (int i = 0; i < 7; i++)
         draw_line(px[uma_lines[i][0]], py[uma_lines[i][0]], px[uma_lines[i][1]], py[uma_lines[i][1]], tc(COLOR_GRAY(40)));
-    for (int i = 0; i < 7; i++) fill_circle(px[i], py[i], i == 3 ? 1 : 2, tc(COLOR_WHITE));
+    for (int i = 0; i < 7; i++) disc(px[i], py[i], i == 3 ? 1 : 2, tc(COLOR_WHITE));
     int qx[5], qy[5];
     for (int i = 0; i < 5; i++)
         sky_xy(mx, my, lst - cas[i].ra_h * 15.0f, (90.0f - cas[i].dec) * k, &qx[i], &qy[i]);
     for (int i = 0; i < 4; i++) draw_line(qx[i], qy[i], qx[i + 1], qy[i + 1], tc(COLOR_GRAY(40)));
-    for (int i = 0; i < 5; i++) fill_circle(qx[i], qy[i], 2, tc(COLOR_LIGHT_BLUE));
+    for (int i = 0; i < 5; i++) disc(qx[i], qy[i], 2, tc(COLOR_LIGHT_BLUE));
     /* polo e Polare (a meno di un grado: praticamente al centro) */
     fill(C_DIM, mx - 5, my, 11, 1);
     fill(C_DIM, mx, my - 5, 1, 11);
-    fill_circle(mx + 1, my - 1, 2, C_ACCENT);
+    disc(mx + 1, my - 1, 2, C_ACCENT);
 }
 
 /* interruttore a due voci con il fondo che scivola */
@@ -1298,8 +1298,8 @@ static void draw_polar()
 
     /* ---- reticolo del cannocchiale polare */
     const int cx = 196, cy = 246, R = 150, rp = 100;
-    fill_circle(cx, cy, R, night ? COLOR_BLACK : COLOR_GRAY(10));
-    fill_circle(cx, cy, R - 18, C_BG);
+    disc(cx, cy, R, night ? COLOR_BLACK : COLOR_GRAY(10));
+    disc(cx, cy, R - 18, C_BG);
     draw_circle(cx, cy, R, C_LINE);
     draw_circle(cx, cy, R - 18, C_LINE);
     for (int t = 0; t < 48; t++)                       /* tacche ogni 15 minuti dell'orologio */
@@ -1349,9 +1349,9 @@ static void draw_polar()
         draw_circle(px, py, lerp(11, 26, ep), c);
         draw_circle(px, py, lerp(11, 26, ep) + 1, c);
     }
-    fill_circle(px, py, 10, C_ACCENT);
-    fill_circle(px, py, 5, C_BG);
-    fill_circle(px, py, 2, C_TEXT);
+    disc(px, py, 10, C_ACCENT);
+    disc(px, py, 5, C_BG);
+    disc(px, py, 2, C_TEXT);
 
     /* ---- pannello a destra */
     float clock = 12.0f - ha / 2.0f + (inverted ? 6.0f : 0.0f);
@@ -1379,9 +1379,9 @@ static void draw_polar()
     txt_in(FONT_SMALL, C_DIM, 540, 182, "CIELO A NORD", e3, 16, 0);
     if (e3 >= 1000)
     {
-        fill_circle(546, 207, 3, tc(COLOR_WHITE));
-        fill_circle(546, 227, 3, tc(COLOR_LIGHT_BLUE));
-        fill_circle(546, 247, 3, C_ACCENT);
+        disc(546, 207, 3, tc(COLOR_WHITE));
+        disc(546, 227, 3, tc(COLOR_LIGHT_BLUE));
+        disc(546, 247, 3, C_ACCENT);
     }
     txt_in(FONT_SMALL, C_TEXT, 560, 200, "Grande Carro", e3, 16, 0);
     txt_in(FONT_SMALL, C_TEXT, 560, 220, "Cassiopea", e3, 16, 0);

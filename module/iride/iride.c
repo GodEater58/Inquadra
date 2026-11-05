@@ -36,7 +36,7 @@
 #include <math.h>
 #include <battery.h>
 
-#define IRIDE_VERSION "1.4"
+#define IRIDE_VERSION "1.4.1"
 
 /* ------------------------------------------------------------------ compatibilita' API */
 
@@ -684,6 +684,7 @@ static unsigned int iride_config_save(unsigned int ctx)
 
 static unsigned int iride_init()
 {
+    persist_sem = create_named_semaphore("iride_dat", SEM_CREATE_UNLOCKED);
     persist_load();
     film_init();
     menu_add("Shoot", iride_menu, COUNT(iride_menu));

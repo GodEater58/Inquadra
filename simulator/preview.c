@@ -71,7 +71,8 @@ static void vram_raster(uint8_t c, int x, int y, int w, int h)
     if (y + h > 480) h = 480 - y;
     for (int yy = y; yy < y + h && w > 0; yy++) memset(buf + yy * 960 + x, c, w);
 }
-void bmp_fill(uint8_t c, int x, int y, int w, int h) { op("F\t%d\t%d\t%d\t%d\t%d\n", c, x, y, w, h); vram_raster(c, x, y, w, h); }
+static long sim_fills = 0, sim_fill_area = 0;
+void bmp_fill(uint8_t c, int x, int y, int w, int h) { sim_fills++; sim_fill_area += (long)MAX(w, 0) * MAX(h, 0); op("F\t%d\t%d\t%d\t%d\t%d\n", c, x, y, w, h); vram_raster(c, x, y, w, h); }
 void bmp_draw_rect(int c, int x, int y, int w, int h) { op("R\t%d\t%d\t%d\t%d\t%d\n", c, x, y, w, h); }
 int sim_get_px(int x, int y) { return (to_idle ? vram_b : vram_a)[30 * 960 + y * 960 + x]; }
 /* riga di pixel scritta direttamente nella memoria video (0 = trasparente) */
@@ -318,6 +319,11 @@ int is_manual_focus(void) { return 0; }
 void set_lv_zoom(int z) { lv_dispsize = z; }
 struct card_info *get_shooting_card(void) { return &card; }
 char *get_config_dir(void) { return "out/"; }
+struct semaphore { int locked; };
+static struct semaphore sim_sem_pool[4]; static int sim_sems = 0;
+struct semaphore *create_named_semaphore(const char *n, int unlocked) { (void)n; struct semaphore *s = &sim_sem_pool[sim_sems++ % 4]; s->locked = !unlocked; return s; }
+int take_semaphore(struct semaphore *s, int t) { (void)t; if (s->locked) return 1; s->locked = 1; return 0; }
+int give_semaphore(struct semaphore *s) { s->locked = 0; return 0; }
 int FIO_CreateDirectory(const char *d) { (void)d; return 0; }
 static char sim_path(char *dst, const char *n) { (void)dst; (void)n; return 0; }
 FILE *FIO_CreateFileOrAppend(const char *n)
@@ -332,7 +338,7 @@ int GetBatteryLevel(void) { return sim_batt; }
 int GetBatteryTimeRemaining(void) { return sim_batt_left; }
 int get_free_space_32k(const struct card_info *c) { (void)c; return sim_free32k; }
 const char *get_dcim_dir(void) { return "out/DCIM/100CANON/"; }
-int get_us_clock(void) { return clock_ms * 1000 + (int)(sim_ops * 3); }
+int get_us_clock(void) { return (int)((unsigned)clock_ms * 1000u + (unsigned)(sim_ops * 3)); }   /* come sulla 6D: gira oltre i 2^31 */
 FILE *FIO_CreateFile(const char *n)
 {
     /* ML/LOGS/... della scheda -> out/ */
@@ -474,15 +480,36 @@ int main(void)
         CHECK(ok && ABS(cx - 300) <= 1 && ABS(cy - 180) <= 1, "pixel caldo piu' luminoso di una stella debole: misurata la stella (%d, %d)", cx, cy);
     }
 
-    /* ---------- salvataggio su scheda */
+    /* ---------- salvataggio su scheda: due copie a turno */
+    remove("out/IRIDE.DAT"); remove("out/IRIDE.BAK"); persist_next_slot = 0;
     P.roll_num = 7; P.lat100 = 4400; P.prof[2].valid = 1; P.prof[2].iso = 96;
     persist_save();
     P.roll_num = 0; P.lat100 = 0; P.prof[2].valid = 0;
     persist_load();
-    CHECK(P.roll_num == 7 && P.lat100 == 4400 && P.prof[2].valid == 1 && P.prof[2].iso == 96, "salvataggio IRIDE.DAT e rilettura");
+    CHECK(P.roll_num == 7 && P.lat100 == 4400 && P.prof[2].valid == 1 && P.prof[2].iso == 96 && persist_next_slot == 1,
+          "salvataggio IRIDE.DAT e rilettura (il prossimo va in IRIDE.BAK)");
     { FILE *f = fopen("out/IRIDE.DAT", "r+b"); fseek(f, 40, SEEK_SET); fputc(0x55, f); fclose(f); }
     persist_load();
-    CHECK(P.roll_num == 0 && P.lat100 == 4189, "file rovinato: valori di fabbrica (nessun crash)");
+    CHECK(P.roll_num == 0 && P.lat100 == 4189, "unica copia rovinata: valori di fabbrica (nessun crash)");
+    /* due salvataggi: rovinando il piu' recente (scrittura interrotta) resta l'altro */
+    remove("out/IRIDE.DAT"); remove("out/IRIDE.BAK"); persist_next_slot = 0; persist_defaults();
+    P.roll_num = 11; persist_save();               /* IRIDE.DAT */
+    P.roll_num = 12; persist_save();               /* IRIDE.BAK, piu' recente */
+    persist_load();
+    CHECK(P.roll_num == 12, "si rilegge la copia piu' recente (%d)", P.roll_num);
+    { FILE *f = fopen("out/IRIDE.BAK", "wb"); fwrite("Iride", 1, 5, f); fclose(f); }
+    persist_load();
+    CHECK(P.roll_num == 11 && persist_next_slot == 1, "scrittura interrotta: resta la copia di prima (%d), la prossima riscrive quella rovinata", P.roll_num);
+    /* salvataggio mentre il contatore cambia P: il file resta leggibile */
+    P.roll_num = 13; persist_dirty = 1; persist_save();
+    CHECK(persist_dirty == 0, "salvato: niente piu' da salvare");
+    persist_load();
+    CHECK(P.roll_num == 13, "e si rilegge (%d)", P.roll_num);
+    /* valori fuori posto nel file: rimessi nei limiti */
+    P.astro_tag = 99; P.dual_rec = -5; P.lat100 = 99999; P.prof[0].name = 1000; persist_save(); persist_load();
+    CHECK(P.astro_tag == 0 && P.dual_rec == 0 && P.lat100 == 9000 && P.prof[0].name >= 0 && P.prof[0].name < NPROF_NAMES,
+          "valori fuori posto rimessi nei limiti dopo la lettura");
+    remove("out/IRIDE.DAT"); remove("out/IRIDE.BAK"); persist_next_slot = 0;
     persist_defaults();
     /* file della 1.1 (struttura v2): rullino, luogo e profili non si perdono passando alla 1.2 */
     {
@@ -1367,14 +1394,15 @@ int main(void)
     {
         struct persist saved = P;
         int lvs = lv;
-        unsigned rng = 12345;
+        unsigned rng = getenv("IRIDE_FUZZ_SEED") ? (unsigned)atoi(getenv("IRIDE_FUZZ_SEED")) : 12345;
+        int fuzz_n = getenv("IRIDE_FUZZ_N") ? atoi(getenv("IRIDE_FUZZ_N")) : 6000;
         int fk[] = { MODULE_KEY_PRESS_UP, MODULE_KEY_PRESS_DOWN, MODULE_KEY_PRESS_LEFT, MODULE_KEY_PRESS_RIGHT,
                      MODULE_KEY_WHEEL_LEFT, MODULE_KEY_WHEEL_RIGHT, MODULE_KEY_WHEEL_UP, MODULE_KEY_WHEEL_DOWN,
                      MODULE_KEY_PRESS_SET, MODULE_KEY_MENU, MODULE_KEY_INFO, MODULE_KEY_Q };
         int screens_seen = 0, seen[SCR_COUNT] = { 0 };
         screen = SCR_HOME; hl_reset(); transition = 0;
         offscreen = 0; offscreen_on = 1; offshape = 0; offshape_on = 1;
-        for (int i = 0; i < 6000; i++)
+        for (int i = 0; i < fuzz_n; i++)
         {
             rng = rng * 1103515245u + 12345u;
             int k = fk[(rng >> 16) % COUNT(fk)];
@@ -1398,6 +1426,23 @@ int main(void)
     long maxg = 0; int maxs = 0;
     for (int s = 0; s < SCR_COUNT; s++) { screen = s; glyphs = 0; render(0); if (glyphs > maxg) { maxg = glyphs; maxs = s; } }
     printf("info: schermata piu' pesante %s con %ld caratteri per fotogramma\n", screens[maxs].title, maxg);
+    if (getenv("IRIDE_PROFILE"))
+    {
+        /* stima grezza coi "mattoni" misurati sulla 6D (1.3.2): riempimento 1,3 us + 0,005 us/pixel,
+           lettera 20 us. Il testo piccolo e i blocchi copiati in memoria non passano da qui */
+        for (int t = 0; t < 2; t++)
+        {
+            opt_theme = t;
+            for (int s2 = 0; s2 < SCR_COUNT; s2++)
+            {
+                screen = s2; theme_apply(); render(0);       /* giro a vuoto, come la Prova */
+                sim_fills = 0; sim_fill_area = 0; glyphs = 0; render(0);
+                printf("profilo %-22s tema %d: %5ld riempimenti, %4ld kpx, %4ld lettere ~ %ld us\n", screens[s2].title, t,
+                    sim_fills, sim_fill_area / 1000, glyphs, (long)(sim_fills * 13 / 10 + sim_fill_area / 200 + glyphs * 20));
+            }
+        }
+        opt_theme = 0;
+    }
 
     printf("\n%d test superati, %d falliti\n", passes, fails);
     return fails ? 1 : 0;

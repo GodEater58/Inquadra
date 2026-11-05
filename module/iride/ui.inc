@@ -280,6 +280,44 @@ static void fill(int c, int x, int y, int w, int h)
     if (w > 0 && h > 0) bmp_fill(c, x, y, w, h);
 }
 
+/* cerchio pieno: gli stessi pixel di fill_circle di ML, ma a blocchi di righe intere.
+ * fill_circle di ML scrive colonne un pixel alla volta, ripassando piu' volte le stesse
+ * (sulla 6D 270 us per raggio 20, circa 15 ms per il reticolo polare di raggio 150);
+ * qui raggio 150 sono 180 riempimenti. Verificato pixel per pixel da 0 a 170. */
+static void disc(int x, int y, int r, int c)
+{
+    if (r < 0) return;
+    if (r > 239) r = 239;
+    short h[240];                                 /* mezza altezza per colonna (scarto da x) */
+    for (int i = 0; i <= r; i++) h[i] = -1;
+    int dx = 0, dy = r, p = 3 - (r << 1);
+    do
+    {
+        if (h[dx] < dy) h[dx] = dy;
+        if (h[dy] < dx) h[dy] = dx;
+        ++dx;
+        if (p < 0) p += 4 * dx + 6;
+        else { --dy; p += 4 * (dx - dy) + 10; }
+    } while (dx <= dy);
+    /* riga v: mezza larghezza = colonna piu' lontana alta almeno v; righe uguali in un solo blocco */
+    int u = -1, prev_w = -1, run0 = 0;
+    for (int v = r; v >= -1; v--)
+    {
+        int w = -1;
+        if (v >= 0) { while (u < r && h[u + 1] >= v) u++; w = u; }
+        if (w != prev_w)
+        {
+            if (prev_w >= 0)
+            {
+                int top = v + 1, n = run0 - v;    /* righe da v+1 a run0 */
+                fill(c, x - prev_w, y - run0, 2 * prev_w + 1, n);
+                fill(c, x - prev_w, y + top, 2 * prev_w + 1, n);
+            }
+            prev_w = w; run0 = v;
+        }
+    }
+}
+
 /* ---- rettangoli con gli angoli arrotondati
  * Solo le prime e le ultime r righe sono a pezzi (2r+1 riempimenti in tutto). corners: quali
  * angoli arrotondare (RC_TL, RC_TR, RC_BL, RC_BR); [ca, cb) limita le righe disegnate, per le
@@ -704,7 +742,7 @@ static void draw_header(const char *section)
     if (P.snap_valid)
     {
         /* pallino: ci sono impostazioni da ripristinare con "Torna alla 6D" */
-        fill_circle(x - 5, 23, 5, C_ACCENT);
+        disc(x - 5, 23, 5, C_ACCENT);
     }
     fill(C_ACCENT, 16, 44, SCR_W - 32, 2);
 }
@@ -761,7 +799,7 @@ static void draw_check(int cx, int cy, int r, int e)
     if (e <= 0) return;
     int rc = r * ease_k(e, 320, EZ_BACK) / 1000;
     if (rc < 2) return;
-    fill_circle(cx, cy, rc, C_OK);
+    disc(cx, cy, rc, C_OK);
     int sp = ease_k(e - 220, 340, EZ_OUT);                 /* finita a 560 ms */
     if (sp <= 0 || rc < r * 8 / 10) return;
     int ax = cx - r * 45 / 100, ay = cy + r * 2 / 100;
@@ -784,7 +822,7 @@ static int irand(int n) { icon_rng = icon_rng * 1103515245u + 12345u; return (in
 /* stella con croce di luce */
 static void star(int x, int y, int r, int c)
 {
-    fill_circle(x, y, r, c);
+    disc(x, y, r, c);
     if (r >= 2)
     {
         fill(c, x - r - 3, y, 2 * r + 7, 1);
@@ -830,8 +868,8 @@ static void icon_sky(int x, int y, int bg, int t)
         }
     }
     /* falce di luna */
-    fill_circle(x + 166, y + 18, 12, tc(COLOR_ALMOST_WHITE));
-    fill_circle(x + 171, y + 14, 11, bg);
+    disc(x + 166, y + 18, 12, tc(COLOR_ALMOST_WHITE));
+    disc(x + 171, y + 14, 11, bg);
     /* montagne: catena lontana in grigio e colline vicine in nero, treppiede sulla cima */
     static const short far_pk[3][3] = { {40, 46, 48}, {120, 54, 52}, {178, 40, 46} };   /* x, altezza, pendenza% */
     static const short near_pk[3][3] = { {10, 22, 40}, {84, 34, 44}, {160, 24, 38} };
@@ -890,7 +928,7 @@ static void fill_tri(int x0, int y0, int x1, int y1, int x2, int y2, int c)
    I lati dell'esagono proseguono fino all'anello: sono i bordi delle lamelle. */
 static void draw_iris(int cx, int cy, int R, int r, float rot, int blade, int edge, int hole)
 {
-    fill_circle(cx, cy, R, blade);
+    disc(cx, cy, R, blade);
     float fr = (float)MAX(r, 0), fR = (float)R;
     float t = -fr * 0.5f + sqrtf(MAX(fR * fR - 0.75f * fr * fr, 0.0f));   /* dal vertice all'anello */
     int px[6], py[6];
@@ -938,11 +976,11 @@ static void icon_dslr(int x, int y, int bg, int t)
     fill(edge, x + 116, by - 6, 26, 6);
     for (int xx = x + 118; xx < x + 140; xx += 3) fill(dark, xx, by - 5, 1, 4);
     /* luce AF */
-    fill_circle(x + 38, by + 14, 3, tc(COLOR_GRAY(50)));
+    disc(x + 38, by + 14, 3, tc(COLOR_GRAY(50)));
     /* obiettivo: barilotto, ghiera zigrinata, anello arancione, lente con riflessi */
     int cx = x + 80, cy = by + 36;
-    fill_circle(cx, cy, 34, edge);
-    fill_circle(cx, cy, 32, body);
+    disc(cx, cy, 34, edge);
+    disc(cx, cy, 32, body);
     for (int i = 0; i < 28; i++)
     {
         float a = (float)i * 0.2244f;
@@ -950,7 +988,7 @@ static void icon_dslr(int x, int y, int bg, int t)
     }
     draw_circle(cx, cy, 25, C_ACCENT);
     draw_circle(cx, cy, 24, C_ACCENT);
-    fill_circle(cx, cy, 22, tc(COLOR_GRAY(8)));
+    disc(cx, cy, 22, tc(COLOR_GRAY(8)));
     if (t >= 0 && t < 560)
     {
         int k = t < 240 ? ease_k(t, 240, EZ_IN) : 1000 - ease_k(t - 240, 320, EZ_BACK);
@@ -959,10 +997,10 @@ static void icon_dslr(int x, int y, int bg, int t)
     }
     else
     {
-        fill_circle(cx, cy, 16, COLOR_BLACK);
-        fill_circle(cx - 3, cy - 3, 9, tc(COLOR_BLUE));
-        fill_circle(cx - 4, cy - 4, 6, COLOR_BLACK);
-        fill_circle(cx - 8, cy - 9, 3, tc(COLOR_LIGHT_BLUE));
+        disc(cx, cy, 16, COLOR_BLACK);
+        disc(cx - 3, cy - 3, 9, tc(COLOR_BLUE));
+        disc(cx - 4, cy - 4, 6, COLOR_BLACK);
+        disc(cx - 8, cy - 9, 3, tc(COLOR_LIGHT_BLUE));
         fill(tc(COLOR_WHITE), cx - 9, cy - 10, 2, 2);
         fill(tc(COLOR_GRAY(50)), cx + 7, cy + 8, 3, 2);
     }
@@ -992,7 +1030,7 @@ static void icon_undo(int x, int y, int t)
     int g = tc(COLOR_GRAY(70));
     fill(g, x - 7, y - 3, 14, 9);
     fill(g, x - 3, y - 6, 6, 3);
-    fill_circle(x, y + 1, 3, COLOR_BLACK);
+    disc(x, y + 1, 3, COLOR_BLACK);
 }
 
 /* Profili: tre cursori verticali da mixer, centro (x, y).
@@ -1028,8 +1066,8 @@ static void gear(int x, int y, int r, int teeth, float rot, int c, int bg)
                       x + (int)((float)(r + 4) * ca) + ox, y + (int)((float)(r + 4) * sa) + oy, c);
         }
     }
-    fill_circle(x, y, r, c);
-    fill_circle(x, y, r * 4 / 10, bg);
+    disc(x, y, r, c);
+    disc(x, y, r * 4 / 10, bg);
     draw_circle(x, y, r - 3, bg);
 }
 

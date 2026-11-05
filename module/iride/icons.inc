@@ -44,8 +44,8 @@ static void ic_interval(int cx, int cy, int s, int t)
     int r = K(36), yc = cy + K(6);
     fill(C_ACCENT, cx - K(6), yc - r - K(12), K(12), K(7));
     fill(C_DIM, cx - K(2), yc - r - K(6), K(4), K(6));
-    fill_circle(cx, yc, r, C_DIM);
-    fill_circle(cx, yc, r - MAX(K(4), 2), C_BG);
+    disc(cx, yc, r, C_DIM);
+    disc(cx, yc, r - MAX(K(4), 2), C_BG);
     for (int i = 0; i < 12; i++)
     {
         float a = (float)i * 0.5236f;
@@ -57,7 +57,7 @@ static void ic_interval(int cx, int cy, int s, int t)
     int hx = cx + (int)((float)(r - K(10)) * sinf(a)), hy = yc - (int)((float)(r - K(10)) * cosf(a));
     draw_line(cx, yc, hx, hy, C_ACCENT);
     draw_line(cx + 1, yc, hx + 1, hy, C_ACCENT);
-    fill_circle(cx, yc, MAX(K(4), 2), C_ACCENT);
+    disc(cx, yc, MAX(K(4), 2), C_ACCENT);
 }
 
 /* Fuoco sulle stelle: una stella sfocata (anelli) che diventa un punto nitido */
@@ -96,8 +96,8 @@ static void ic_polar(int cx, int cy, int s, int t)
     }
     float a = 0.5f + (t >= 0 ? (float)ip(t, 0, 1000, EZ_IO) * 0.0062832f : 0.0f);
     int px = cx - (int)((float)rp * sinf(a)), py = cy - (int)((float)rp * cosf(a));
-    fill_circle(px, py, MAX(K(6), 3), C_ACCENT);
-    fill_circle(px, py, MAX(K(2), 1), C_BG);
+    disc(px, py, MAX(K(6), 3), C_ACCENT);
+    disc(px, py, MAX(K(2), 1), C_BG);
 }
 
 /* Calendario del cielo: Luna che cambia fase davanti a un calendario */
@@ -113,7 +113,7 @@ static void ic_calendar(int cx, int cy, int s, int t)
     /* Luna: la parte illuminata cresce */
     int mr = K(22), mx = cx - K(22), my = cy + K(12);
     int ill = t >= 0 ? ip(t, 0, 900, EZ_IO) * 7 / 10 : 700;
-    fill_circle(mx, my, mr + 2, C_BG);
+    disc(mx, my, mr + 2, C_BG);
     draw_moon(mx, my, mr, ill, 1, mr >= 12 ? 0 : -1);
 }
 
@@ -133,7 +133,7 @@ static void ic_mwplan(int cx, int cy, int s, int t)
     /* il centro: sale lungo l'arco con l'animazione */
     int u = 20 + 40 * e / 1000;
     int gx = x0 + K(u), gy = base - K(10 + (50 - ABS(u - 50)) * 9 / 10);
-    fill_circle(gx, gy, MAX(K(6), 2), C_OK);
+    disc(gx, gy, MAX(K(6), 2), C_OK);
     /* orizzonte e punti cardinali */
     fill(C_DIM, x0, base, x1 - x0, MAX(K(2), 1));
     for (int i = 0; i < 3; i++) fill(C_LINE, x0 + K(10 + i * 40), base + K(4), 1, MAX(K(6), 2));
@@ -145,7 +145,7 @@ static void ic_moonshot(int cx, int cy, int s, int t)
 {
     int r = K(30);
     int ill = t >= 0 ? 300 + ip(t, 0, 900, EZ_IO) * 6 / 10 : 800;
-    fill_circle(cx, cy, r + 2, C_BG);
+    disc(cx, cy, r + 2, C_BG);
     draw_moon(cx, cy, r, ill, 1, r >= 12 ? 0 : -1);
     /* angoli del riquadro */
     int q = K(44), l = K(12);
@@ -168,7 +168,7 @@ static void ic_tag(int cx, int cy, int s, int t)
     int tx = cx - K(4) + K(40) * (1000 - e) / 1000, ty = cy + K(10);
     fill(C_ACCENT, tx, ty, K(44), K(20));
     fill_tri(tx - K(10), ty + K(10), tx, ty, tx, ty + K(20), C_ACCENT);
-    fill_circle(tx + K(2), ty + K(10), MAX(K(3), 1), C_BG);
+    disc(tx + K(2), ty + K(10), MAX(K(3), 1), C_BG);
     if (s >= 80) txt(FONT_SMALL, C_BG, tx + K(9), ty + K(10) - 6, "LGHT");
 }
 
@@ -266,7 +266,7 @@ static void ic_lvtools(int cx, int cy, int s, int t)
         }
     }
     /* soggetto con il peaking */
-    fill_circle(x0 + K(18), cy, K(10), C_PANEL2);
+    disc(x0 + K(18), cy, K(10), C_PANEL2);
     draw_circle(x0 + K(18), cy, K(10), tc(COLOR_RED));
     draw_circle(x0 + K(18), cy, K(11), tc(COLOR_RED));
     int c = C_TEXT;
@@ -280,14 +280,14 @@ static void ic_lvtools(int cx, int cy, int s, int t)
 static void ic_nd(int cx, int cy, int s, int t)
 {
     int R = K(34);
-    fill_circle(cx, cy, R, C_DIM);
-    fill_circle(cx, cy, R - K(6), tc(COLOR_BLUE));
-    fill_circle(cx - K(8), cy - K(8), K(8), tc(COLOR_LIGHT_BLUE));
+    disc(cx, cy, R, C_DIM);
+    disc(cx, cy, R - K(6), tc(COLOR_BLUE));
+    disc(cx - K(8), cy - K(8), K(8), tc(COLOR_LIGHT_BLUE));
     int e = ip(t, 0, 650, EZ_BACK);
     int fx = cx + K(18) + K(40) * (1000 - e) / 1000;
-    fill_circle(fx, cy, R - K(2), C_LINE);
-    fill_circle(fx, cy, R - K(7), night ? COLOR_BLACK : COLOR_GRAY(10));
-    fill_circle(fx, cy, R - K(16), night ? COLOR_BLACK : COLOR_GRAY(16));
+    disc(fx, cy, R - K(2), C_LINE);
+    disc(fx, cy, R - K(7), night ? COLOR_BLACK : COLOR_GRAY(10));
+    disc(fx, cy, R - K(16), night ? COLOR_BLACK : COLOR_GRAY(16));
     if (s >= 80) txt_c(FONT_SMALL, C_DIM, fx, cy - 6, "ND");
 }
 

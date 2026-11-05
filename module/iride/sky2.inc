@@ -390,7 +390,7 @@ static void draw_mwplan()
         int dark = (v & SK_SUN) == SK_NIGHT, moon = (v & SK_MOON) != 0;
         int c = dark && !moon && al > 10.0f ? C_OK : dark ? C_DIM : C_LINE;
         int x = MWX(az), y = MWY(al);
-        fill_circle(x, y, i == mw_slot ? 6 : 3, c);
+        disc(x, y, i == mw_slot ? 6 : 3, c);
         if (i % 2 == 0 && i != mw_slot)
         {
             snprintf(buf, sizeof(buf), "%d", (16 + i / 2) % 24);
