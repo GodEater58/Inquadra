@@ -1,9 +1,9 @@
 # Iride 6D
 
-**Firmware personalizzato per Canon EOS 6D** (firmware Canon 1.1.6), costruito come modulo di [Magic Lantern](https://www.magiclantern.fm/).
+**Firmware personalizzato per Canon EOS 6D** (firmware Canon 1.1.6): una versione di [Magic Lantern](https://www.magiclantern.fm/) modificata per Iride, più il modulo Iride.
 Un'interfaccia a tutto schermo, animata, con menu dedicati ad **astrofotografia**, **foto**, **rullini** in stile pellicola e **profili**, più un tasto che riporta la macchina com'era.
 
-*English: custom full-screen UI for the Canon EOS 6D (fw 1.1.6) running on Magic Lantern — astrophotography tools (NPF with declination, field intervalometer with silent shutter, dithering pauses and CSV session log, HFR star focus with V-curve autofocus, polar alignment, sky calendar, Moon exposure, Milky Way planner, worldwide cities and time zones), photo tools (HDR, focus stacking, Dual ISO, ETTR, ND), film-roll simulation and user profiles. UI in Italian.*
+*English: custom full-screen UI for the Canon EOS 6D (fw 1.1.6) built on a modified Magic Lantern (core patched for a full-screen module mode) — astrophotography tools (NPF with declination, field intervalometer with silent shutter, dithering pauses and CSV session log, HFR star focus with V-curve autofocus, polar alignment, sky calendar, Moon exposure, Milky Way planner, worldwide cities and time zones), photo tools (HDR, focus stacking, Dual ISO, ETTR, ND), film-roll simulation and user profiles. UI in Italian.*
 
 > ⚠️ **Software sperimentale.** Prime prove su una 6D reale: rullini e nomi dei file funzionano. Il resto è verificato su un simulatore che esegue lo stesso codice (163 test) ed è compilato contro il firmware 6D 1.1.6. Usalo a tuo rischio. Non è affiliato né approvato da Canon.
 
@@ -32,6 +32,20 @@ Un'interfaccia a tutto schermo, animata, con menu dedicati ad **astrofotografia*
 | 🔁 **Torna alla 6D** | Rimette tutto com'era prima di Iride: stile immagine e cursori, ISO, tempo, diaframma, bianco, anteprima, impostazioni di Magic Lantern, nomi dei file |
 | 🌍 **Luogo** | 57 città pronte, latitudine e longitudine libere, fusi orari di tutto il mondo con l'ora legale automatica (controllati col database IANA) |
 | ✨ **Interfaccia** | Carattere piccolo proporzionale con i bordi sfumati (al posto del Terminus di ML) · angoli arrotondati su pannelli, schede, pulsanti e interruttori · icone disegnate per le liste di Astro e Foto · aiuto col tasto INFO in ogni schermata · Sottomenu con anteprima della voce scelta (icona animata, a cosa serve, com'è adesso), percorso nell'intestazione, schede con i conti già fatti, Opzioni in sezioni · animazioni senza sfarfallio (doppio buffer): diaframma all'avvio, riquadri della Home che entrano e icone che si animano, zoom dal riquadro alla schermata, dialoghi che salgono come fogli, barra di selezione elastica, interruttori e valori che scorrono, avvisi che entrano e si spengono · caricamento e riavvolgimento del rullino con contapose a rullo · tema notte rosso, compare all'accensione, si apre col cestino (o col tasto luce) · diagnostica dei tasti |
+
+### Magic Lantern modificato
+
+Iride non è più solo un'interfaccia appoggiata sopra Magic Lantern: dalla 1.4 il pacchetto contiene anche un Magic Lantern (`autoexec.bin`) con il core modificato per Iride ([`module/magiclantern.patch`](module/magiclantern.patch), file `src/menu.c`). Le modifiche:
+
+| Modifica al core | A cosa serve |
+|---|---|
+| **Modalità schermo intero** per i moduli | Mentre Iride è aperta Canon non può disegnare sullo schermo: niente grafica Canon che sbuca sopra Iride |
+| **Dialogo Canon tenuto sveglio dal core** | In Live View ML lo risveglia da solo; il mezzo scatto chiude il menu anche senza ridisegni |
+| **Segnali per il modulo** | ML dice quando il menu è pronto e quando Canon potrebbe aver disegnato: Iride si apre senza attese fisse e ridisegna solo quando serve |
+
+Iride riconosce anche i tasti "finti" che Magic Lantern preme da solo (per esempio il tasto LV con cui accende il Live View), così non li scambia per tasti veri.
+
+Le funzioni nuove del core sono collegate "deboli": `iride.mo` funziona anche col Magic Lantern ufficiale, solo senza questi vantaggi. Il firmware Canon non viene toccato: tutto gira dalla scheda, come Magic Lantern.
 
 ### Tasto luce
 
