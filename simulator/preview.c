@@ -482,6 +482,23 @@ int main(void)
 
     /* ---------- salvataggio su scheda: due copie a turno */
     remove("out/IRIDE.DAT"); remove("out/IRIDE.BAK"); persist_next_slot = 0;
+    /* profili di partenza: alla prima accensione, una volta sola, senza toccare quelli salvati */
+    {
+        persist_load();                              /* nessun file: prima accensione */
+        CHECK(P.prof[0].valid && P.prof[0].name == 0 && P.prof[0].mode == SHOOTMODE_AV && P.prof[0].aperture == 32 &&
+              P.prof[2].name == 2 && P.prof[3].mode == SHOOTMODE_TV && P.prof[3].shutter == 136 &&
+              P.prof[4].name == 3 && P.prof[4].iso == 112 && P.persist_prof_seeded == 1,
+              "prima accensione: 5 profili di partenza (Ritratto, Paesaggio, Street, Sport, Notte)");
+        P.prof[1].valid = 0; persist_save(); persist_load();
+        CHECK(!P.prof[1].valid, "un profilo cancellato non torna da solo");
+        /* file di una versione precedente con un profilo salvato dall'utente */
+        remove("out/IRIDE.DAT"); remove("out/IRIDE.BAK"); persist_next_slot = 0;
+        persist_defaults(); P.prof[0].valid = 1; P.prof[0].name = 0; P.prof[0].iso = 96; P.prof[1].valid = 1; P.prof[1].name = 9;
+        persist_save(); persist_load();
+        CHECK(P.prof[0].iso == 96 && P.prof[1].name == 9 && P.prof[2].valid && P.prof[2].name == 1 && P.prof[3].name == 2 && P.prof[4].name == 5,
+              "aggiornando: i profili salvati restano, i posti vuoti prendono quelli di partenza senza doppioni");
+        remove("out/IRIDE.DAT"); remove("out/IRIDE.BAK"); persist_next_slot = 0; persist_defaults();
+    }
     P.roll_num = 7; P.lat100 = 4400; P.prof[2].valid = 1; P.prof[2].iso = 96;
     persist_save();
     P.roll_num = 0; P.lat100 = 0; P.prof[2].valid = 0;
@@ -1078,6 +1095,10 @@ int main(void)
       P.roll_loaded = 1; P.roll_paused = 0; screenshot(SCR_SHELF, "14b_scaffale_solo_raw"); P.roll_loaded = rl; pic_quality = PICQ_RAW_JPG_LARGE_FINE; }
     conf_mode = CONF_ROLL; sel[SCR_CONFIRM] = 1; screenshot(SCR_CONFIRM, "16_rullino");
     sel[SCR_PROFILES] = 1; screenshot(SCR_PROFILES, "17_profili");
+    { struct profile keep[NPROF]; memcpy(keep, P.prof, sizeof(keep)); int sd = P.persist_prof_seeded;
+      for (int i = 0; i < NPROF; i++) { P.prof[i].valid = 0; P.prof[i].name = i; }
+      P.persist_prof_seeded = 0; profiles_seed(); sel[SCR_PROFILES] = 2; screenshot(SCR_PROFILES, "17c_profili_partenza");
+      memcpy(P.prof, keep, sizeof(keep)); P.persist_prof_seeded = sd; }
     sel[SCR_OPTIONS] = 0; screenshot(SCR_OPTIONS, "18_opzioni");
     screenshot(SCR_BENCH, "24_prova");
     snap_take(); screenshot(SCR_RESTORE, "19_torna_6d");

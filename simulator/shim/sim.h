@@ -144,6 +144,9 @@ void select_menu_by_name(char *name, const char *entry);
 #define SHOOTMODE_P 0
 #define SHOOTMODE_TV 1
 #define SHOOTMODE_AV 2
+#ifndef WB_AUTO
+#define WB_AUTO 0
+#endif
 #define SHOOTMODE_M 3
 #define SHOOTMODE_BULB 4
 #define WB_KELVIN 9

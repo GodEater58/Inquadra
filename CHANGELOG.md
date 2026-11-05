@@ -1,5 +1,16 @@
 # Novità
 
+## 1.4.3 – 5 novembre 2026
+- **Profili di partenza**: alla prima accensione i posti vuoti dei Profili hanno 5 impostazioni pronte da ritoccare
+  - Ritratto: Av, f/2.8, ISO 200, stile Ritratto
+  - Paesaggio: Av, f/8, ISO 100, stile Paesaggio
+  - Street: Av, f/5.6, ISO Auto, stile Standard
+  - Sport: Tv, 1/1000, ISO Auto, stile Standard
+  - Notte in città a mano: M, 1/30, f/4, ISO 3200, stile Standard
+- Con la ghiera sul modo del profilo si carica tutto, con un altro modo stile, ISO e bianco. Si cambiano come sempre: impostazioni sulla 6D, poi INFO sul profilo
+- I profili già salvati restano com'erano: i profili di partenza vanno solo nei posti vuoti, una volta sola e senza doppioni dello stesso nome; uno cancellato non ricompare
+- Simulatore: 3 test nuovi sui profili di partenza
+
 ## 1.4.2 – 5 novembre 2026
 - **Registro della sessione: un file per notte** invece che uno per ora. Si chiama `ISaammgg.CSV` con la data della sera (`IS261102.CSV` = notte del 2 novembre 2026); fino a mezzogiorno del giorno dopo si continua a scrivere lì, anche a cavallo di capodanno. Il lettore per AstroStack legge sia i file nuovi sia i vecchi `ISmmddhh.CSV`
 - Dopo un riavvio a metà notte (cambio di batteria) la numerazione degli scatti nel registro riprende dall'ultima riga invece di ricominciare da 1

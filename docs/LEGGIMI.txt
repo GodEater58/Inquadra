@@ -1,4 +1,4 @@
-IRIDE 6D 1.4.2 per Canon EOS 6D (firmware Canon 1.1.6)
+IRIDE 6D 1.4.3 per Canon EOS 6D (firmware Canon 1.1.6)
 =====================================================
 
 Magic Lantern per 6D 1.1.6 (build ufficiale del 20/06/2025, commit ed3e7c0)
@@ -9,7 +9,7 @@ silent.
 
 ATTENZIONE
 - Sperimentale. Prime prove su una 6D vera: rullini e nomi dei file funzionano.
-  Il resto: 165 test superati sul simulatore, calcoli astronomici confrontati
+  Il resto: 168 test superati sul simulatore, calcoli astronomici confrontati
   con astropy, compilato contro il firmware 1.1.6.
 - Magic Lantern (anche nella versione modificata) gira dalla scheda e non
   modifica la ROM: con una scheda senza ML la macchina e' quella di sempre.
@@ -108,6 +108,15 @@ PRESET PC   16 preset XMP (cartella presets del progetto), uno per
             Le foto del rullino 11 si chiamano R011xxxx.CR2.
 
 PROFILI     5 posti: INFO salva, SET carica, Q cancella, sinistra/destra nome.
+            Alla prima accensione i posti vuoti hanno 5 profili di partenza:
+              Ritratto  Av  f/2.8  ISO 200   stile Ritratto
+              Paesaggio Av  f/8    ISO 100   stile Paesaggio
+              Street    Av  f/5.6  ISO Auto  stile Standard
+              Sport     Tv  1/1000 ISO Auto  stile Standard
+              Notte     M   1/30 f/4 ISO 3200 stile Standard
+            Con la ghiera sul modo indicato si carica tutto; con un altro
+            modo solo stile, ISO e bianco. Per cambiarli: imposta la 6D come
+            vuoi, poi INFO sul profilo. I profili gia' salvati non si toccano.
 
 TORNA ALLA 6D
             Rimette tutto com'era prima di Iride: stile immagine e cursori,
@@ -134,7 +143,7 @@ Stato di Iride: ML/SETTINGS/IRIDE.DAT (se lo cancelli, riparte da zero)
 PRIMA PROVA CONSIGLIATA (IN CASA)
 ---------------------------------
 1. Cestino: si apre Iride con l'animazione. Cestino di nuovo = menu ML.
-2. Profili: INFO per salvare le impostazioni attuali nel posto 1.
+2. Profili: SET su Street (ghiera su Av), poi INFO per risalvarlo a modo tuo.
 3. Rullini: carica Portra 400, scatta 2 foto, Q > Pausa, poi Riprendi.
 4. Foto > Strumenti Live View: accendi il peaking e guardalo in Live View.
 5. Astro > Calendario e Allineamento polare.

@@ -40,6 +40,7 @@ static void persist_defaults()
    se la batteria si stacca o la scheda esce mentre si scrive, l'altra copia e' ancora buona e
    non si perdono rullino e "Torna alla 6D". Una 1.3 o precedente legge solo IRIDE.DAT. */
 #define persist_seq reserved[0]
+#define persist_prof_seeded reserved[1]       /* profili di partenza gia' messi (una volta sola) */
 static int persist_next_slot = 0;
 static struct semaphore *persist_sem = 0;
 
@@ -70,6 +71,7 @@ static int persist_read(int slot, struct persist *buf)
 }
 
 static void persist_sanitize();
+static void profiles_seed();
 
 static void persist_load()
 {
@@ -102,6 +104,7 @@ static void persist_load()
     if (a) fio_free(a);
     if (b) fio_free(b);
     persist_sanitize();
+    profiles_seed();
 }
 
 static void persist_save()
@@ -472,6 +475,43 @@ static int restore_pending_count()
 }
 
 /* ------------------------------------------------------------------ profili */
+
+/* profili di partenza: una base da cui ritoccare (si sovrascrivono con INFO). Il modo e' quello
+   consigliato per la ghiera: con la ghiera su un altro modo si caricano stile, ISO e bianco.
+   Codici di Magic Lantern (lens.h): ISO 72 = 100, 80 = 200, 112 = 3200, 0 = Auto;
+   tempi 96 = 1/30, 117 = 1/200, 120 = 1/250, 136 = 1/1000; diaframmi 32 = f/2.8, 40 = f/4,
+   48 = f/5.6, 56 = f/8. Cursori a 0 = quelli di fabbrica dello stile */
+static const struct profile prof_presets[] = {
+    /* valid name mode          iso  tempo diaf wb       kelvin stile         c  s  t */
+    { 1, 0, SHOOTMODE_AV, 80,  117, 32, WB_AUTO, 5200, PS_PORTRAIT,  0, 0, 0 },   /* Ritratto: sfondo sfocato, pelle morbida */
+    { 1, 1, SHOOTMODE_AV, 72,  117, 56, WB_AUTO, 5200, PS_LANDSCAPE, 0, 0, 0 },   /* Paesaggio: tutto a fuoco, ISO basso (cavalletto se serve) */
+    { 1, 2, SHOOTMODE_AV, 0,   120, 48, WB_AUTO, 5200, PS_STD,       0, 0, 0 },   /* Street: f/5.6 e ISO Auto, sempre pronta */
+    { 1, 5, SHOOTMODE_TV, 0,   136, 40, WB_AUTO, 5200, PS_STD,       0, 0, 0 },   /* Sport: 1/1000 per fermare l'azione */
+    { 1, 3, SHOOTMODE_M,  112, 96,  40, WB_AUTO, 5200, PS_STD,       0, 0, 0 },   /* Notte in citta' a mano: 1/30, f/4, ISO 3200 */
+};
+
+/* la prima volta riempie i posti vuoti con i profili di partenza, senza toccare quelli salvati
+   (e senza doppioni dello stesso nome) */
+static void profiles_seed()
+{
+    if (P.persist_prof_seeded) return;
+    int k = 0;
+    for (int i = 0; i < NPROF; i++)
+    {
+        if (P.prof[i].valid) continue;
+        while (k < (int)COUNT(prof_presets))
+        {
+            int dup = 0;
+            for (int j = 0; j < NPROF; j++) if (P.prof[j].valid && P.prof[j].name == prof_presets[k].name) dup = 1;
+            if (!dup) break;
+            k++;
+        }
+        if (k >= (int)COUNT(prof_presets)) break;
+        P.prof[i] = prof_presets[k++];
+    }
+    P.persist_prof_seeded = 1;
+    persist_touch();
+}
 
 static void profile_save(int i)
 {
