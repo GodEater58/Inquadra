@@ -1,4 +1,4 @@
-IRIDE 6D 1.5.1 per Canon EOS 6D (firmware Canon 1.1.6)
+IRIDE 6D 1.5.2 per Canon EOS 6D (firmware Canon 1.1.6)
 =====================================================
 
 Magic Lantern per 6D 1.1.6 (build ufficiale del 20/06/2025, commit ed3e7c0)
@@ -9,7 +9,7 @@ silent.
 
 ATTENZIONE
 - Sperimentale. Prime prove su una 6D vera: rullini e nomi dei file funzionano.
-  Il resto: 180 test superati sul simulatore, calcoli astronomici confrontati
+  Il resto: 181 test superati sul simulatore, calcoli astronomici confrontati
   con astropy, compilato contro il firmware 1.1.6.
 - Magic Lantern (anche nella versione modificata) gira dalla scheda e non
   modifica la ROM: con una scheda senza ML la macchina e' quella di sempre.

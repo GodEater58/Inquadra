@@ -11,8 +11,9 @@ static int night = 0;
 
 static int astro_screen(int s)
 {
+    /* tutte le schermate di Astro (anche Luna e Dove puntare, aggiunte dalla 1.2) */
     return s == SCR_ASTRO || s == SCR_NPF || s == SCR_INTERVAL || s == SCR_STARS ||
-           s == SCR_POLAR || s == SCR_SKY;
+           s == SCR_POLAR || s == SCR_SKY || s == SCR_MOON || s == SCR_MWPLAN;
 }
 
 static void theme_apply()

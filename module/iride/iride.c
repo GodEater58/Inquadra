@@ -36,7 +36,7 @@
 #include <math.h>
 #include <battery.h>
 
-#define IRIDE_VERSION "1.5.1"
+#define IRIDE_VERSION "1.5.2"
 
 /* ------------------------------------------------------------------ compatibilita' API */
 

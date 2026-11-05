@@ -314,7 +314,8 @@
     </div>
     <div class="card">
       <h3>COS'È QUESTA DEMO</h3>
-      <p>Il codice di Iride e il simulatore usato per i suoi test, compilati in WebAssembly. Testo e caratteri sono quelli veri di Magic Lantern. La 6D, il menu Canon e il Live View sono finti: le impostazioni non vanno da nessuna parte, e ricaricando la pagina si riparte da zero.</p>
+      <p>Il codice di Iride e il simulatore usato per i suoi test, compilati in WebAssembly. Testo e caratteri sono quelli veri di Magic Lantern. La 6D, il menu Canon e il Live View sono finti. Rullino, profili e opzioni restano salvati in questo browser anche ricaricando la pagina.</p>
+      <p style="margin-top:10px"><button class="btn-link" id="reset" type="button">Ricomincia da capo</button></p>
     </div>
   </section>
 </main>
@@ -393,6 +394,11 @@
   });
   /* rotella del mouse sullo schermo = ghiera superiore */
   canvas.addEventListener('wheel', e => { e.preventDefault(); press(e.deltaY > 0 ? 8 : 7); }, { passive: false });
+  document.getElementById('reset').addEventListener('click', () => {
+    if (!confirm('Cancellare rullino, profili e opzioni della demo e ripartire da capo?')) return;
+    Object.keys(localStorage).filter(k => k.startsWith('iride.')).forEach(k => localStorage.removeItem(k));
+    location.reload();
+  });
 </script>
 <script src="iride.js"></script>
 </body>

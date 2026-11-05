@@ -1,5 +1,14 @@
 # Novità
 
+## 1.5.2 – 5 novembre 2026
+- **Corretto il tema "notte in Astro"**: le schermate *Luna da fotografare* e *Dove puntare* (aggiunte nella 1.2) restavano bianche e arancioni invece che rosse, e di notte rovinavano l'adattamento al buio. Un test nuovo controlla che tutte le schermate di Astro diventino rosse
+- Demo nel browser:
+  - retro ricalcato sulla foto della 6D (ghiera dei modi, MENU e INFO, mirino con conchiglia e diottrie, START/STOP, AF-ON e blocco AE, zoom e play accanto allo schermo, Q, ghiera con SET, cestino e LOCK); su telefono una versione compatta
+  - START/STOP mostra il Live View per circa 2 secondi, come Magic Lantern sulla 6D, prima che Iride si riapra
+  - rullino, profili e opzioni restano salvati nel browser anche ricaricando la pagina (pulsante *Ricomincia da capo* per azzerarli)
+  - avvisi di Magic Lantern visibili sulla schermata di scatto; messaggio quando il cestino aprirebbe il menu ML
+  - croce e ghiere ripetono il comando tenendole premute; freccia giù che restava in alto a sinistra; niente scorrimento laterale su telefono
+
 ## 1.5.1 – 5 novembre 2026
 - **Prova Iride nel browser**: [godeater58.github.io/Iride-6D](https://godeater58.github.io/Iride-6D/). Lo stesso codice di Iride e il simulatore dei test, compilati in WebAssembly: si usa con la tastiera o coi tasti di una 6D disegnata, con l'ora del computer per Luna, cielo e Polare. GitHub Actions la ricompila e la pubblica a ogni modifica
 - **Caratteri veri di Magic Lantern nel simulatore**: larghezze, schermate del README e demo usano i caratteri RBF della 6D (`simulator/fonts`) invece di un carattere del PC. Così i controlli "testo fuori dallo schermo" valgono anche sulla macchina, e hanno trovato quattro testi che sulla 6D uscivano dal loro spazio:

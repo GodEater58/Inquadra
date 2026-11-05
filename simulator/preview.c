@@ -961,6 +961,11 @@ int main(void)
     { int before = menu_opened_calls; boot_done = 0; sim_display = 0; boot_task(NULL); sim_display = 1;
       CHECK(menu_opened_calls == before, "display spento: niente Iride"); }
 
+    /* ---------- tema "notte in Astro": tutte le schermate di Astro, nessuna esclusa */
+    { int bad = -1;
+      for (int i = 0; i < SCR_COUNT; i++) if ((i == SCR_ASTRO || screens[i].parent == SCR_ASTRO) && !astro_screen(i)) bad = i;
+      CHECK(bad < 0, "notte in Astro: rosse tutte le schermate di Astro (manca: %s)", bad >= 0 ? screens[bad].title : "-"); }
+
     /* ---------- bilanciamento del bianco: il tasto che manca alla 6D */
     {
         int wm = lens_info.wb_mode, kv = lens_info.kelvin;

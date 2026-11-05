@@ -136,6 +136,63 @@ void web_now(struct tm *t)
     t->tm_year = v[0]; t->tm_mon = v[1]; t->tm_mday = v[2]; t->tm_hour = v[3]; t->tm_min = v[4]; t->tm_sec = v[5]; t->tm_wday = v[6];
 }
 
+/* ------------------------------------------------------------------ salvataggio nel browser */
+
+/* IRIDE.DAT e IRIDE.BAK della "scheda" finiscono nel localStorage: ricaricando la pagina
+   rullino, profili e opzioni restano, come sulla 6D */
+EM_JS(void, js_store, (const char *name, const uint8_t *p, int n), {
+    try { let s = ""; for (let i = 0; i < n; i++) s += String.fromCharCode(HEAPU8[p + i]);
+          localStorage.setItem("iride." + UTF8ToString(name), btoa(s)); } catch (e) {}
+});
+EM_JS(int, js_load, (const char *name, uint8_t *p, int max), {
+    try { const v = localStorage.getItem("iride." + UTF8ToString(name)); if (!v) return 0;
+          const s = atob(v); const n = Math.min(s.length, max);
+          for (let i = 0; i < n; i++) HEAPU8[p + i] = s.charCodeAt(i); return n; } catch (e) { return 0; }
+});
+
+static void web_store_file(const char *name)
+{
+    static uint8_t buf[4096];
+    char path[64]; snprintf(path, sizeof(path), "out/%s", name);
+    FILE *f = fopen(path, "rb"); if (!f) return;
+    int n = (int)fread(buf, 1, sizeof(buf), f); fclose(f);
+    if (n > 0) js_store(name, buf, n);
+}
+
+static void web_load_file(const char *name)
+{
+    static uint8_t buf[4096];
+    int n = js_load(name, buf, sizeof(buf));
+    if (n <= 0) return;
+    char path[64]; snprintf(path, sizeof(path), "out/%s", name);
+    FILE *f = fopen(path, "wb"); if (!f) return;
+    fwrite(buf, 1, n, f); fclose(f);
+}
+
+static int web_saved_seq = -1;
+static void web_persist_sync(void)
+{
+    if (P.persist_seq == web_saved_seq) return;
+    web_saved_seq = P.persist_seq;
+    web_store_file("IRIDE.DAT"); web_store_file("IRIDE.BAK");
+}
+
+/* opzioni di Magic Lantern (tema, animazioni...): non hanno un file, si salvano a parte */
+EM_JS(void, js_opts_save, (const int *o, int n), { try { localStorage.setItem("iride.opts", JSON.stringify(Array.from(HEAP32.subarray(o >> 2, (o >> 2) + n)))); } catch (e) {} });
+EM_JS(int, js_opts_load, (int *o, int n), { try { const a = JSON.parse(localStorage.getItem("iride.opts") || "null"); if (!a || a.length != n) return 0;
+                                                   for (let i = 0; i < n; i++) HEAP32[(o >> 2) + i] = a[i]; return 1; } catch (e) { return 0; } });
+static int *const web_opts[] = { &opt_theme, &opt_anim, &opt_splash, &opt_boot_open, &opt_trash_open, &opt_light_key, &opt_set_wb,
+                                 &opt_review_off, &opt_wind, &opt_sqm10, &opt_session, &opt_silent, &opt_dither_n, &opt_dither_s };
+#define WEB_NOPTS ((int)COUNT(web_opts))
+static int web_opts_last[WEB_NOPTS];
+static void web_opts_sync(int load)
+{
+    int v[WEB_NOPTS];
+    if (load) { if (js_opts_load(v, WEB_NOPTS)) for (int i = 0; i < WEB_NOPTS; i++) *web_opts[i] = v[i]; }
+    for (int i = 0; i < WEB_NOPTS; i++) v[i] = *web_opts[i];
+    if (load || memcmp(v, web_opts_last, sizeof(v))) { memcpy(web_opts_last, v, sizeof(v)); if (!load) js_opts_save(v, WEB_NOPTS); }
+}
+
 /* ------------------------------------------------------------------ schermo */
 
 EM_JS(void, js_present, (const uint8_t *vram), { if (Module.iridePresent) Module.iridePresent(vram); });
@@ -176,6 +233,9 @@ void web_sleep(int ms)
         web_in_tick = 1;
         iride_clock(0);
         iride_bg_tick();
+        if (persist_dirty) persist_save();                 /* nel browser si salva subito (non c'e' una scheda da proteggere) */
+        web_persist_sync();
+        web_opts_sync(0);
         web_in_tick = 0;
     }
 }
@@ -222,6 +282,12 @@ static void web_deliver(int key)
     memset(&ev, 0, sizeof(ev));
     ev.param = web_raw_param(key);
     key_fake = 0;
+    if (key == MODULE_KEY_TRASH && app_running)
+    {
+        /* dentro Iride il cestino porta al menu di Magic Lantern, che la demo non ha */
+        web_canon_msg = "Qui si aprirebbe il menu di Magic Lantern (non e' nella demo)";
+        web_canon_msg_until = web_ms() + 3500;
+    }
     if (iride_keypress_raw((unsigned int)(uintptr_t)&ev) == 0) return;   /* tasto luce: Iride aperta */
     if (key == 100) return;
     int pass = iride_keypress(key);
@@ -307,7 +373,10 @@ int main(void)
     lens_info.iso = 400;
     menu_open = 0; app_running = 0; gui_state = 0; lv = 0;
     make_sky(1.8f, 34.0f, 360, 240);                    /* una stella per Fuoco sulle stelle */
+    web_load_file("IRIDE.DAT"); web_load_file("IRIDE.BAK");
+    web_opts_sync(1);
     iride_init();
+    web_saved_seq = P.persist_seq;
     web_last_tick = web_ms();
     for (;;)
     {
