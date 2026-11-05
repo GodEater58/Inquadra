@@ -451,6 +451,100 @@ static void nd_extra()
 static const struct form nd_form = { 4, nd_labels, nd_value, nd_change, nd_activate, nd_extra,
     "^/v riga   </> cambia   SET applica   MENU indietro", 58, 46, 0, 0, 0 };
 
+/* ------------------------------------------------------------------ bilanciamento del bianco */
+
+/* la 6D non ha un tasto per il bianco (e il SET di Canon non lo puo' avere): qui si cambia in un
+   attimo, anche col SET dalla schermata di scatto (Opzioni). Codici Canon: 0 auto, 1 luce diurna,
+   2 nuvoloso, 3 tungsteno, 4 fluorescente, 5 flash, 6 personalizzato, 8 ombra, 9 Kelvin */
+static const int wb_modes[] = { 0, 1, 8, 2, 3, 4, 5, 9 };
+static const char *const wb_names[] = { "Automatico", "Luce diurna", "Ombra", "Nuvoloso", "Tungsteno", "Fluorescente", "Flash", "Kelvin" };
+static const short wb_k[] = { 0, 5200, 7000, 6000, 3200, 4000, 6000, 0 };   /* temperatura indicativa (Canon) */
+#define NUM_WB ((int)COUNT(wb_modes))
+static const char *const wb_labels[] = { "Bilanciamento", "Temperatura", "Fatto" };
+
+static int wb_index()
+{
+    for (int i = 0; i < NUM_WB; i++) if (wb_modes[i] == (int)lens_info.wb_mode) return i;
+    return -1;                                       /* personalizzato */
+}
+
+static int wb_kelvin_now()
+{
+    int k = (int)lens_info.kelvin;
+    return k >= 2500 && k <= 10000 ? k : 5200;
+}
+
+static void wb_value(int row, char *buf, int len, int *kind)
+{
+    int i = wb_index();
+    if (row == 0) snprintf(buf, len, "< %s >", i >= 0 ? wb_names[i] : "Personalizzato");
+    else if (row == 1)
+    {
+        if (i == NUM_WB - 1) snprintf(buf, len, "< %d K >", wb_kelvin_now());
+        else { *kind = VK_INFO; if (i > 0 && wb_k[i]) snprintf(buf, len, "circa %d K", wb_k[i]); else snprintf(buf, len, "decide la 6D"); }
+    }
+    else { *kind = VK_ACTION; snprintf(buf, len, wb_quick ? "torna a scattare  SET >" : "SET >"); }
+}
+
+static void wb_change(int row, int dir, int big)
+{
+    int i = wb_index();
+    if (row == 0)
+    {
+        int n = MOD((i < 0 ? 0 : i) + dir, NUM_WB);
+        set_wb(wb_modes[n], wb_kelvin_now());
+        for (int k = 0; k < 10 && (int)lens_info.wb_mode != wb_modes[n]; k++) msleep(20);
+    }
+    else if (row == 1 && i == NUM_WB - 1)
+    {
+        int k = COERCE(wb_kelvin_now() + dir * (big ? 500 : 100), 2500, 10000);
+        lens_set_kelvin(k);
+    }
+}
+
+static void wb_activate(int row)
+{
+    if (row == 0) { wb_change(0, 1, 0); return; }
+    if (row != 2) return;
+    if (wb_quick) gui_stop_menu();
+    else go(SCR_FOTO, -1);
+}
+
+static void wb_extra()
+{
+    /* scala delle temperature: dal caldo (luce di candela) al freddo (cielo blu), col segno di adesso */
+    info_card(24, 210, SCR_W - 48, 226, "TEMPERATURA DELLA LUCE");
+    const int x0 = 56, x1 = SCR_W - 56, y = 262, h = 18;
+    static const int stops[] = { 2500, 3200, 4000, 5200, 6000, 7000, 10000 };
+    int cols[7];
+    cols[0] = tc(COLOR_ORANGE); cols[1] = tc(COLOR_YELLOW); cols[2] = tc(COLOR_YELLOW); cols[3] = tc(COLOR_WHITE);
+    cols[4] = tc(COLOR_WHITE); cols[5] = tc(COLOR_LIGHT_BLUE); cols[6] = tc(COLOR_BLUE);
+    for (int i = 0; i < 6; i++)
+    {
+        int xa = x0 + (x1 - x0) * (stops[i] - 2500) / 7500, xb = x0 + (x1 - x0) * (stops[i + 1] - 2500) / 7500;
+        fill(night ? C_DIM : cols[i], xa, y, xb - xa, h);
+    }
+    int i = wb_index();
+    int k = i == NUM_WB - 1 ? wb_kelvin_now() : i > 0 ? wb_k[i] : 0;
+    if (k)
+    {
+        int mx = x0 + (x1 - x0) * (COERCE(k, 2500, 10000) - 2500) / 7500;
+        fill_tri(mx - 8, y - 12, mx + 8, y - 12, mx, y - 2, C_ACCENT);
+        fill(C_ACCENT, mx - 1, y, 2, h);
+    }
+    txt(FONT_SMALL, C_DIM, x0, y + h + 6, "2500 K");
+    txt_c(FONT_SMALL, C_DIM, x0 + (x1 - x0) * 2700 / 7500, y + h + 6, "5200 K");
+    txt_r(FONT_SMALL, C_DIM, x1, y + h + 6, "10000 K");
+    txt(FONT_SMALL, C_DIM, x0, y + h + 22, "candela, tungsteno");
+    txt_r(FONT_SMALL, C_DIM, x1, y + h + 22, "ombra, cielo blu");
+    txt_wrap(FONT_MED, C_DIM, 44, 336, SCR_W - 96,
+        "Il numero K dice la luce della scena: a 3200 K le foto sotto le lampadine tornano neutre, a 7000 K l'ombra non e' piu' blu. "
+        "Nei RAW si puo' sempre cambiare dopo.", 25);
+}
+
+static const struct form wb_form = { 3, wb_labels, wb_value, wb_change, wb_activate, wb_extra,
+    "^/v riga   </> cambia (ghiera x500 K)   SET conferma   MENU esci", 58, 46, 0, 0, 0 };
+
 /* ------------------------------------------------------------------ menu Foto */
 
 static const struct menu_row foto_rows[] = {
@@ -461,6 +555,7 @@ static const struct menu_row foto_rows[] = {
     { "Movimento e trappola", "Scatta da solo: fulmini, animali, fuoco", SCR_MOTION },
     { "Strumenti Live View", "Peaking, zebra, istogramma, falsi colori", SCR_LVTOOLS },
     { "Filtri ND", "Tempo col filtro e posa B automatica", SCR_ND },
+    { "Bilanciamento del bianco", "Il tasto che manca alla 6D, con la scala in Kelvin", SCR_WB },
 };
 #define NUM_FOTO_ROWS ((int)COUNT(foto_rows))
 

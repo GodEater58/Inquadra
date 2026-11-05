@@ -1,5 +1,12 @@
 # Novità
 
+## 1.5 – 5 novembre 2026
+- **Bilanciamento del bianco** (Foto › Bilanciamento del bianco): la 6D non ha un tasto per il bianco ed è una delle mancanze più citate dagli utenti. Automatico, luce diurna, ombra, nuvoloso, tungsteno, fluorescente, flash e Kelvin da 2500 a 10000 K (passi di 100, 500 con la ghiera superiore), con la scala delle temperature dal caldo al freddo
+  - **SET dalla schermata di scatto** apre subito il bianco (Opzioni › *SET apre il bianco*, anche nel menu ML; spento di serie per non togliere il SET a chi l'ha già assegnato in Canon). MENU o *Fatto* tornano a scattare. I SET "premuti" da Magic Lantern restano a Canon
+- **Avvio più rapido**: la Home compare appena Magic Lantern ha finito di partire (circa un secondo) invece che dopo 2,5 secondi fissi; poi la schermata di scatto si controlla ogni decimo di secondo invece che ogni quarto
+- Menu Foto con 8 voci (righe un poco più basse, come in Astro) e icona nuova per il bianco
+- Simulatore: 9 test nuovi (SET con opzione spenta, SET di ML, cambio di modo e Kelvin con i limiti, MENU dalle due entrate)
+
 ## 1.4.3 – 5 novembre 2026
 - **Profili di partenza**: alla prima accensione i posti vuoti dei Profili hanno 5 impostazioni pronte da ritoccare
   - Ritratto: Av, f/2.8, ISO 200, stile Ritratto

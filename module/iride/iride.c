@@ -36,7 +36,7 @@
 #include <math.h>
 #include <battery.h>
 
-#define IRIDE_VERSION "1.4.3"
+#define IRIDE_VERSION "1.5"
 
 /* ------------------------------------------------------------------ compatibilita' API */
 
@@ -120,6 +120,7 @@ static CONFIG_INT("iride.wind",     opt_wind, 1);         /* avviso posa dopo og
 static CONFIG_INT("iride.lightkey", opt_light_key, 1);    /* tasto luce LCD apre Iride */
 static CONFIG_INT("iride.trash",    opt_trash_open, 1);   /* cestino apre Iride (dentro Iride: menu ML) */
 static CONFIG_INT("iride.boot",     opt_boot_open, 1);    /* Iride appare all'accensione */
+static CONFIG_INT("iride.setwb",    opt_set_wb, 0);       /* SET nella schermata di scatto: bilanciamento del bianco */
 static CONFIG_INT("iride.anim",     opt_anim, 0);         /* 0 complete, 1 rapide, 2 spente */
 static CONFIG_INT("iride.theme",    opt_theme, 2);        /* 0 normale, 1 notte, 2 notte in Astro */
 static CONFIG_INT("iride.splash",   opt_splash, 1);
@@ -191,7 +192,7 @@ enum
 {
     SCR_HOME, SCR_ASTRO, SCR_FOTO, SCR_NPF, SCR_INTERVAL, SCR_STARS, SCR_POLAR, SCR_SKY,
     SCR_SHELF, SCR_CONFIRM, SCR_HDR, SCR_FSTACK, SCR_DUAL, SCR_ETTR, SCR_MOTION, SCR_LVTOOLS,
-    SCR_ND, SCR_PROFILES, SCR_OPTIONS, SCR_RESTORE, SCR_KEYS, SCR_BENCH, SCR_MOON, SCR_MWPLAN, SCR_COUNT
+    SCR_ND, SCR_PROFILES, SCR_OPTIONS, SCR_RESTORE, SCR_KEYS, SCR_BENCH, SCR_MOON, SCR_MWPLAN, SCR_WB, SCR_COUNT
 };
 
 static volatile int app_running = 0;
@@ -244,6 +245,7 @@ static int lv_reopen_ms = -100000;      /* riaperta dopo il Live View: un LV dop
 static volatile int skip_splash = 0;    /* riapertura dopo il Live View: subito al lavoro */
 static volatile int fullscreen = 0;     /* ML di Iride: schermo intero dal core (niente giri) */
 static volatile int key_fake = 0;       /* l'evento in corso e' un tasto finto di ML */
+static volatile int wb_quick = 0;       /* aperta col SET dalla schermata di scatto: SET e MENU tornano a scattare */
 
 /* diagnostica: ultimi eventi dei tasti visti da Iride, per capire cosa manda la 6D */
 #define KLOG_N 12
@@ -426,6 +428,7 @@ static void app_task(void *unused)
     clrscr();
     zoom_buf_release();
     if (fullscreen) { menu_fullscreen_end(); fullscreen = 0; }
+    wb_quick = 0;
     menu_redraw_blocked = 0;
     app_running = 0;
     if (to_ml_menu)
@@ -521,11 +524,16 @@ static void lv_task(void *unused)
     }
 }
 
+extern int ml_started, ml_gui_initialized;
+
 static void boot_task(void *unused)
 {
     int keys0 = klog_count;
-    msleep(2500);
-    for (int i = 0; i < 40 && !boot_done; i++)
+    /* invece di 2,5 s fissi: appena ML ha finito di partire (con un margine per Canon), poi si
+       controlla spesso se la schermata di scatto e' pronta */
+    for (int i = 0; i < 50 && !(ml_started && ml_gui_initialized); i++) msleep(100);
+    msleep(600);
+    for (int i = 0; i < 100 && !boot_done; i++)
     {
         if (!opt_boot_open || klog_count != keys0 || get_halfshutter_pressed() || app_running) break;
         if (boot_ready())
@@ -533,7 +541,7 @@ static void boot_task(void *unused)
             open_from_shooting();
             break;
         }
-        msleep(250);
+        msleep(100);
     }
     boot_done = 1;
 }
@@ -552,6 +560,16 @@ static unsigned int iride_keypress(unsigned int key)
         {
             if (klog_count) klog[(klog_count - 1) % KLOG_N].opened = 1;
             open_from_shooting();
+            return 0;
+        }
+        /* la 6D non ha il tasto del bianco: SET (se scelto in Opzioni) apre subito il bianco.
+           Solo un SET vero: quelli che ML preme da solo vanno a Canon */
+        if (key == MODULE_KEY_PRESS_SET && opt_set_wb && !key_fake && can_open_from_shooting())
+        {
+            if (klog_count) klog[(klog_count - 1) % KLOG_N].opened = 1;
+            skip_splash = 1;
+            wb_quick = 1;
+            open_on(SCR_WB);
             return 0;
         }
         return 1;
@@ -660,6 +678,13 @@ static struct menu_entry iride_menu[] =
                 .help    = "Il tasto della luce del display superiore apre Iride.",
             },
             {
+                .name    = "SET in scatto",
+                .priv    = &opt_set_wb,
+                .max     = 1,
+                .choices = CHOICES("normale", "bianco"),
+                .help    = "SET nella schermata di scatto apre il bilanciamento del bianco di Iride.",
+            },
+            {
                 .name    = "Animazioni",
                 .priv    = &opt_anim,
                 .max     = 2,
@@ -722,6 +747,7 @@ MODULE_CONFIGS_START()
     MODULE_CONFIG(opt_light_key)
     MODULE_CONFIG(opt_trash_open)
     MODULE_CONFIG(opt_boot_open)
+    MODULE_CONFIG(opt_set_wb)
     MODULE_CONFIG(opt_anim)
     MODULE_CONFIG(opt_theme)
     MODULE_CONFIG(opt_splash)

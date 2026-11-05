@@ -5,7 +5,7 @@ Un'interfaccia a tutto schermo, animata, con menu dedicati ad **astrofotografia*
 
 *English: custom full-screen UI for the Canon EOS 6D (fw 1.1.6) built on a modified Magic Lantern (core patched for a full-screen module mode) — astrophotography tools (NPF with declination, field intervalometer with silent shutter, dithering pauses and CSV session log, HFR star focus with V-curve autofocus, polar alignment, sky calendar, Moon exposure, Milky Way planner, worldwide cities and time zones), photo tools (HDR, focus stacking, Dual ISO, ETTR, ND), film-roll simulation and user profiles. UI in Italian.*
 
-> ⚠️ **Software sperimentale.** Prime prove su una 6D reale: rullini e nomi dei file funzionano. Il resto è verificato su un simulatore che esegue lo stesso codice (171 test) ed è compilato contro il firmware 6D 1.1.6. Usalo a tuo rischio. Non è affiliato né approvato da Canon.
+> ⚠️ **Software sperimentale.** Prime prove su una 6D reale: rullini e nomi dei file funzionano. Il resto è verificato su un simulatore che esegue lo stesso codice (180 test) ed è compilato contro il firmware 6D 1.1.6. Usalo a tuo rischio. Non è affiliato né approvato da Canon.
 
 | | | |
 |---|---|---|
@@ -18,6 +18,7 @@ Un'interfaccia a tutto schermo, animata, con menu dedicati ad **astrofotografia*
 | ![Intervallometro da campo](docs/screenshots/04_intervallometro-v141.png) | ![Luogo e fuso](docs/screenshots/18d_opzioni_luogo-v141.png) | ![Aiuto con INFO](docs/screenshots/05c_aiuto-v141.png) |
 | ![Live View al buio](docs/screenshots/11b_lv_al_buio-v141.png) | ![Luce cinerea](docs/screenshots/25b_luna_cinerea-v141.png) | ![Prova della 6D](docs/screenshots/24_prova-v141.png) |
 | ![Profili](docs/screenshots/17_profili-v141.png) | ![Opzioni](docs/screenshots/18_opzioni-v141.png) | ![Filtri ND](docs/screenshots/12_filtri_nd-v141.png) |
+| ![Bilanciamento del bianco](docs/screenshots/27_bianco-v15.png) | ![Menu Foto](docs/screenshots/08b_foto_bianco-v15.png) | |
 
 <p align="center"><img src="docs/screenshots/menu-v141.gif" width="540" alt="Menu Astro con l'anteprima della voce scelta"></p>
 
@@ -26,7 +27,7 @@ Un'interfaccia a tutto schermo, animata, con menu dedicati ad **astrofotografia*
 | Area | Cosa fa |
 |---|---|
 | 🌌 **Astro** | Via Lattea con regola NPF e punto del cielo (applica tempo, diaframma, ISO, bianco) · intervallometro con preset Via Lattea, Deep sky, Star trails, Timelapse, Giorno-notte, Dark, Flat, Bias, con otturatore silenzioso, pausa per il dithering, controllo di batteria, scheda e temperatura e registro della sessione in CSV (lettore per AstroStack in [tools/astrostack](tools/astrostack/)) · fuoco sulle stelle con misura HFR in Live View e fuoco automatico a curva a V · Luna da fotografare (regola Looney 11 con fase e altezza) · dove puntare la Via Lattea ora per ora · allineamento polare su reticolo con mappa del cielo a nord (Grande Carro e Cassiopea) · calendario di 7 notti con linea del tempo della notte (crepuscoli, Luna, centro della Via Lattea), stelle visibili col cielo buio e con la Luna, quando torna il centro della Via Lattea e notte migliore · nomi file LGHT/DARK/FLAT/BIAS per lo stacking |
-| 📷 **Foto** | Bracketing HDR · focus stacking · Dual ISO · ETTR · scatto su movimento e trappola di fuoco · strumenti del Live View (peaking, zebra, istogramma, falsi colori, zoom, spot) · filtri ND con posa B automatica |
+| 📷 **Foto** | Bracketing HDR · focus stacking · Dual ISO · ETTR · scatto su movimento e trappola di fuoco · strumenti del Live View (peaking, zebra, istogramma, falsi colori, zoom, spot) · filtri ND con posa B automatica · **bilanciamento del bianco**, il tasto che manca alla 6D: modi Canon e Kelvin con la scala, anche col SET dalla schermata di scatto |
 | 🎞️ **Rullini** | 16 pellicole (colore, dia, B/N, cine) · push/pull · 12/24/36 pose · pausa e ripresa · contatore nella barra del Live View · registro su scheda · avviso se la macchina è in solo RAW · [preset per LightCraft e Lightroom](presets/) |
 | 💾 **Profili** | 5 posti per le impostazioni preferite, con 5 profili di partenza da ritoccare: Ritratto (Av f/2.8), Paesaggio (Av f/8 ISO 100), Street (Av f/5.6 ISO Auto), Sport (Tv 1/1000), Notte (M 1/30 f/4 ISO 3200); se l'obiettivo non arriva al diaframma del profilo si usa il suo limite |
 | 🔁 **Torna alla 6D** | Rimette tutto com'era prima di Iride: stile immagine e cursori, ISO, tempo, diaframma, bianco, anteprima, impostazioni di Magic Lantern, nomi dei file |
@@ -97,7 +98,7 @@ La compilazione e i test girano anche in automatico con GitHub Actions a ogni mo
 
 ```
 cd simulator && mkdir -p out
-gcc -std=gnu99 -Ishim -o preview preview.c -lm && ./preview   # 171 test
+gcc -std=gnu99 -Ishim -o preview preview.c -lm && ./preview   # 180 test
 pip install astropy pillow
 python3 check_astro.py   # confronto astronomico con astropy
 python3 check_tz.py      # fusi orari a confronto col database IANA

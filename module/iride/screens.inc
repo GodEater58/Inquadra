@@ -236,6 +236,7 @@ static const struct md_item foto_md[] = {
     { ic_motion,  "Scatta da solo quando qualcosa si muove (fulmini, animali) o quando il soggetto entra a fuoco." },
     { ic_lvtools, "Peaking, zebra, istogramma, falsi colori, zoom di fuoco ed esposimetro spot nel Live View." },
     { ic_nd,      "Il tempo giusto con un filtro ND, e lo scatto in posa B quando si superano i 30 secondi." },
+    { ic_wb,      "Automatico, luce diurna, ombra, nuvoloso, tungsteno o Kelvin. Con l'opzione in Opzioni si apre col SET." },
 };
 
 static int md_t0 = -100000, md_txt_t0 = -100000;   /* icona grande e testi della voce scelta */
@@ -345,6 +346,14 @@ static void foto_status(int i, char *buf, int len, int *on)
             else snprintf(buf, len, "tutti spenti");
             break;
         }
+        case 7:
+        {
+            int i = wb_index();
+            if (i == NUM_WB - 1) snprintf(buf, len, "Kelvin, %d K", wb_kelvin_now());
+            else snprintf(buf, len, "%s%s", i >= 0 ? wb_names[i] : "personalizzato", opt_set_wb ? " (SET in scatto)" : "");
+            *on = opt_set_wb;
+            break;
+        }
         default:
         {
             char d[24];
@@ -359,7 +368,7 @@ static void foto_status(int i, char *buf, int len, int *on)
 static int ics_index(void (*f)(int, int, int, int))
 {
     static void (*const fn[])(int, int, int, int) = { ic_milkyway, ic_interval, ic_starfocus, ic_polar, ic_calendar,
-        ic_mwplan, ic_moonshot, ic_tag, ic_hdr, ic_fstack, ic_dual, ic_ettr, ic_motion, ic_lvtools, ic_nd };
+        ic_mwplan, ic_moonshot, ic_tag, ic_hdr, ic_fstack, ic_dual, ic_ettr, ic_motion, ic_lvtools, ic_nd, ic_wb };
     for (int i = 0; i < (int)COUNT(fn); i++) if (fn[i] == f) return i;
     return -1;
 }
@@ -487,7 +496,7 @@ static void draw_foto()
 {
     fill(C_BG, 0, 46, SCR_W, 398);
     draw_header("Foto");
-    draw_menu_md(foto_rows, foto_md, NUM_FOTO_ROWS, sel[SCR_FOTO], 55, foto_status, -1);
+    draw_menu_md(foto_rows, foto_md, NUM_FOTO_ROWS, sel[SCR_FOTO], 49, foto_status, -1);
     draw_footer("^/v scegli   SET apri   MENU indietro");
 }
 
@@ -857,7 +866,7 @@ static void profiles_key(int key, int dx, int dy)
 /* ------------------------------------------------------------------ opzioni */
 
 static const char *const opt_labels[] = { "Tema", "Animazioni", "Schermata iniziale", "Apri all'accensione",
-    "Cestino apre Iride", "Tasto luce LCD", "Anteprima col rullino", "Avviso posa", "Luogo", "Latitudine", "Longitudine",
+    "Cestino apre Iride", "Tasto luce LCD", "SET apre il bianco", "Anteprima col rullino", "Avviso posa", "Luogo", "Latitudine", "Longitudine",
     "Fuso orario", "Cielo del luogo", "Diagnostica tasti", "Prova della 6D" };
 
 /* buio del cielo di casa (mag/arcsec^2 come un SQM): serve a stimare le stelle visibili con la Luna */
@@ -884,31 +893,32 @@ static void opt_value(int row, char *buf, int len, int *kind)
         case 3: *kind = opt_boot_open ? VK_ON : VK_OFF; break;
         case 4: *kind = opt_trash_open ? VK_ON : VK_OFF; break;
         case 5: *kind = opt_light_key ? VK_ON : VK_OFF; break;
-        case 6: snprintf(buf, len, "< %s >", opt_review_off ? "spegni" : "lascia com'e'"); break;
-        case 7: *kind = opt_wind ? VK_ON : VK_OFF; break;
-        case 8:
+        case 6: *kind = opt_set_wb ? VK_ON : VK_OFF; break;
+        case 7: snprintf(buf, len, "< %s >", opt_review_off ? "spegni" : "lascia com'e'"); break;
+        case 8: *kind = opt_wind ? VK_ON : VK_OFF; break;
+        case 9:
         {
             int ci = city_find();
             if (ci >= 0) snprintf(buf, len, "< %s >", cities[ci].name);
             else snprintf(buf, len, "< vicino a %s >", cities[city_nearest()].name);
             break;
         }
-        case 9: snprintf(buf, len, "< %d.%02d %c >", ABS(P.lat100) / 100, ABS(P.lat100) % 100, P.lat100 < 0 ? 'S' : 'N'); break;
-        case 10: snprintf(buf, len, "< %d.%02d %c >", ABS(P.lon100) / 100, ABS(P.lon100) % 100, P.lon100 < 0 ? 'O' : 'E'); break;
-        case 11:
+        case 10: snprintf(buf, len, "< %d.%02d %c >", ABS(P.lat100) / 100, ABS(P.lat100) % 100, P.lat100 < 0 ? 'S' : 'N'); break;
+        case 11: snprintf(buf, len, "< %d.%02d %c >", ABS(P.lon100) / 100, ABS(P.lon100) % 100, P.lon100 < 0 ? 'O' : 'E'); break;
+        case 12:
         {
             char t[48];
             tz_name(tz_valid(P.tz_mode) ? P.tz_mode : 0, t, sizeof(t));
             snprintf(buf, len, "< %s >", t);
             break;
         }
-        case 12:
+        case 13:
         {
             int i = sqm_index();
             snprintf(buf, len, "< %d,%d %s >", sqm_steps[i] / 10, sqm_steps[i] % 10, sqm_names[i]);
             break;
         }
-        case 13: case 14: *kind = VK_ACTION; snprintf(buf, len, ">"); break;
+        case 14: case 15: *kind = VK_ACTION; snprintf(buf, len, ">"); break;
     }
 }
 
@@ -922,31 +932,32 @@ static void opt_change(int row, int dir, int big)
         case 3: opt_boot_open = !opt_boot_open; break;
         case 4: opt_trash_open = !opt_trash_open; break;
         case 5: opt_light_key = !opt_light_key; break;
-        case 6: opt_review_off = !opt_review_off; break;
-        case 7: opt_wind = !opt_wind; break;
-        case 8:
+        case 6: opt_set_wb = !opt_set_wb; break;
+        case 7: opt_review_off = !opt_review_off; break;
+        case 8: opt_wind = !opt_wind; break;
+        case 9:
         {
             /* citta' successiva; da un luogo personalizzato si parte dalla piu' vicina */
             int ci = city_find();
             city_set(ci >= 0 ? ci + dir * (big ? 5 : 1) : city_nearest());
             break;
         }
-        case 9: P.lat100 = COERCE(P.lat100 + dir * (big ? 100 : 1), -9000, 9000); persist_touch(); break;
-        case 10: P.lon100 = COERCE(P.lon100 + dir * (big ? 100 : 1), -18000, 18000); persist_touch(); break;
-        case 11: P.tz_mode = tz_next(tz_valid(P.tz_mode) ? P.tz_mode : 0, dir * (big ? 4 : 1)); persist_touch(); break;
-        case 12: opt_sqm10 = sqm_steps[COERCE(sqm_index() - dir, 0, (int)COUNT(sqm_steps) - 1)]; break;   /* destra = piu' buio */
+        case 10: P.lat100 = COERCE(P.lat100 + dir * (big ? 100 : 1), -9000, 9000); persist_touch(); break;
+        case 11: P.lon100 = COERCE(P.lon100 + dir * (big ? 100 : 1), -18000, 18000); persist_touch(); break;
+        case 12: P.tz_mode = tz_next(tz_valid(P.tz_mode) ? P.tz_mode : 0, dir * (big ? 4 : 1)); persist_touch(); break;
+        case 13: opt_sqm10 = sqm_steps[COERCE(sqm_index() - dir, 0, (int)COUNT(sqm_steps) - 1)]; break;   /* destra = piu' buio */
     }
 }
 
 static void opt_activate(int row)
 {
-    if (row == 13) { go(SCR_KEYS, 1); return; }
-    if (row == 14) { go(SCR_BENCH, 1); return; }
+    if (row == 14) { go(SCR_KEYS, 1); return; }
+    if (row == 15) { go(SCR_BENCH, 1); return; }
     opt_change(row, 1, 0);
 }
 
-static const char *const opt_heads[] = { "ASPETTO", 0, 0, "APERTURA DI IRIDE", 0, 0, "SCATTO", 0, "LUOGO E ORA", 0, 0, 0, 0, "STRUMENTI", 0 };
-static const struct form opt_form = { 15, opt_labels, opt_value, opt_change, opt_activate, 0,
+static const char *const opt_heads[] = { "ASPETTO", 0, 0, "APERTURA DI IRIDE", 0, 0, 0, "SCATTO", 0, "LUOGO E ORA", 0, 0, 0, 0, "STRUMENTI", 0 };
+static const struct form opt_form = { 16, opt_labels, opt_value, opt_change, opt_activate, 0,
     "^/v riga   </> cambia (ghiera superiore x100)   MENU indietro", 54, 42, opt_heads, 0, 0 };
 
 /* ------------------------------------------------------------------ diagnostica tasti */
@@ -1208,6 +1219,7 @@ static const struct screen_def screens[SCR_COUNT] = {
     [SCR_KEYS]     = { "Diagnostica tasti",   SCR_OPTIONS, 0,          draw_keys,     0,            keys_enter,  keys_tick, 250 },
     [SCR_BENCH]    = { "Prova della 6D",      SCR_OPTIONS, 0,          draw_bench,    bench_key,    bench_enter, bench_tick, 1 },
     [SCR_MOON]     = { "Luna",                SCR_ASTRO, &moon_form,   0,             0,            moonshot_enter, moonshot_tick, 1000 },
+    [SCR_WB]       = { "Bilanciamento del bianco", SCR_FOTO, &wb_form, 0,           0,            0,           0, 0 },
     [SCR_MWPLAN]   = { "Dove puntare",        SCR_ASTRO, 0,            draw_mwplan,   mwplan_key,   mwplan_enter, mwplan_tick, 1 },
 };
 
@@ -1303,6 +1315,10 @@ static const char *help_text(int scr)
         case SCR_ND: return
             "Metti il tempo giusto senza filtro e scegli il filtro: Iride calcola il tempo col filtro.\n"
             "Oltre 30 s usa la posa B e chiude lo scatto da sola.";
+        case SCR_WB: return
+            "Su e giu' scegli la riga, sinistra e destra cambiano: il bianco cambia subito sulla 6D.\n"
+            "Kelvin: la temperatura si regola a passi di 100 K (500 K con la ghiera superiore).\n"
+            "In Opzioni, 'SET apre il bianco' porta qui col SET dalla schermata di scatto: MENU o SET su Fatto tornano a scattare.";
         case SCR_OPTIONS: return
             "Tema: normale o rosso per la notte.\n"
             "Luogo: scegli una citta' o regola latitudine e longitudine; serve per Luna, Sole, Polare e Via Lattea.\n"
@@ -1420,7 +1436,7 @@ static void handle_key(int key)
     if (dx || key == MODULE_KEY_PRESS_SET) val_kick(dx);
     if (key == MODULE_KEY_MENU)
     {
-        if (screen == SCR_HOME) gui_stop_menu();
+        if (screen == SCR_HOME || (screen == SCR_WB && wb_quick)) gui_stop_menu();
         else if (screen == SCR_MWPLAN && mw_back_sky) { mw_back_sky = 0; sky_keep = 1; sky_sel = mw_night; go(SCR_SKY, -1); }
         else go(sd->parent, -1);
         return;

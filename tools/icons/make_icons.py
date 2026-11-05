@@ -188,11 +188,21 @@ def icon_nd(d):
     line(d, [(8, 19), (18, 7)], col=OR, width=int(1.4 * K))
 
 
+def icon_wb(d):
+    """bilanciamento del bianco: termometro dal caldo al freddo col segno"""
+    cols = [OR, PAL[YELLOW], (235, 235, 235), PAL[LBLUE]]
+    for i, c in enumerate(cols):
+        d.rectangle([P(3 + i * 5, 12), P(8 + i * 5, 18)], fill=c)
+    d.rectangle([P(3, 12), P(23, 18)], outline=MID, width=int(0.8 * K))
+    d.polygon([P(15, 10), P(11.5, 4.5), P(18.5, 4.5)], fill=OR)
+    line(d, [(15, 10), (15, 20)], col=OR, width=int(1.2 * K))
+
+
 ICONS = [("milkyway", icon_milkyway), ("interval", icon_interval), ("starfocus", icon_starfocus),
          ("polar", icon_polar), ("calendar", icon_calendar), ("mwplan", icon_mwplan),
          ("moonshot", icon_moonshot), ("tag", icon_tag), ("hdr", icon_hdr), ("fstack", icon_fstack),
          ("dual", icon_dual), ("ettr", icon_ettr), ("motion", icon_motion), ("lvtools", icon_lvtools),
-         ("nd", icon_nd)]
+         ("nd", icon_nd), ("wb", icon_wb)]
 
 
 def quantize(rgb):

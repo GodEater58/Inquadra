@@ -319,6 +319,7 @@ int is_manual_focus(void) { return 0; }
 void set_lv_zoom(int z) { lv_dispsize = z; }
 struct card_info *get_shooting_card(void) { return &card; }
 char *get_config_dir(void) { return "out/"; }
+int ml_started = 1, ml_gui_initialized = 1;
 struct semaphore { int locked; };
 static struct semaphore sim_sem_pool[4]; static int sim_sems = 0;
 struct semaphore *create_named_semaphore(const char *n, int unlocked) { (void)n; struct semaphore *s = &sim_sem_pool[sim_sems++ % 4]; s->locked = !unlocked; return s; }
@@ -878,7 +879,7 @@ int main(void)
     menu_open = 0; app_running = 0; gui_state = 0;
     { int before = menu_opened_calls; boot_done = 0; screen = SCR_SHELF; int t0 = clock_ms;
       boot_task(NULL);
-      CHECK(menu_opened_calls == before + 1 && screen == SCR_HOME && clock_ms - t0 >= 2500, "all'accensione si apre la Home (dopo %d ms)", clock_ms - t0);
+      CHECK(menu_opened_calls == before + 1 && screen == SCR_HOME && clock_ms - t0 >= 600 && clock_ms - t0 < 2500, "all'accensione si apre la Home appena ML e' pronto (dopo %d ms, prima 2500)", clock_ms - t0);
       menu_redraw_blocked = 0; }
     { int before = menu_opened_calls; boot_done = 0; sim_half = 1; boot_task(NULL); sim_half = 0;
       CHECK(menu_opened_calls == before, "acceso col mezzo scatto premuto: niente Iride"); }
@@ -888,6 +889,36 @@ int main(void)
       CHECK(menu_opened_calls == before, "opzione spenta: niente Iride all'accensione"); }
     { int before = menu_opened_calls; boot_done = 0; sim_display = 0; boot_task(NULL); sim_display = 1;
       CHECK(menu_opened_calls == before, "display spento: niente Iride"); }
+
+    /* ---------- bilanciamento del bianco: il tasto che manca alla 6D */
+    {
+        int wm = lens_info.wb_mode, kv = lens_info.kelvin;
+        lens_info.wb_mode = 0; menu_open = 0; app_running = 0; gui_state = 0; key_fake = 0;
+        opt_set_wb = 0; int before = menu_opened_calls;
+        CHECK(iride_keypress(MODULE_KEY_PRESS_SET) == 1 && menu_opened_calls == before, "SET in scatto con l'opzione spenta: resta a Canon");
+        opt_set_wb = 1; key_fake = 1;
+        CHECK(iride_keypress(MODULE_KEY_PRESS_SET) == 1 && menu_opened_calls == before, "SET premuto da ML: resta a Canon");
+        key_fake = 0;
+        CHECK(iride_keypress(MODULE_KEY_PRESS_SET) == 0 && menu_opened_calls == before + 1 && screen == SCR_WB && wb_quick,
+              "SET in scatto con l'opzione accesa: si apre il bianco");
+        app_running = 1; menu_open = 1; sel[SCR_WB] = 0;
+        handle_key(MODULE_KEY_PRESS_RIGHT);
+        CHECK(lens_info.wb_mode == 1, "destra: luce diurna (%d)", lens_info.wb_mode);
+        handle_key(MODULE_KEY_PRESS_LEFT); handle_key(MODULE_KEY_PRESS_LEFT);
+        CHECK(lens_info.wb_mode == 9, "sinistra da automatico: Kelvin (%d)", lens_info.wb_mode);
+        lens_info.kelvin = 5200; sel[SCR_WB] = 1; handle_key(MODULE_KEY_PRESS_RIGHT);
+        CHECK(lens_info.kelvin == 5300, "Kelvin +100: %d", lens_info.kelvin);
+        lens_info.kelvin = 9900; handle_key(MODULE_KEY_PRESS_RIGHT); handle_key(MODULE_KEY_PRESS_RIGHT);
+        CHECK(lens_info.kelvin == 10000, "Kelvin fermo a 10000: %d", lens_info.kelvin);
+        lens_info.kelvin = 5600; msg[0] = 0; screenshot(SCR_WB, "27_bianco");
+        int mc = menu_closed_calls; handle_key(MODULE_KEY_MENU);
+        CHECK(menu_closed_calls == mc + 1, "aperto col SET: MENU torna a scattare");
+        wb_quick = 0; screen = SCR_WB; mc = menu_closed_calls; handle_key(MODULE_KEY_MENU);
+        CHECK(menu_closed_calls == mc && screen == SCR_FOTO, "aperto da Foto: MENU torna a Foto");
+        sel[SCR_FOTO] = 7; md_select(); screenshot(SCR_FOTO, "08b_foto_bianco"); sel[SCR_FOTO] = 0;
+        opt_set_wb = 0; app_running = 0; menu_open = 0; menu_redraw_blocked = 0; open_settle = 0; screen = SCR_HOME;
+        lens_info.wb_mode = wm; lens_info.kelvin = kv;
+    }
 
     /* ---------- diagnostica tasti */
     { int n0 = klog_count;
@@ -1129,7 +1160,7 @@ int main(void)
     set_time(2027, 7, 12, 22, 30); sky_enter(); sky_full();
     opt_moon_es = 1; sel[SCR_MOON] = 0; screenshot(SCR_MOON, "25b_luna_cinerea"); opt_moon_es = 0;
     set_time(2026, 11, 1, 22, 47); sky_enter(); sky_full(); sky_sel = 0;
-    sel[SCR_OPTIONS] = 12; screenshot(SCR_OPTIONS, "18c_opzioni_cielo"); sel[SCR_OPTIONS] = 0;
+    sel[SCR_OPTIONS] = 13; screenshot(SCR_OPTIONS, "18c_opzioni_cielo"); sel[SCR_OPTIONS] = 0;
 
     /* ---------- luogo: citta' pronte e fusi orari di tutto il mondo */
     {
@@ -1138,7 +1169,7 @@ int main(void)
         CHECK(ok, "%d citta': ognuna si ritrova dalle sue coordinate", NUM_CITIES);
         P.lat100 = 4512; P.lon100 = 1170; P.tz_mode = 0;
         CHECK(city_find() < 0 && streq(cities[city_nearest()].name, "Rovigo"), "luogo personalizzato vicino a %s", cities[city_nearest()].name);
-        screen = SCR_OPTIONS; sel[SCR_OPTIONS] = 8; handle_key(MODULE_KEY_PRESS_RIGHT);
+        screen = SCR_OPTIONS; sel[SCR_OPTIONS] = 9; handle_key(MODULE_KEY_PRESS_RIGHT);
         CHECK(city_find() >= 0 && streq(cities[city_find()].name, "Rovigo"), "</> su un luogo personalizzato porta alla citta' piu' vicina");
         handle_key(MODULE_KEY_PRESS_RIGHT);
         CHECK(city_find() >= 0 && !streq(cities[city_find()].name, "Rovigo"), "poi alla successiva: %s", cities[city_find()].name);
@@ -1162,7 +1193,7 @@ int main(void)
         }
         fclose(f);
         P.lat100 = 4507; P.lon100 = 1179; P.tz_mode = 0;
-        sel[SCR_OPTIONS] = 8; screenshot(SCR_OPTIONS, "18d_opzioni_luogo");
+        sel[SCR_OPTIONS] = 9; screenshot(SCR_OPTIONS, "18d_opzioni_luogo");
         P.lat100 = -3387; P.lon100 = 15121; P.tz_mode = 16; screenshot(SCR_OPTIONS, "18e_opzioni_sydney");
         sel[SCR_OPTIONS] = 0; P.lat100 = la; P.lon100 = lo; P.tz_mode = tz;
     }

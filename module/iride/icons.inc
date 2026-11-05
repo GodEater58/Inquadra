@@ -291,4 +291,18 @@ static void ic_nd(int cx, int cy, int s, int t)
     if (s >= 80) txt_c(FONT_SMALL, C_DIM, fx, cy - 6, "ND");
 }
 
+/* Bilanciamento del bianco: scala dal caldo al freddo con il segno che scorre */
+static void ic_wb(int cx, int cy, int s, int t)
+{
+    int w = K(88), h = K(18), x0 = cx - w / 2, y0 = cy - h / 2 + K(8);
+    int c4[4];
+    c4[0] = tc(COLOR_ORANGE); c4[1] = tc(COLOR_YELLOW); c4[2] = tc(COLOR_WHITE); c4[3] = tc(COLOR_LIGHT_BLUE);
+    for (int i = 0; i < 4; i++) fill(night ? (i % 2 ? C_LINE : C_DIM) : c4[i], x0 + i * w / 4, y0, w / 4 + (i == 3 ? w % 4 : 0), h);
+    int e = t >= 0 ? ip(t, 0, 900, EZ_IO) : 500;
+    int mx = x0 + K(10) + (w - K(20)) * e / 1000;
+    fill_tri(mx - K(7), y0 - K(14), mx + K(7), y0 - K(14), mx, y0 - K(3), C_ACCENT);
+    fill(C_ACCENT, mx - 1, y0, 2, h);
+    if (s >= 80) txt_c(FONT_SMALL, C_DIM, cx, y0 + h + K(4), "K");
+}
+
 #undef K

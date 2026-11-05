@@ -1,4 +1,4 @@
-IRIDE 6D 1.4.3 per Canon EOS 6D (firmware Canon 1.1.6)
+IRIDE 6D 1.5 per Canon EOS 6D (firmware Canon 1.1.6)
 =====================================================
 
 Magic Lantern per 6D 1.1.6 (build ufficiale del 20/06/2025, commit ed3e7c0)
@@ -9,7 +9,7 @@ silent.
 
 ATTENZIONE
 - Sperimentale. Prime prove su una 6D vera: rullini e nomi dei file funzionano.
-  Il resto: 171 test superati sul simulatore, calcoli astronomici confrontati
+  Il resto: 180 test superati sul simulatore, calcoli astronomici confrontati
   con astropy, compilato contro il firmware 1.1.6.
 - Magic Lantern (anche nella versione modificata) gira dalla scheda e non
   modifica la ROM: con una scheda senza ML la macchina e' quella di sempre.
@@ -26,8 +26,8 @@ INSTALLAZIONE (serve il firmware Canon 1.1.6: vedi builds.magiclantern.fm/6D.htm
 
 APRIRE IRIDE
 ------------
-- ALL'ACCENSIONE: dopo 2-3 secondi compare la Home (Opzioni > Apri
-  all'accensione). Se accendi tenendo premuto a meta' lo scatto per
+- ALL'ACCENSIONE: appena Magic Lantern e' pronto (circa un secondo)
+  compare la Home (Opzioni > Apri all'accensione). Se accendi tenendo premuto a meta' lo scatto per
   fotografare subito, non compare. Mezzo scatto la chiude sempre.
 - CESTINO dalla schermata di scatto: si apre Iride (Opzioni > Cestino apre
   Iride; spento = il cestino apre il menu Magic Lantern come sempre).
@@ -35,6 +35,9 @@ APRIRE IRIDE
   lo chiude. Mezzo scatto chiude tutto.
 - Tasto LUCE del display superiore: attivo, ma la 6D potrebbe non inviarlo
   durante lo scatto. Per verificarlo: Opzioni > Diagnostica tasti.
+- SET dalla schermata di scatto: apre subito il bilanciamento del bianco
+  (la 6D non ha il tasto WB). Va acceso in Opzioni > SET apre il bianco;
+  MENU o SET su Fatto tornano a scattare.
 - Dal menu Magic Lantern: scheda Shoot > Iride > SET.
 Joystick o ghiere per muoversi, SET conferma, MENU indietro.
 In basso c'e' sempre l'aiuto dei tasti. INFO apre la spiegazione della
@@ -91,7 +94,10 @@ ASTRO       Via Lattea: regola NPF, SET applica tempo, diaframma, ISO, 3900 K.
 FOTO        HDR, Focus stacking (Live View + AF), Dual ISO, ETTR,
             Movimento e trappola di fuoco, Strumenti Live View (con Live
             View al buio: schermo piu' chiaro di 1-6 stop, foto uguali),
-            Filtri ND (fino a 30 s imposta il tempo, oltre scatta in posa B).
+            Filtri ND (fino a 30 s imposta il tempo, oltre scatta in posa B),
+            Bilanciamento del bianco (automatico, luce diurna, ombra,
+            nuvoloso, tungsteno, fluorescente, flash, Kelvin 2500-10000 a
+            passi di 100 K, 500 con la ghiera superiore).
 
 RULLINI     Ogni pellicola ha due righe: carattere e uso ideale.
             SET carica (pose 12/24/36, push/pull da -2 a +3 stop).
@@ -129,7 +135,7 @@ OPZIONI     Tema (normale / notte rossa / notte solo in Astro), animazioni
             (complete / rapide / spente: un tasto qualsiasi salta sempre
             l'animazione in corso), schermata iniziale, apri all'accensione,
             cestino apre
-            Iride, tasto luce,
+            Iride, tasto luce, SET apre il bianco,
             anteprima col rullino, avviso posa, luogo (57 citta' pronte,
             di fabbrica Roma; latitudine e longitudine regolabili), fuso
             orario (Europa, USA, Australia, Nuova Zelanda con l'ora legale
