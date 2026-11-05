@@ -41,7 +41,7 @@
           box-shadow: 0 2px 0 #0a0a0b, inset 0 0 0 1px #45454c; display: flex; align-items: center; justify-content: center; }
   .lvsw::after { content: "📷 🎥"; position: absolute; top: -16px; font-size: 10px; letter-spacing: 6px; color: #888; }
   .screen { background: #050506; border-radius: 12px; padding: 14px; box-shadow: inset 0 0 0 2px #000, 0 0 0 2px #2e2e33, 0 0 0 4px #17171a; position: relative; }
-  canvas { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; image-rendering: pixelated; border-radius: 2px; background: #000; }
+  canvas { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; image-rendering: auto; border-radius: 2px; background: #000; }
   .loading { position: absolute; inset: 14px; display: flex; align-items: center; justify-content: center; color: var(--dim); font-size: 15px; }
   .rc { display: flex; flex-direction: column; align-items: center; gap: 14px; padding-top: 0; }
   .row { display: flex; gap: 12px; align-items: center; justify-content: center; }
@@ -67,6 +67,49 @@
   .lock b { display: inline-block; width: 26px; height: 10px; border-radius: 5px; background: #2a2a2f; margin-left: 6px; vertical-align: middle; box-shadow: inset 0 0 0 1px #3d3d44; }
   .status { text-align: center; color: var(--dim); font-size: 14px; margin-top: 12px; min-height: 21px; }
 
+  /* ---- la 6D vera (schermi larghi): posizioni dalla foto ufficiale Canon ---- */
+  .r6d { position: relative; width: 100%; max-width: 980px; margin: 0 auto; aspect-ratio: 1180 / 880; }
+  .r6d > * { position: absolute; }
+  .r6-body { border-radius: 4% 6% 9% 9% / 6% 8% 14% 14%; background: linear-gradient(170deg, #26262a, #161618 60%, #111113);
+             box-shadow: 0 30px 60px rgba(0,0,0,.6), inset 0 2px 0 rgba(255,255,255,.06), inset 0 -10px 30px rgba(0,0,0,.5); }
+  .r6-hump { border-radius: 38% 38% 6% 6% / 30% 30% 4% 4%; background: linear-gradient(#2a2a2e, #1a1a1d); box-shadow: inset 0 2px 0 rgba(255,255,255,.07); }
+  .r6-shoe { border-radius: 3px; background: linear-gradient(#6e6e74, #3a3a3f); box-shadow: inset 0 -8px 0 #232326, inset 0 2px 0 rgba(255,255,255,.15); }
+  .r6-grip-l, .r6-grip-r { border-radius: 22px; opacity: .9;
+             background: radial-gradient(rgba(255,255,255,.07) 1px, transparent 1.4px) 0 0 / 5px 5px, linear-gradient(#1b1b1e, #141416); }
+  .r6-grip-r { border-radius: 30% 14% 18% 30% / 10% 14% 12% 14%; }
+  .r6-mode { border-radius: 50% / 34%; background: repeating-linear-gradient(90deg, #303035 0 3px, #121214 3px 7px); box-shadow: 0 6px 0 #0c0c0d, inset 0 -8px 10px rgba(0,0,0,.6); }
+  .r6-modetop { position: absolute; left: 0; right: 0; top: -14%; height: 46%; border-radius: 50%; background: radial-gradient(#3a3a3f, #222226 70%); box-shadow: inset 0 0 0 2px #2c2c30; }
+  .r6-maindial { border-radius: 40% 40% 0 0; background: repeating-linear-gradient(90deg, #2d2d31 0 4px, #18181a 4px 8px); }
+  .r6-eye { border-radius: 28%/32%; background: radial-gradient(80% 70% at 50% 40%, #1d1d20, #0d0d0f); box-shadow: inset 0 0 0 6px #19191c, 0 4px 0 #0b0b0c; }
+  .r6-glass { position: absolute; left: 26%; top: 36%; width: 50%; height: 52%; border-radius: 6px; background: linear-gradient(#26262b, #0c0c0e); box-shadow: inset 0 0 0 5px #121214; }
+  .r6-glass::after { content: ""; position: absolute; inset: 18% 14%; border-radius: 4px; background: radial-gradient(60% 70% at 40% 40%, #5b5f8a, #20223a 60%, #0b0b12); }
+  .r6-lv { border-radius: 50%; background: radial-gradient(#2b2b30 55%, #1a1a1d 56%); box-shadow: 0 3px 0 #0b0b0c; }
+  .r6-lvicons { color: #bdbdc2; font-size: 11px; line-height: 2.2; text-align: center; }
+  .r6-lvicons span { color: #e04a3f; }
+  .r6-lbl { color: #cfcfd4; font: 600 11px system-ui; text-align: center; letter-spacing: .5px; }
+  .r6-lcd { border-radius: 10px; background: #050506; box-shadow: inset 0 0 0 2px #1d1d20, 0 0 0 2px #2a2a2e; }
+  .r6-screen { overflow: hidden; border-radius: 2px; }
+  .r6-screen canvas { width: 100%; height: 100%; image-rendering: auto; }
+  .r6-logo { color: #8e8e96; font: 600 13px system-ui; text-align: center; letter-spacing: 3px; padding-top: 8px; white-space: nowrap; }
+  .r6b { border: none; border-radius: 50%; background: radial-gradient(circle at 50% 35%, #3a3a40, #1f1f23 70%); color: #e6e6ea;
+         font: 700 10px system-ui; box-shadow: 0 3px 0 #0a0a0b, inset 0 1px 0 rgba(255,255,255,.1); cursor: pointer; padding: 0; touch-action: manipulation; }
+  .r6b.blue { color: #78aaff; font-size: 13px; }
+  .r6b:active, .r6b.pressed { transform: translateY(2px); box-shadow: 0 1px 0 #0a0a0b; }
+  .r6-ss { font-size: 9px; line-height: 1.05; }
+  .r6-q { border-radius: 9px; font-size: 15px; }
+  .r6-qcd { border-radius: 50%; background: repeating-conic-gradient(#2e2e33 0 4deg, #18181b 4deg 8deg); box-shadow: 0 4px 0 #0a0a0b; }
+  .r6-qhalf { border: none; background: transparent; cursor: pointer; border-radius: 100px 0 0 100px; touch-action: manipulation; }
+  .r6-qhalf + .r6-qhalf { border-radius: 0 100px 100px 0; }
+  .r6-mc { border-radius: 50%; background: radial-gradient(circle at 50% 40%, #2c2c31, #17171a 75%); box-shadow: inset 0 0 0 1px #34343a; pointer-events: none; }
+  .r6-arrow { border: none; background: transparent; color: #9a9aa2; font-size: 11px; cursor: pointer; border-radius: 50%; touch-action: manipulation; }
+  .r6-arrow:active, .r6-arrow.pressed { color: var(--accent); }
+  .r6-set { font-size: 13px; }
+  .r6-lock { color: #e6e6ea; font: 700 12px system-ui; }
+  .r6-lockbox { border-radius: 10px; background: linear-gradient(90deg, #1b1b1e 0 45%, #2c2c31 45% 70%, #1b1b1e 70%); box-shadow: inset 0 0 0 2px #2a2a2e; }
+  .r6-dialhalf { border: none; background: transparent; cursor: pointer; }
+  .r6top { display: flex; justify-content: flex-end; gap: 12px; align-items: center; max-width: 980px; margin: 0 auto -6px; padding-right: 9%; color: #77777f; font-size: 12px; }
+  .cam { display: none; }
+
   @media (max-width: 860px) {
     .plate { justify-content: center; padding: 0 0 34px; flex-wrap: wrap; gap: 10px; }
     main { padding: 6px 6px 30px; }
@@ -78,6 +121,7 @@
     .tr { position: static; justify-content: center; order: 3; }
     .screen { order: 1; padding: 5px; border-radius: 8px; } .rc { order: 2; }
     .lvsw { width: 60px; height: 60px; }
+    .r6d, .r6top { display: none; } .cam { display: block; }
   }
   section.info { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-top: 30px; }
   .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
@@ -110,6 +154,61 @@
 </header>
 
 <main>
+  <div class="r6top"><span>SOPRA:</span>
+    <button class="key small" data-k="100" title="Illuminazione del display superiore (B)">LUCE ☼</button>
+    <button class="key accent" data-k="1" title="Pulsante di scatto (Spazio)" style="width:96px">SCATTO</button>
+    <span>ghiera principale: il bordo zigrinato in alto a destra</span>
+  </div>
+
+  <!-- la 6D vera vista da dietro: posizioni prese dalla foto ufficiale Canon (1180 x 880) -->
+  <div class="r6d" id="r6d">
+    <div class="r6-shoe" style="left:34.58%;top:5.91%;width:14.41%;height:3.64%"></div>
+    <div class="r6-hump" style="left:26.95%;top:8.18%;width:29.66%;height:32.73%"></div>
+    <div class="r6-body" style="left:8.81%;top:27.05%;width:83.73%;height:68.18%"></div>
+    <div class="r6-grip-l" style="left:8.81%;top:37.50%;width:6.44%;height:50.00%"></div>
+    <div class="r6-grip-r" style="left:65.25%;top:29.32%;width:22.20%;height:61.59%"></div>
+    <div class="r6-mode" style="left:12.03%;top:20.00%;width:13.73%;height:9.77%"><div class="r6-modetop"></div></div>
+    <div class="r6-maindial" style="left:74.58%;top:25.91%;width:11.02%;height:2.73%"></div>
+    <button class="r6-dialhalf" data-k="7" data-rep title="Ghiera principale a sinistra ([)" style="left:74.58%;top:25.23%;width:5.51%;height:4.09%"></button>
+    <button class="r6-dialhalf" data-k="8" data-rep title="Ghiera principale a destra (])" style="left:80.08%;top:25.23%;width:5.51%;height:4.09%"></button>
+    <div class="r6-eye" style="left:27.97%;top:14.55%;width:27.29%;height:23.86%"><div class="r6-glass"></div></div>
+
+    <button class="r6b" data-k="22" title="MENU (Esc)" style="left:15.08%;top:32.73%;width:4.24%;height:5.68%">MENU</button>
+    <button class="r6b" data-k="23" title="INFO (I)" style="left:21.44%;top:32.73%;width:4.24%;height:5.68%">INFO.</button>
+
+    <div class="r6-lv" style="left:58.98%;top:31.36%;width:7.80%;height:10.45%"></div>
+    <div class="r6-lvicons" style="left:56.61%;top:32.73%;width:2.71%;height:5.91%">▣<br><span>●</span></div>
+    <button class="r6b r6-ss" data-k="28" title="Live View: START/STOP (L)" style="left:60.08%;top:32.84%;width:5.59%;height:7.50%">START/<br>STOP</button>
+
+    <div class="r6-lbl" style="left:72.03%;top:28.41%;width:6.36%;height:1.82%">AF-ON</div>
+    <button class="r6b" title="AF-ON (non usato da Iride)" style="left:73.22%;top:30.45%;width:3.73%;height:5.00%"></button>
+    <div class="r6-lbl" style="left:79.66%;top:28.64%;width:2.97%;height:1.82%">✱</div>
+    <button class="r6b" title="Blocco AE (non usato da Iride)" style="left:79.15%;top:31.70%;width:3.73%;height:5.00%"></button>
+    <div class="r6-lbl" style="left:85.08%;top:29.77%;width:3.05%;height:1.82%">⊞</div>
+    <button class="r6b" title="Selezione punto AF (non usato da Iride)" style="left:84.58%;top:33.98%;width:3.73%;height:5.00%"></button>
+
+    <div class="r6-lcd" style="left:16.78%;top:43.52%;width:41.53%;height:38.75%"></div>
+    <div class="r6-screen" id="slot-real" style="left:18.31%;top:45.45%;width:38.47%;height:35.00%"></div>
+    <div class="r6-logo" style="left:31.36%;top:82.73%;width:12.71%;height:3.86%">EOS 6D · IRIDE</div>
+
+    <button class="r6b blue" title="Ingrandimento (non usato da Iride)" style="left:61.02%;top:45.45%;width:3.73%;height:5.00%">🔍&#xFE0E;</button>
+    <button class="r6b blue" data-k="24" title="Riproduzione (P)" style="left:61.02%;top:54.32%;width:3.73%;height:5.00%">▶</button>
+    <button class="r6b blue" data-k="25" title="Cancella / cestino (Canc)" style="left:61.02%;top:85.57%;width:3.73%;height:5.00%">🗑&#xFE0E;</button>
+    <button class="r6b r6-q" data-k="29" title="Controllo rapido Q (Q)" style="left:67.97%;top:49.09%;width:4.58%;height:7.05%">Q</button>
+
+    <div class="r6-qcd" style="left:61.44%;top:61.02%;width:17.12%;height:22.95%"></div>
+    <button class="r6-qhalf" data-k="5" data-rep title="Ghiera posteriore: su (,)" style="left:61.44%;top:61.02%;width:8.56%;height:22.95%"></button>
+    <button class="r6-qhalf" data-k="6" data-rep title="Ghiera posteriore: giu' (.)" style="left:70.00%;top:61.02%;width:8.56%;height:22.95%"></button>
+    <div class="r6-mc" style="left:64.41%;top:65.00%;width:11.19%;height:15.00%"></div>
+    <button class="r6-arrow" data-k="12" data-rep title="Su (freccia)" style="left:68.47%;top:65.23%;width:3.05%;height:4.09%">▲</button>
+    <button class="r6-arrow" data-k="19" data-rep title="Giu' (freccia)" style="left:68.47%;top:75.68%;width:3.05%;height:4.09%">▼</button>
+    <button class="r6-arrow" data-k="16" data-rep title="Sinistra (freccia)" style="left:64.58%;top:70.45%;width:3.05%;height:4.09%">◀</button>
+    <button class="r6-arrow" data-k="15" data-rep title="Destra (freccia)" style="left:72.37%;top:70.45%;width:3.05%;height:4.09%">▶</button>
+    <button class="r6b r6-set" data-k="9" title="SET (Invio)" style="left:67.63%;top:69.32%;width:4.75%;height:6.36%">SET</button>
+
+    <div class="r6-lock" style="left:68.47%;top:88.18%;width:5.25%;height:2.50%">LOCK▸</div>
+    <div class="r6-lockbox" style="left:74.41%;top:85.80%;width:8.22%;height:4.55%"></div>
+  </div>
   <div class="cam" id="camera">
     <div class="plate">
       <span class="lbl">SOPRA:</span>
@@ -133,7 +232,7 @@
         <button class="key inert round" title="Selezione punto AF (non usato da Iride)">⊞</button>
       </div>
 
-      <div class="screen">
+      <div class="screen" id="slot-compact">
         <canvas id="lcd" width="720" height="480" aria-label="Schermo della 6D con Iride"></canvas>
         <div class="loading" id="loading">Avvio di Magic Lantern e Iride…</div>
       </div>
@@ -213,6 +312,13 @@
   })();
 
   const canvas = document.getElementById('lcd');
+  /* un solo schermo: va nella 6D vera (schermi larghi) o in quella compatta (telefono) */
+  const loadingEl = document.getElementById('loading');
+  function placeScreen() {
+    const slot = document.getElementById(matchMedia('(max-width: 860px)').matches ? 'slot-compact' : 'slot-real');
+    if (canvas.parentNode !== slot) { slot.appendChild(canvas); slot.appendChild(loadingEl); }
+  }
+  placeScreen(); addEventListener('resize', placeScreen);
   const ctx = canvas.getContext('2d');
   const img = ctx.createImageData(720, 480);
   const px = new Uint32Array(img.data.buffer);
