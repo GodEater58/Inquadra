@@ -1439,11 +1439,12 @@ int main(void)
             if (screens[screen].tick) screens[screen].tick();
             if (!seen[screen]) { seen[screen] = 1; screens_seen++; }
         }
-        CHECK(screens_seen >= SCR_COUNT - 2, "6000 tasti a caso: %d schermate visitate, nessun errore", screens_seen);
+        /* con un seme diverso si controllano solo gli errori: quante schermate visita dipende dal caso */
+        CHECK(getenv("IRIDE_FUZZ_SEED") || screens_seen >= SCR_COUNT - 2, "%d tasti a caso: %d schermate visitate, nessun errore", fuzz_n, screens_seen);
         offscreen_on = 0; offshape_on = 0;
         for (int i = 0; i < offscreen && i < 8; i++) printf("  fuori schermo: %s\n", offscreen_txt[i]);
         if (offshape) printf("  forme fuori schermo: %d, la prima: %s\n", offshape, offshape_txt);
-        CHECK(offscreen == 0 && offshape == 0, "6000 tasti a caso: niente testi o forme fuori dallo schermo (%d, %d)", offscreen, offshape);
+        CHECK(offscreen == 0 && offshape == 0, "%d tasti a caso: niente testi o forme fuori dallo schermo (%d, %d)", fuzz_n, offscreen, offshape);
         P = saved; lv = lvs; opt_theme = 0; opt_anim = 0; msg[0] = 0;
     }
 

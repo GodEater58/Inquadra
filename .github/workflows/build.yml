@@ -89,7 +89,7 @@ jobs:
           awk -v v="$V" 'index($0, "## " v " ")==1 {f=1; next} /^## /{f=0} f' CHANGELOG.md > notes.md
           {
             echo
-            echo "**Aggiornare:** copia solo \`iride.mo\` nella cartella \`ML/modules\` della scheda: impostazioni e rullini restano."
+            echo "**Aggiornare:** dalla 1.4 in poi basta \`iride.mo\` nella cartella \`ML/modules\` della scheda; da una 1.3 o precedente copia anche \`autoexec.bin\` (Magic Lantern modificato per Iride). Impostazioni e rullini restano."
             echo
             echo "**Prima installazione:** firmware Canon 1.1.6, poi il contenuto di \`Iride6D-$V-SD.zip\` nella radice della scheda (vedi LEGGIMI.txt)."
             echo
