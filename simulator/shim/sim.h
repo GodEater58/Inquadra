@@ -123,7 +123,7 @@ void LoadCalendarFromRTC(struct tm *t);
 /* ---- obiettivo, esposizione, proprieta' */
 struct lens_info {
     char name[32]; unsigned job_state; unsigned focal_len; unsigned aperture; unsigned picstyle; unsigned wb_mode; unsigned kelvin; unsigned iso;
-    uint8_t raw_aperture; uint8_t raw_shutter; uint8_t raw_iso; uint8_t raw_picstyle; uint8_t raw_aperture_min; uint8_t lens_exists;
+    uint8_t raw_aperture; uint8_t raw_shutter; uint8_t raw_iso; uint8_t raw_picstyle; uint8_t raw_aperture_min; uint8_t raw_aperture_max; uint8_t lens_exists;
 };
 extern struct lens_info lens_info;
 extern int shooting_mode, lv, lv_dispsize, image_review_time, RECORDING;

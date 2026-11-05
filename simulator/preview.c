@@ -497,6 +497,17 @@ int main(void)
         persist_save(); persist_load();
         CHECK(P.prof[0].iso == 96 && P.prof[1].name == 9 && P.prof[2].valid && P.prof[2].name == 1 && P.prof[3].name == 2 && P.prof[4].name == 5,
               "aggiornando: i profili salvati restano, i posti vuoti prendono quelli di partenza senza doppioni");
+        /* diaframma che l'obiettivo non ha: si usa il suo limite */
+        {
+            int sm = shooting_mode, amin = lens_info.raw_aperture_min, amax = lens_info.raw_aperture_max;
+            persist_defaults(); P.persist_prof_seeded = 0; profiles_seed();
+            shooting_mode = SHOOTMODE_AV; lens_info.raw_aperture_min = 40; lens_info.raw_aperture_max = 80;   /* zoom f/4, f/22 */
+            { int ok0 = profile_load(0); CHECK(ok0 && lens_info.raw_aperture == 40 && prof_ap_limited == 1, "Ritratto f/2.8 su un f/4: f/4, il piu' aperto dell'obiettivo (%d %d %d %d)", ok0, lens_info.raw_aperture, prof_ap_limited, P.prof[0].mode); }
+            CHECK(profile_load(1) && lens_info.raw_aperture == 56 && prof_ap_limited == 0, "Paesaggio f/8: come nel profilo");
+            lens_info.raw_aperture_min = 0; lens_info.raw_aperture_max = 0;
+            CHECK(profile_load(0) && lens_info.raw_aperture == 32, "obiettivo senza dati: il valore del profilo, decide la 6D");
+            shooting_mode = sm; lens_info.raw_aperture_min = amin; lens_info.raw_aperture_max = amax; persist_defaults();
+        }
         remove("out/IRIDE.DAT"); remove("out/IRIDE.BAK"); persist_next_slot = 0; persist_defaults();
     }
     P.roll_num = 7; P.lat100 = 4400; P.prof[2].valid = 1; P.prof[2].iso = 96;

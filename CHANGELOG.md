@@ -8,8 +8,9 @@
   - Sport: Tv, 1/1000, ISO Auto, stile Standard
   - Notte in città a mano: M, 1/30, f/4, ISO 3200, stile Standard
 - Con la ghiera sul modo del profilo si carica tutto, con un altro modo stile, ISO e bianco. Si cambiano come sempre: impostazioni sulla 6D, poi INFO sul profilo
+- **Diaframma adattato all'obiettivo**, per tutti i profili: se l'obiettivo non arriva al diaframma del profilo (f/2.8 su uno zoom f/4) si usa il suo limite, il più aperto o il più chiuso, e Iride lo dice ("Caricato con f/4: il più aperto dell'obiettivo")
 - I profili già salvati restano com'erano: i profili di partenza vanno solo nei posti vuoti, una volta sola e senza doppioni dello stesso nome; uno cancellato non ricompare
-- Simulatore: 3 test nuovi sui profili di partenza
+- Simulatore: 6 test nuovi sui profili di partenza e sul diaframma adattato
 
 ## 1.4.2 – 5 novembre 2026
 - **Registro della sessione: un file per notte** invece che uno per ora. Si chiama `ISaammgg.CSV` con la data della sera (`IS261102.CSV` = notte del 2 novembre 2026); fino a mezzogiorno del giorno dopo si continua a scrivere lì, anche a cavallo di capodanno. Il lettore per AstroStack legge sia i file nuovi sia i vecchi `ISmmddhh.CSV`

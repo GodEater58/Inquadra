@@ -531,8 +531,10 @@ static void profile_save(int i)
 }
 
 /* ritorna 1 se anche tempo e diaframma sono stati applicati (stessa ghiera) */
+static int prof_ap_limited = 0;          /* 1: aperto al massimo dell'obiettivo, 2: chiuso al minimo */
 static int profile_load(int i)
 {
+    prof_ap_limited = 0;
     struct profile *p = &P.prof[i];
     if (!p->valid) return 0;
     snap_take();
@@ -541,6 +543,17 @@ static int profile_load(int i)
     set_wb(p->wb, p->kelvin);
     if (shooting_mode != p->mode) return 0;
     if ((shooting_mode == SHOOTMODE_M || shooting_mode == SHOOTMODE_TV) && p->shutter >= 12) lens_set_rawshutter(p->shutter);
-    if ((shooting_mode == SHOOTMODE_M || shooting_mode == SHOOTMODE_AV) && p->aperture) lens_set_rawaperture(p->aperture);
+    if ((shooting_mode == SHOOTMODE_M || shooting_mode == SHOOTMODE_AV) && p->aperture)
+    {
+        /* diaframma che l'obiettivo non ha (f/2.8 su uno zoom f/4, f/22 su un f/16): si usa il
+           limite dell'obiettivo, e lo si dice */
+        int ap = p->aperture;
+        if (lens_info.raw_aperture_min && lens_info.raw_aperture_max > lens_info.raw_aperture_min)
+        {
+            int lim = COERCE(ap, lens_info.raw_aperture_min, lens_info.raw_aperture_max);
+            if (lim != ap) { prof_ap_limited = lim > ap ? 1 : 2; ap = lim; }   /* codice piu' alto = piu' chiuso */
+        }
+        lens_set_rawaperture(ap);
+    }
     return 1;
 }

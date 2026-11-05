@@ -9,7 +9,7 @@ silent.
 
 ATTENZIONE
 - Sperimentale. Prime prove su una 6D vera: rullini e nomi dei file funzionano.
-  Il resto: 168 test superati sul simulatore, calcoli astronomici confrontati
+  Il resto: 171 test superati sul simulatore, calcoli astronomici confrontati
   con astropy, compilato contro il firmware 1.1.6.
 - Magic Lantern (anche nella versione modificata) gira dalla scheda e non
   modifica la ROM: con una scheda senza ML la macchina e' quella di sempre.
@@ -115,6 +115,8 @@ PROFILI     5 posti: INFO salva, SET carica, Q cancella, sinistra/destra nome.
               Sport     Tv  1/1000 ISO Auto  stile Standard
               Notte     M   1/30 f/4 ISO 3200 stile Standard
             Con la ghiera sul modo indicato si carica tutto; con un altro
+            modo solo stile, ISO e bianco. Se l'obiettivo non arriva al
+            diaframma del profilo (f/2.8 su un f/4) usa il suo limite.
             modo solo stile, ISO e bianco. Per cambiarli: imposta la 6D come
             vuoi, poi INFO sul profilo. I profili gia' salvati non si toccano.
 

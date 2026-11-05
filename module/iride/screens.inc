@@ -842,7 +842,15 @@ static void profiles_key(int key, int dx, int dy)
     {
         if (!p->valid) { say(C_DIM, "Profilo vuoto: INFO per salvarlo"); return; }
         int full = profile_load(s);
-        say(full ? C_OK : C_ACCENT, full ? "Profilo caricato" : "Caricato in parte: tempo e diaframma vogliono la stessa ghiera");
+        if (full && prof_ap_limited)
+        {
+            char buf[80], ap[8];
+            fmt_tenths(ap, sizeof(ap), RAW2VALUE(aperture, lens_info.raw_aperture));
+            snprintf(buf, sizeof(buf), "Caricato con f/%s: %s dell'obiettivo", ap,
+                prof_ap_limited == 1 ? "il piu' aperto" : "il piu' chiuso");
+            say(C_OK, buf);
+        }
+        else say(full ? C_OK : C_ACCENT, full ? "Profilo caricato" : "Caricato in parte: tempo e diaframma vogliono la stessa ghiera");
     }
 }
 
