@@ -36,7 +36,7 @@
 #include <math.h>
 #include <battery.h>
 
-#define IRIDE_VERSION "1.3.4"
+#define IRIDE_VERSION "1.4"
 
 /* ------------------------------------------------------------------ compatibilita' API */
 
@@ -75,6 +75,16 @@ extern void gui_open_menu();
 extern void menu_redraw();
 extern void *memmove(void *dst, const void *src, size_t n);
 
+/* schermo intero dal core di Magic Lantern (patch di Iride 6D, src/menu.c). Con un ML senza
+   la patch queste funzioni valgono 0 e Iride lavora come prima, coi suoi giri */
+#ifndef WEAK_FUNC
+#define WEAK_FUNC(name) __attribute__((weak,alias(#name)))
+#endif
+extern WEAK_FUNC(ret_0) int menu_fullscreen_begin();
+extern WEAK_FUNC(ret_0) void menu_fullscreen_end();
+extern WEAK_FUNC(ret_0) int menu_fullscreen_ready();
+extern WEAK_FUNC(ret_0) int menu_fullscreen_seq();
+
 #ifndef INT_MIN
 #define INT_MIN (-2147483647 - 1)
 #endif
@@ -99,6 +109,9 @@ extern int gui_state;
 #define SCR_H 480
 #define BGMT_LIGHT_6D 0x20   /* tasto luce del display superiore (platform/6D.116/gui.h) */
 #define GMT_OLC_INFO_6D 0x69 /* aggiornamento interno del display: non e' un tasto */
+#ifndef FAKE_BTN
+#define FAKE_BTN -123456     /* tasto "premuto" da Magic Lantern (gui-common.h) */
+#endif
 
 /* ------------------------------------------------------------------ opzioni (menu ML) */
 
@@ -229,10 +242,12 @@ static int lv_resume_screen = 0;
 static int lv_reopen_ms = -100000;      /* riaperta dopo il Live View: un LV doppio subito dopo si ignora */
 #define LV_DEBOUNCE_MS 1500
 static volatile int skip_splash = 0;    /* riapertura dopo il Live View: subito al lavoro */
+static volatile int fullscreen = 0;     /* ML di Iride: schermo intero dal core (niente giri) */
+static volatile int key_fake = 0;       /* l'evento in corso e' un tasto finto di ML */
 
 /* diagnostica: ultimi eventi dei tasti visti da Iride, per capire cosa manda la 6D */
 #define KLOG_N 12
-struct klog_entry { int param, arg, gs, ms; char app, menu, play, opened; };
+struct klog_entry { int param, arg, gs, ms; char app, menu, play, opened, fake; };
 static struct klog_entry klog[KLOG_N];
 static volatile int klog_count = 0;
 
@@ -241,6 +256,7 @@ static void klog_add(int param, int arg, int opened)
     struct klog_entry *k = &klog[klog_count % KLOG_N];
     k->param = param; k->arg = arg; k->gs = gui_state; k->ms = get_ms_clock();
     k->app = app_running; k->menu = gui_menu_shown(); k->play = is_play_mode(); k->opened = opened;
+    k->fake = arg == FAKE_BTN;
     klog_count++;
 }
 
@@ -312,13 +328,21 @@ static void app_task(void *unused)
     if (!gui_menu_shown()) { menu_redraw_blocked = 0; app_running = 0; return; }
 
     menu_redraw_blocked = 1;
+    fullscreen = menu_fullscreen_begin();
     to_ml_menu = 0;
     /* ML apre il menu di Canon sotto il suo (circa 200 ms) e poi ferma i disegni di Canon:
-       aspettiamo che abbia finito, altrimenti Canon disegna sopra Iride */
-    if (open_settle) { msleep(350); open_settle = 0; }
+       aspettiamo che abbia finito, altrimenti Canon disegna sopra Iride. Col core di Iride
+       ML dice quando ha finito; altrimenti si aspetta un tempo fisso */
+    if (open_settle)
+    {
+        if (fullscreen) { for (int i = 0; i < 30 && !menu_fullscreen_ready(); i++) msleep(20); }
+        else msleep(350);
+        open_settle = 0;
+    }
     /* in Live View ML spegne la grafica finche' non ridisegna il suo menu (che Iride blocca) */
     bmp_on();
     int open_ms = get_ms_clock(), last_full = 0, last_poke = 0;
+    int last_seq = menu_fullscreen_seq(), resync_until = 0;
     kq_tail = kq_head;
     theme_apply();
     clrscr();
@@ -362,14 +386,27 @@ static void app_task(void *unused)
             if (screens[screen].tick()) dirty = 1;
         }
 
-        /* in Live View la 6D chiude il menu Canon sotto se nessuno lo risveglia: ci pensa ML
-           a ogni ridisegno (che resta bloccato, ma il controllo del dialogo gira lo stesso) */
-        if (lv && now - last_poke >= 500) { last_poke = now; menu_redraw(); }
-
-        /* ridisegno completo periodico (invisibile, doppio buffer): cancella qualsiasi disegno
-           arrivato da fuori (Canon, ML) - spesso nei primi secondi e in Live View, dove ogni
-           2 s ML risveglia il menu Canon sotto, altrimenti ogni secondo */
-        if (now - last_full >= (now - open_ms < 3000 ? 150 : lv ? 250 : 1000)) dirty = 1;
+        int period;
+        if (fullscreen)
+        {
+            /* col core di Iride ML tiene sveglio da solo il dialogo Canon e Canon non disegna
+               sullo schermo: basta ridisegnare quando ML segnala che Canon potrebbe averlo
+               fatto (risveglio in Live View), piu' un controllo ogni 2 s */
+            int seq = menu_fullscreen_seq();
+            if (seq != last_seq) { last_seq = seq; resync_until = now + 300; dirty = 1; }
+            period = now < resync_until ? 100 : 2000;
+        }
+        else
+        {
+            /* in Live View la 6D chiude il menu Canon sotto se nessuno lo risveglia: ci pensa ML
+               a ogni ridisegno (che resta bloccato, ma il controllo del dialogo gira lo stesso) */
+            if (lv && now - last_poke >= 500) { last_poke = now; menu_redraw(); }
+            /* ridisegno completo periodico (invisibile, doppio buffer): cancella qualsiasi disegno
+               arrivato da fuori (Canon, ML) - spesso nei primi secondi e in Live View, dove ogni
+               2 s ML risveglia il menu Canon sotto, altrimenti ogni secondo */
+            period = now - open_ms < 3000 ? 150 : lv ? 250 : 1000;
+        }
+        if (now - last_full >= period) dirty = 1;
 
         if (dirty || anim_active())
         {
@@ -387,6 +424,7 @@ static void app_task(void *unused)
     if (screen == SCR_STARS) stars_leave();
     bmp_draw_to_idle(0);
     clrscr();
+    if (fullscreen) { menu_fullscreen_end(); fullscreen = 0; }
     menu_redraw_blocked = 0;
     app_running = 0;
     if (to_ml_menu)
@@ -435,6 +473,7 @@ static int can_open_from_shooting()
 static void open_on(int scr)
 {
     menu_redraw_blocked = 1;          /* niente lampo del menu ML prima di Iride */
+    menu_fullscreen_begin();          /* col core di Iride: Canon fermato appena finito il flood */
     /* menu ML sulla scheda Shoot, voce Iride: niente indicatori audio (scheda Audio) sotto Iride,
        e il cestino da Iride riporta proprio qui */
     select_menu_by_name("Shoot", "Iride");
@@ -532,6 +571,9 @@ static unsigned int iride_keypress(unsigned int key)
         case MODULE_KEY_LV:
         case MODULE_KEY_REC:
             if (is_movie_mode() || RECORDING) return 1;
+            /* tasto LV "premuto" da ML (force_liveview, close_liveview) arrivato in ritardo:
+               e' per Canon, non un nuovo START/STOP */
+            if (key_fake) return 1;
             /* appena riaperta dopo il Live View: un LV ritardato (o doppio) non rilancia tutto */
             if (get_ms_clock() - lv_reopen_ms < LV_DEBOUNCE_MS) return 0;
             if (lv_toggle) return 0;
@@ -562,6 +604,7 @@ static unsigned int iride_keypress(unsigned int key)
 static unsigned int iride_keypress_raw(unsigned int ctx)
 {
     struct event *e = (struct event *)(uintptr_t)ctx;
+    key_fake = e && e->arg == FAKE_BTN;   /* letto subito dopo da iride_keypress, stesso evento */
     if (!e || e->param < 0 || e->param == GMT_OLC_INFO_6D) return 1;
     int open = opt_light_key && e->param == BGMT_LIGHT_6D && can_open_from_shooting();
     klog_add(e->param, e->arg, open);

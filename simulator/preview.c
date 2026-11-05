@@ -147,6 +147,12 @@ static int lv_forced = 0, lv_closed = 0, bmp_on_calls = 0, sim_movie = 0, sim_lv
 void force_liveview(void) { lv_forced++; if (!sim_lv_late) lv = 1; }   /* late: Canon occupata, il tasto finto arriva dopo */
 void close_liveview(void) { lv_closed++; lv = 0; }
 void bmp_on(void) { bmp_on_calls++; }
+/* schermo intero del core di Iride: sim_fs = 0 come un ML senza la patch */
+static int sim_fs = 0, sim_fs_on = 0, sim_fs_seq = 0, sim_fs_ready = 1, sim_fs_begins = 0;
+int menu_fullscreen_begin() { if (!sim_fs) return 0; sim_fs_on = 1; sim_fs_begins++; menu_redraw_blocked = 1; return 1; }
+void menu_fullscreen_end() { sim_fs_on = 0; }
+int menu_fullscreen_ready() { return sim_fs ? sim_fs_ready : 0; }
+int menu_fullscreen_seq() { return sim_fs ? sim_fs_seq : 0; }
 int is_movie_mode(void) { return sim_movie; }
 static char sim_menu_tab[32] = "Audio", sim_menu_entry[32] = "";
 void select_menu_by_name(char *name, const char *entry) { snprintf(sim_menu_tab, sizeof(sim_menu_tab), "%s", name); snprintf(sim_menu_entry, sizeof(sim_menu_entry), "%s", entry); }
@@ -755,6 +761,25 @@ int main(void)
       clock_ms += LV_DEBOUNCE_MS;
       CHECK(iride_keypress(MODULE_KEY_LV) == 0 && lv_toggle == 1, "dopo un attimo START/STOP torna a funzionare");
       lv_toggle = 0; menu_redraw_blocked = 0; open_settle = 0; lv = l0; app_running = 0; screen = SCR_HOME; }
+
+    /* ---------- tasto LV finto di ML (force_liveview) a Iride aperta: va a Canon */
+    { app_running = 1; clock_ms += LV_DEBOUNCE_MS; lv_toggle = 0;
+      ev->param = 0x1e; ev->arg = FAKE_BTN; iride_keypress_raw(evp);
+      CHECK(key_fake == 1 && iride_keypress(MODULE_KEY_LV) == 1 && !lv_toggle, "tasto LV finto di ML: passa a Canon, niente START/STOP");
+      ev->arg = 0; iride_keypress_raw(evp);
+      CHECK(key_fake == 0 && iride_keypress(MODULE_KEY_LV) == 0 && lv_toggle == 1, "tasto LV vero: START/STOP");
+      lv_toggle = 0; app_running = 0; ev->param = 0; }
+
+    /* ---------- core di Iride: schermo intero */
+    { int mo = menu_open; menu_open = 1; open_settle = 1; sim_fs = 1; sim_fs_ready = 1; int sp = opt_splash; opt_splash = 0;
+      int t0 = clock_ms, b0 = sim_fs_begins; screen = SCR_HOME; app_task(NULL);
+      CHECK(clock_ms - t0 < 350 && sim_fs_begins == b0 + 1 && !sim_fs_on && !fullscreen && menu_redraw_blocked == 0,
+          "schermo intero: niente attesa fissa all'apertura (%d ms), e alla chiusura ML torna normale", clock_ms - t0);
+      int l0 = lv; lv = 1; open_settle = 0; int r0 = menu_redraw_calls; app_task(NULL);
+      CHECK(menu_redraw_calls == r0, "schermo intero in Live View: il dialogo Canon lo tiene sveglio ML, Iride non lo risveglia");
+      sim_fs = 0; r0 = menu_redraw_calls; app_task(NULL);
+      CHECK(menu_redraw_calls > r0, "ML senza la patch: Iride risveglia il dialogo come prima");
+      lv = l0; opt_splash = sp; menu_open = mo; open_settle = 0; menu_redraw_blocked = 0; app_running = 0; }
 
     /* ---------- cambio rullino: riavvolgimento E caricamento animati */
     { app_running = 1; kq_tail = kq_head;

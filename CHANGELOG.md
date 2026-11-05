@@ -1,5 +1,17 @@
 # Novità
 
+## 1.4 – 5 novembre 2026
+- **Magic Lantern modificato per Iride** (`module/magiclantern.patch`, `src/menu.c`): nuova *modalità schermo intero* per i moduli che disegnano tutto lo schermo sopra il menu ML
+  - finito il primo disegno del dialogo Canon sotto il menu, ML impedisce a Canon di copiare la sua grafica sullo schermo: niente più disegni Canon che sbucano sopra Iride
+  - ML tiene sveglio da solo il dialogo Canon in Live View e chiude il menu col mezzo scatto anche senza richieste di ridisegno
+  - ML dice a Iride quando il dialogo è pronto e quando Canon potrebbe aver disegnato
+- **Iride più leggera e più rapida ad aprirsi** col nuovo core: niente più attesa fissa di 350 ms all'apertura (si aspetta solo il tempo che serve), niente risveglio del menu Canon ogni mezzo secondo in Live View, ridisegno di controllo ogni 2 s invece che ogni 150-250 ms: più tempo per le animazioni
+- **Tasti finti di ML riconosciuti**: il tasto LV che Magic Lantern "preme" per accendere o spegnere il Live View, se arriva a Iride aperta, va a Canon e non viene più preso per un START/STOP (la causa del Live View avanti e indietro, corretto in modo provvisorio nella 1.3.4)
+- La *Diagnostica tasti* segna i tasti "da ML"; `IRIDEKEY.TXT` dice se il core ha lo schermo intero
+- Compatibile anche col Magic Lantern ufficiale: le funzioni nuove sono collegate "deboli", con il solo `iride.mo` Iride lavora come nella 1.3.4
+- Per aggiornare copia `autoexec.bin` e `ML/modules/iride.mo` dal pacchetto
+- Simulatore: 5 test nuovi (tasto LV finto, schermo intero, ML senza la patch)
+
 ## 1.3.4 – 5 novembre 2026
 - **Corretto il Live View che andava avanti e indietro dopo un cambio di rullino**: premendo START/STOP dentro Iride la 6D provava ad accendere il Live View, tornava subito sui Rullini e ricominciava finché non si premeva il pulsante di scatto. Magic Lantern accende il Live View "premendo" un tasto LV finto; subito dopo un cambio di rullino Canon è occupata a salvare stile, ISO e bianco, il tasto finto arrivava in ritardo e lo riceveva Iride, già riaperta, che lo prendeva per un nuovo START/STOP. Ora Iride si riapre solo quando il Live View è partito (o spento) davvero, e per un secondo e mezzo dopo la riapertura ignora un altro START/STOP
 - Simulatore: 5 test nuovi (Canon occupata, tasto LV in ritardo, doppio START/STOP)

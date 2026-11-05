@@ -5,7 +5,7 @@ Un'interfaccia a tutto schermo, animata, con menu dedicati ad **astrofotografia*
 
 *English: custom full-screen UI for the Canon EOS 6D (fw 1.1.6) running on Magic Lantern — astrophotography tools (NPF with declination, field intervalometer with silent shutter, dithering pauses and CSV session log, HFR star focus with V-curve autofocus, polar alignment, sky calendar, Moon exposure, Milky Way planner, worldwide cities and time zones), photo tools (HDR, focus stacking, Dual ISO, ETTR, ND), film-roll simulation and user profiles. UI in Italian.*
 
-> ⚠️ **Software sperimentale.** Prime prove su una 6D reale: rullini e nomi dei file funzionano. Il resto è verificato su un simulatore che esegue lo stesso codice (153 test) ed è compilato contro il firmware 6D 1.1.6. Usalo a tuo rischio. Non è affiliato né approvato da Canon.
+> ⚠️ **Software sperimentale.** Prime prove su una 6D reale: rullini e nomi dei file funzionano. Il resto è verificato su un simulatore che esegue lo stesso codice (158 test) ed è compilato contro il firmware 6D 1.1.6. Usalo a tuo rischio. Non è affiliato né approvato da Canon.
 
 | | | |
 |---|---|---|
@@ -57,7 +57,7 @@ I calcoli astronomici girano in macchina, senza internet, e sono confrontati con
 ## Installazione
 
 1. La 6D deve avere il **firmware Canon 1.1.6** (vedi [Magic Lantern – 6D](https://builds.magiclantern.fm/6D.html)). Il firmware Canon non è incluso in questo repository.
-2. Scarica `Iride6D-<versione>-SD.zip` dalla pagina **Releases** (per aggiornare basta `iride.mo` in `ML/modules`).
+2. Scarica `Iride6D-<versione>-SD.zip` dalla pagina **Releases** (per aggiornare: `autoexec.bin` e `ML/modules/iride.mo`; con il solo `iride.mo` Iride funziona ma senza lo schermo intero del core).
 3. Formatta la scheda nella 6D e copia tutto il contenuto dello zip nella radice.
 4. Ghiera su M, Menu → Versione firmware → aggiorna: parte l'installatore di Magic Lantern.
 5. All'accensione compare la Home di Iride (si può spegnere in Opzioni). Poi si apre col **cestino**: dentro Iride il cestino porta al menu di Magic Lantern, un altro cestino lo chiude. Si può usare anche il tasto luce del display superiore (vedi «Tasto luce» qui sopra).
@@ -83,7 +83,7 @@ La compilazione e i test girano anche in automatico con GitHub Actions a ogni mo
 
 ```
 cd simulator && mkdir -p out
-gcc -std=gnu99 -Ishim -o preview preview.c -lm && ./preview   # 153 test
+gcc -std=gnu99 -Ishim -o preview preview.c -lm && ./preview   # 158 test
 pip install astropy pillow
 python3 check_astro.py   # confronto astronomico con astropy
 python3 check_tz.py      # fusi orari a confronto col database IANA
@@ -96,7 +96,7 @@ python3 gif.py ../docs/screenshots   # GIF del README (caricamento, animazioni)
 ```
 module/iride/       il modulo (iride.c include ui, moon, icons, store, film, campo, astro, sky2, photo, bench, screens)
 tools/astrostack/   lettore delle sessioni CSV per AstroStack
-module/*.patch      aggiunge iride ai moduli e al pacchetto della 6D
+module/*.patch      aggiunge iride ai moduli e al pacchetto della 6D, e lo schermo intero al core di ML
 simulator/          test su PC e generatore delle schermate
 presets/            preset pellicola XMP per LightCraft e Lightroom (e il loro generatore)
 docs/               istruzioni e schermate

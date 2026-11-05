@@ -974,7 +974,8 @@ static void klog_save()
     FIO_CreateDirectory("ML/LOGS");
     FILE *f = FIO_CreateFile("ML/LOGS/IRIDEKEY.TXT");
     if (!f) return;
-    my_fprintf(f, "Iride 6D %s - ultimi tasti (nuovo in alto), ora %d ms\n", IRIDE_VERSION, get_ms_clock());
+    my_fprintf(f, "Iride 6D %s - ultimi tasti (nuovo in alto), ora %d ms, ML con schermo intero: %s\n",
+        IRIDE_VERSION, get_ms_clock(), fullscreen ? "si" : "no");
     my_fprintf(f, "codice,arg,nome,gui_state,iride,menu_ml,play,aperto,ms\n");
     int n = MIN(klog_count, KLOG_N);
     for (int i = 0; i < n; i++)
@@ -1020,7 +1021,7 @@ static void draw_keys()
         txt(FONT_MED, light ? C_ACCENT : C_TEXT, 30, y, key_name(k->param));
         snprintf(buf, sizeof(buf), "0x%02x", k->param);
         txt(FONT_MED, C_DIM, 230, y, buf);
-        snprintf(buf, sizeof(buf), "%s, stato %d%s", where, k->gs, k->opened ? ", aperta" : "");
+        snprintf(buf, sizeof(buf), "%s, stato %d%s%s", where, k->gs, k->opened ? ", aperta" : "", k->fake ? ", da ML" : "");
         txt(FONT_MED, C_TEXT, 330, y, buf);
         if (ago < 60) snprintf(buf, sizeof(buf), "%d s fa", ago);
         else snprintf(buf, sizeof(buf), "%d min fa", ago / 60);

@@ -21,3 +21,116 @@ index eddc761..f6114c4 100644
  selftest
  silent
 +iride
+diff --git a/src/menu.c b/src/menu.c
+index a83f43e..f3e0084 100755
+--- a/src/menu.c
++++ b/src/menu.c
+@@ -204,6 +204,17 @@ static int is_visible(struct menu_entry * entry)
+ static int g_submenu_width = 0;
+ //~ #define g_submenu_width 720
+ static int redraw_flood_stop = 0;
++static volatile int redraw_flood_running = 0;
++
++/* Iride 6D: modalita' schermo intero per un modulo che disegna tutto lo schermo sopra il
++ * menu ML (per esempio Iride). Mentre e' attiva ML non disegna il suo menu, tiene vivo da solo
++ * il dialogo Canon sotto (anche senza richieste di ridisegno) e, finito il "flood" iniziale,
++ * impedisce a Canon di copiare la sua grafica sullo schermo. Ogni volta che Canon potrebbe
++ * aver disegnato lo stesso (risveglio del dialogo in Live View) il contatore avanza, cosi'
++ * il modulo ridisegna subito invece di farlo a intervalli fissi.
++ * I moduli la usano con WEAK_FUNC(ret_0): con un ML senza queste funzioni restano a 0. */
++static volatile int menu_fullscreen = 0;
++static volatile int menu_fullscreen_counter = 0;
+ 
+ #define MENU_REDRAW 1
+ 
+@@ -236,6 +247,7 @@ static struct menu_entry * entry_find_by_name(const char* name, const char* entr
+ static struct menu_entry * get_selected_menu_entry(struct menu * menu);
+ static void submenu_display(struct menu * submenu);
+ static void start_redraw_flood();
++static void menu_fullscreen_lock_canon();
+ static struct menu * menu_find_by_name(const char * name,  int icon);
+ void menu_toggle_submenu();
+ 
+@@ -4915,6 +4927,7 @@ static int menu_ensure_canon_dialog()
+     if (lv && should_run_polling_action(2000, &last_refresh))
+     {
+         SetGUIRequestMode(GUIMODE_ML_MENU);
++        if (menu_fullscreen) menu_fullscreen_lock_canon();
+     }
+ #endif
+ 
+@@ -4939,7 +4952,11 @@ menu_redraw_task()
+             //SJE FIXME - we see 0x9 errors.
+             // There looks to be only one path where msg_queue_receive() returns 9,
+             // might be useful to understand the cause
+-            continue;
++
++            /* Iride 6D: in schermo intero nessuno chiede ridisegni, ma il dialogo Canon va
++             * tenuto vivo e il mezzo scatto deve chiudere il menu lo stesso */
++            if (!(menu_fullscreen && gui_menu_shown()))
++                continue;
+         }
+         else {
+             //DryosDebugMsg(0, 15, "no err from queue");
+@@ -5601,11 +5618,53 @@ void menu_redraw_flood()
+ #endif
+     msleep(50);
+     redraw_flood_stop = 1;
++    redraw_flood_running = 0;
++    if (menu_fullscreen && menu_shown) menu_fullscreen_lock_canon();
++}
++
++/* ---------------------------------------------------------------- Iride 6D: schermo intero */
++
++static void menu_fullscreen_lock_canon()
++{
++    if (!menu_shown) return;
++    canon_gui_disable_front_buffer();
++    menu_fullscreen_counter++;
++}
++
++/* il modulo prende lo schermo: ritorna 1 (con ML senza questa funzione: 0) */
++int menu_fullscreen_begin()
++{
++    menu_redraw_blocked = 1;
++    menu_fullscreen = 1;
++    /* menu gia' aperto e flood finito (aperto dal menu ML): blocca subito Canon */
++    if (menu_shown && !redraw_flood_running) menu_fullscreen_lock_canon();
++    return 1;
++}
++
++/* il modulo lascia lo schermo: il menu ML torna come prima */
++void menu_fullscreen_end()
++{
++    if (!menu_fullscreen) return;
++    menu_fullscreen = 0;
++    if (menu_shown) canon_gui_enable_front_buffer(0);
++}
++
++/* 1 quando il menu e' aperto e Canon ha finito di disegnare il suo dialogo sotto */
++int menu_fullscreen_ready()
++{
++    return menu_shown && !redraw_flood_running;
++}
++
++/* avanza ogni volta che Canon potrebbe aver disegnato sopra il modulo */
++int menu_fullscreen_seq()
++{
++    return menu_fullscreen_counter;
+ }
+ 
+ static void start_redraw_flood()
+ {
+     redraw_flood_stop = 0; 
++    redraw_flood_running = 1;
+     task_create("menu_redraw_flood", 0x1c, 0, menu_redraw_flood, 0);
+ }
+ 
+@@ -5697,6 +5756,7 @@ static void menu_close()
+     if (!menu_shown)
+         return;
+     menu_shown = false;
++    menu_fullscreen = 0;            /* Iride 6D: il front buffer Canon si riattiva qui sotto */
+ 
+     customize_mode = 0;
+     update_disp_mode_bits_from_params();
