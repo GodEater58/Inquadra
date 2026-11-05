@@ -1,5 +1,13 @@
 # Novità
 
+## 1.4.2 – 5 novembre 2026
+- **Registro della sessione: un file per notte** invece che uno per ora. Si chiama `ISaammgg.CSV` con la data della sera (`IS261102.CSV` = notte del 2 novembre 2026); fino a mezzogiorno del giorno dopo si continua a scrivere lì, anche a cavallo di capodanno. Il lettore per AstroStack legge sia i file nuovi sia i vecchi `ISmmddhh.CSV`
+- Dopo un riavvio a metà notte (cambio di batteria) la numerazione degli scatti nel registro riprende dall'ultima riga invece di ricominciare da 1
+- **Lavori su scheda in un task di Iride**: salvataggio, prefisso dei file e registro degli scatti dal cavo non girano più nel task dell'orologio di Magic Lantern, che ogni secondo serve anche alle altre funzioni di ML e non deve aspettare la scheda
+- Zoom indietro verso la Home: la memoria per la copia della schermata si chiede una volta e si tiene finché Iride è aperta, invece di chiederla e renderla a ogni ritorno
+- GitHub Actions: a ogni modifica il simulatore gira anche con AddressSanitizer e UBSan (2 serie da 8.000 tasti a caso)
+- Simulatore: 2 test nuovi (notte a cavallo di capodanno, riavvio a metà notte)
+
 ## 1.4.1 – 5 novembre 2026
 Revisione completa del codice: simulatore con AddressSanitizer e UndefinedBehaviorSanitizer (6 serie da 15.000 tasti a caso), analisi statica con cppcheck, compilazione per la 6D con avvisi extra.
 - **Salvataggio più sicuro** (`IRIDE.DAT`)

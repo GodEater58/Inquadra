@@ -1,6 +1,7 @@
 """Lettore dei registri di sessione di Iride 6D, per AstroStack.
 
-Iride scrive nella cartella delle foto (DCIM/xxxCANON) un file ISmmddhh.CSV per ogni sessione:
+Iride scrive nella cartella delle foto (DCIM/xxxCANON) un file ISaammgg.CSV per ogni notte
+(dalla 1.4.2; prima ISmmddhh.CSV, uno per ora: si leggono tutti e due):
 righe di commento con luogo, cielo e obiettivo, poi una riga per scatto con tipo (LGHT, DARK,
 FLAT, BIAS), posa, ISO, diaframma, focale, temperatura interna, batteria, Luna e magnitudine
 limite stimata, otturatore (meccanico o silenzioso) e origine (intervallometro o cavo).
@@ -74,7 +75,7 @@ def _num(v: str, cast=float, default=None):
 
 
 def read_session(path: str) -> Session:
-    """Legge un ISmmddhh.CSV di Iride."""
+    """Legge un registro di Iride (ISaammgg.CSV o il vecchio ISmmddhh.CSV)."""
     with open(path, "r", encoding="ascii", errors="replace") as fh:
         text = fh.read()
     meta: Dict[str, str] = {}

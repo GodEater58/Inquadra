@@ -1,4 +1,4 @@
-IRIDE 6D 1.4.1 per Canon EOS 6D (firmware Canon 1.1.6)
+IRIDE 6D 1.4.2 per Canon EOS 6D (firmware Canon 1.1.6)
 =====================================================
 
 Magic Lantern per 6D 1.1.6 (build ufficiale del 20/06/2025, commit ed3e7c0)
@@ -9,7 +9,7 @@ silent.
 
 ATTENZIONE
 - Sperimentale. Prime prove su una 6D vera: rullini e nomi dei file funzionano.
-  Il resto: 163 test superati sul simulatore, calcoli astronomici confrontati
+  Il resto: 165 test superati sul simulatore, calcoli astronomici confrontati
   con astropy, compilato contro il firmware 1.1.6.
 - Magic Lantern (anche nella versione modificata) gira dalla scheda e non
   modifica la ROM: con una scheda senza ML la macchina e' quella di sempre.
@@ -60,8 +60,9 @@ ASTRO       Via Lattea: regola NPF, SET applica tempo, diaframma, ISO, 3900 K.
               Otturatore silenzioso: senza specchio, 0,3-30 s, niente EXIF
               (serve il modulo silent: Menu ML > Modules).
               Dithering: ogni N scatti una pausa per spostare la montatura.
-              Registro della sessione: ISmmddhh.CSV nella cartella delle
-              foto, uno scatto per riga (anche quelli dal cavo, se
+              Registro della sessione: ISaammgg.CSV nella cartella delle
+              foto, un file per notte (fino a mezzogiorno vale la sera
+              prima), uno scatto per riga (anche quelli dal cavo, se
               l'etichetta file e' attiva). Per AstroStack.
             Fuoco stelle: START/STOP accende il Live View (Iride si chiude
               un attimo e torna qui), SET zoom x5/x10, sinistra/destra fuoco,

@@ -19,6 +19,12 @@ jobs:
           mkdir -p out
           gcc -std=gnu99 -O1 -Wall -Wno-unused-function -Wno-unused-variable -Wno-format-truncation -Ishim -o preview preview.c -lm
           ./preview
+      - name: Memoria e comportamenti indefiniti (AddressSanitizer + UBSan, 2 serie di tasti a caso)
+        run: |
+          cd simulator
+          gcc -std=gnu99 -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize-recover=undefined -w -Ishim -o preview_asan preview.c -lm
+          ASAN_OPTIONS=detect_leaks=0 IRIDE_FUZZ_SEED=1 IRIDE_FUZZ_N=8000 ./preview_asan > /dev/null
+          ASAN_OPTIONS=detect_leaks=0 IRIDE_FUZZ_SEED=2026 IRIDE_FUZZ_N=8000 ./preview_asan | tail -1
       - name: Fusi orari a confronto col database IANA
         run: cd simulator && python3 check_tz.py
       - name: Formati di printf compatibili con la 6D

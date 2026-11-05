@@ -659,6 +659,11 @@ static void tr_zoom(uint8_t *real, uint8_t *idle, const uint8_t *src, int pitch,
     }
 }
 
+/* copia della schermata vecchia per lo zoom indietro: si chiede una volta e si tiene finche'
+   Iride resta aperta (prima 280 KB chiesti e resi a ogni ritorno alla Home) */
+static uint8_t *zoom_buf = 0;
+static void zoom_buf_release() { if (zoom_buf) { free(zoom_buf); zoom_buf = 0; } }
+
 static void frame_show(int dir)
 {
     bmp_draw_to_idle(0);
@@ -680,14 +685,13 @@ static void frame_show(int dir)
        perche' sullo schermo viene sovrascritta. Senza memoria: ritaglio. */
     const uint8_t *zsrc = 0;
     int zpitch = BMPPITCH;
-    uint8_t *zcopy = 0;
     if (kind == 3)
     {
         if (dir > 0) zsrc = idle + TR_Y0 * BMPPITCH;
-        else if ((zcopy = tmp_malloc(SCR_W * (TR_Y1 - TR_Y0))) != 0)
+        else if (zoom_buf || (zoom_buf = tmp_malloc(SCR_W * (TR_Y1 - TR_Y0))) != 0)
         {
-            for (int y = TR_Y0; y < TR_Y1; y++) memcpy(zcopy + (y - TR_Y0) * SCR_W, real + y * BMPPITCH, SCR_W);
-            zsrc = zcopy; zpitch = SCR_W;
+            for (int y = TR_Y0; y < TR_Y1; y++) memcpy(zoom_buf + (y - TR_Y0) * SCR_W, real + y * BMPPITCH, SCR_W);
+            zsrc = zoom_buf; zpitch = SCR_W;
         }
     }
 
@@ -703,7 +707,6 @@ static void frame_show(int dir)
         if (t >= dur) break;
         msleep(1);
     }
-    if (zcopy) free(zcopy);
     bmp_idle_copy(1, 0);
 }
 

@@ -68,25 +68,52 @@ static void log_warning(const char *text)
 /* ------------------------------------------------------------------ sessione per AstroStack */
 
 static char sess_path[96];
+static char sess_counted[96];                        /* file di cui sess_frames conta gia' le righe */
 static int sess_frames = 0;
 static int sess_ext_fn = -1;                         /* ultimo numero di file visto per gli scatti esterni */
 
 static float sky_now_nelm(float *moon_alt, int *illum);
 static int tz_now_min();
+static int days_from_civil(int y, int m, int d);
+static void civil_from_days(int d70, int *y, int *m, int *d);
 
-/* apre (o riprende) il file della sessione nella cartella delle foto: ISmmddhh.CSV */
+/* data della notte: fino a mezzogiorno conta ancora la sera prima (una sessione dalle 22 alle 3
+   finisce tutta nello stesso file) */
+static void session_night(const struct tm *now, int *y, int *m, int *d)
+{
+    *y = now->tm_year + 1900; *m = now->tm_mon + 1; *d = now->tm_mday;
+    if (now->tm_hour < 12) civil_from_days(days_from_civil(*y, *m, *d) - 1, y, m, d);
+}
+
+/* apre (o riprende) il file della notte nella cartella delle foto: ISaammgg.CSV (anno, mese e
+   giorno della sera; fino alla 1.4.1 era ISmmddhh, un file per ora) */
 static FILE *session_open()
 {
     struct tm now;
     LoadCalendarFromRTC(&now);
     const char *dir = get_dcim_dir();
     if (!dir || !dir[0]) return 0;
-    int n = (int)strlen(dir);
+    int n = (int)strlen(dir), ny, nm, nd;
+    session_night(&now, &ny, &nm, &nd);
     snprintf(sess_path, sizeof(sess_path), "%s%sIS%02d%02d%02d.CSV", dir, dir[n - 1] == '/' ? "" : "/",
-             now.tm_mon + 1, now.tm_mday, now.tm_hour);
+             ny % 100, nm, nd);
     FILE *f = FIO_OpenFile(sess_path, O_RDONLY | O_SYNC);
     int fresh = !f;
-    if (f) FIO_CloseFile(f);
+    if (f)
+    {
+        /* file gia' iniziato (per esempio prima di un cambio di batteria): la numerazione
+           riprende dall'ultima riga invece di ricominciare da 1 */
+        if (strcmp(sess_counted, sess_path))
+        {
+            char chunk[256];
+            int lines = 0, r;
+            while ((r = FIO_ReadFile(f, chunk, sizeof(chunk))) > 0)
+                for (int i = 0; i < r; i++) if (chunk[i] == '\n') lines++;
+            sess_frames = MAX(lines - 4, 0);     /* 3 righe di commento + intestazione */
+        }
+        FIO_CloseFile(f);
+    }
+    snprintf(sess_counted, sizeof(sess_counted), "%s", sess_path);
     f = FIO_CreateFileOrAppend(sess_path);
     if (!f) return 0;
     if (fresh)
@@ -95,7 +122,7 @@ static FILE *session_open()
         snprintf(la, sizeof(la), "%d.%02d %c", ABS(P.lat100) / 100, ABS(P.lat100) % 100, P.lat100 < 0 ? 'S' : 'N');
         snprintf(lo, sizeof(lo), "%d.%02d %c", ABS(P.lon100) / 100, ABS(P.lon100) % 100, P.lon100 < 0 ? 'W' : 'E');
         sess_frames = 0;                             /* file nuovo: si conta da 1 */
-        my_fprintf(f, "# Iride 6D %s - sessione del %04d-%02d-%02d\n", IRIDE_VERSION, now.tm_year + 1900, now.tm_mon + 1, now.tm_mday);
+        my_fprintf(f, "# Iride 6D %s - sessione del %04d-%02d-%02d\n", IRIDE_VERSION, ny, nm, nd);
         my_fprintf(f, "# luogo %s %s, cielo del luogo %d.%d mag/arcsec2, fuso %+d min\n", la, lo, opt_sqm10 / 10, opt_sqm10 % 10, tz_now_min());
         my_fprintf(f, "# obiettivo %s\n", lens_info.name[0] ? lens_info.name : "manuale");
         my_fprintf(f, "numero,file,tipo,ora,posa_s,iso,diaframma,focale_mm,temperatura_c,batteria,luna_pct,luna_alt,mag_limite,otturatore,origine\n");

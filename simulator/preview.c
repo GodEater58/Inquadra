@@ -630,7 +630,8 @@ int main(void)
     {
         char path[128];
         struct tm now; LoadCalendarFromRTC(&now);
-        snprintf(path, sizeof(path), "out/DCIM/100CANON/IS%02d%02d%02d.CSV", now.tm_mon + 1, now.tm_mday, now.tm_hour);
+        int ny, nm, nd; session_night(&now, &ny, &nm, &nd);
+        snprintf(path, sizeof(path), "out/DCIM/100CANON/IS%02d%02d%02d.CSV", ny % 100, nm, nd);
         remove(path);
         preset_select(0); P.int_count = 3; P.int_pause = 2; P.int_delay_idx = 0; P.int_bulb = 0;
         shooting_mode = SHOOTMODE_M; lens_info.raw_shutter = 56; lens_info.iso = 3200; opt_session = 1; opt_silent = 0;
@@ -641,6 +642,30 @@ int main(void)
         if (f) fclose(f);
         char want[32]; snprintf(want, sizeof(want), "LGHT%04d.CR2", fnb + 3);
         CHECK(rows == 3 && head == 3 && strstr(last, want) && strstr(last, ",3200,"), "sessione per AstroStack: 3 righe, ultima %s con ISO 3200", want);
+        /* una notte = un file: 23:30 del 31 dicembre e 02:10 del 1 gennaio vanno in IS261231.CSV */
+        {
+            struct tm keep = sim_tm;
+            remove("out/DCIM/100CANON/IS261231.CSV");
+            sim_tm.tm_year = 126; sim_tm.tm_mon = 11; sim_tm.tm_mday = 31; sim_tm.tm_hour = 23; sim_tm.tm_min = 30;
+            session_frame(100, 1, 30.0f, 0, "intervallometro");
+            sim_tm.tm_year = 127; sim_tm.tm_mon = 0; sim_tm.tm_mday = 1; sim_tm.tm_hour = 2; sim_tm.tm_min = 10;
+            session_frame(101, 1, 30.0f, 0, "intervallometro");
+            sim_tm.tm_hour = 12;
+            int y2, m2, d2; session_night(&sim_tm, &y2, &m2, &d2);
+            FILE *g = fopen("out/DCIM/100CANON/IS261231.CSV", "r"); int r2 = 0;
+            while (g && fgets(ln, sizeof(ln), g)) if (ln[0] != '#' && strncmp(ln, "numero", 6)) r2++;
+            if (g) fclose(g);
+            /* riavvio a meta' notte (cambio batteria): la numerazione riprende da 3 */
+            sess_counted[0] = 0; sess_frames = 0; sim_tm.tm_year = 127; sim_tm.tm_mon = 0; sim_tm.tm_mday = 1; sim_tm.tm_hour = 3;
+            session_frame(102, 1, 30.0f, 0, "intervallometro");
+            g = fopen("out/DCIM/100CANON/IS261231.CSV", "r"); char lastl[256] = "";
+            while (g && fgets(ln, sizeof(ln), g)) if (ln[0] != '#' && strncmp(ln, "numero", 6)) snprintf(lastl, sizeof(lastl), "%s", ln);
+            if (g) fclose(g);
+            CHECK(!strncmp(lastl, "3,", 2), "dopo un riavvio a meta' notte la numerazione riprende (%.12s)", lastl);
+            sim_tm.tm_hour = 12;
+            CHECK(r2 == 2 && y2 == 2027 && m2 == 1 && d2 == 1, "sessione a cavallo di mezzanotte (e di capodanno): un solo file IS261231 (%d righe); a mezzogiorno inizia la notte nuova", r2);
+            sim_tm = keep;
+        }
         /* silenzioso: niente otturatore, modulo silent rimesso com'era */
         opt_silent = 1; sim_silent_shots = 0; shots_taken = 0;
         CHECK(interval_check(), "silenzioso accettato con ghiera su M e 1 s");
@@ -667,9 +692,9 @@ int main(void)
         sim_batt = 64;
         /* scatti dal cavo con l'etichetta LGHT: finiscono nel registro */
         P.astro_tag = 1; job_running = JOB_NONE; lens_info.job_state = 0;
-        iride_clock(0);
+        iride_bg_tick();
         card.file_number += 2;
-        iride_clock(0);
+        iride_bg_tick();
         f = fopen(path, "r"); int cavo = 0;
         while (f && fgets(ln, sizeof(ln), f)) if (strstr(ln, ",cavo")) cavo++;
         if (f) fclose(f);

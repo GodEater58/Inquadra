@@ -5,7 +5,7 @@ Un'interfaccia a tutto schermo, animata, con menu dedicati ad **astrofotografia*
 
 *English: custom full-screen UI for the Canon EOS 6D (fw 1.1.6) built on a modified Magic Lantern (core patched for a full-screen module mode) — astrophotography tools (NPF with declination, field intervalometer with silent shutter, dithering pauses and CSV session log, HFR star focus with V-curve autofocus, polar alignment, sky calendar, Moon exposure, Milky Way planner, worldwide cities and time zones), photo tools (HDR, focus stacking, Dual ISO, ETTR, ND), film-roll simulation and user profiles. UI in Italian.*
 
-> ⚠️ **Software sperimentale.** Prime prove su una 6D reale: rullini e nomi dei file funzionano. Il resto è verificato su un simulatore che esegue lo stesso codice (163 test) ed è compilato contro il firmware 6D 1.1.6. Usalo a tuo rischio. Non è affiliato né approvato da Canon.
+> ⚠️ **Software sperimentale.** Prime prove su una 6D reale: rullini e nomi dei file funzionano. Il resto è verificato su un simulatore che esegue lo stesso codice (165 test) ed è compilato contro il firmware 6D 1.1.6. Usalo a tuo rischio. Non è affiliato né approvato da Canon.
 
 | | | |
 |---|---|---|
@@ -97,7 +97,7 @@ La compilazione e i test girano anche in automatico con GitHub Actions a ogni mo
 
 ```
 cd simulator && mkdir -p out
-gcc -std=gnu99 -Ishim -o preview preview.c -lm && ./preview   # 163 test
+gcc -std=gnu99 -Ishim -o preview preview.c -lm && ./preview   # 165 test
 pip install astropy pillow
 python3 check_astro.py   # confronto astronomico con astropy
 python3 check_tz.py      # fusi orari a confronto col database IANA

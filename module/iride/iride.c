@@ -36,7 +36,7 @@
 #include <math.h>
 #include <battery.h>
 
-#define IRIDE_VERSION "1.4.1"
+#define IRIDE_VERSION "1.4.2"
 
 /* ------------------------------------------------------------------ compatibilita' API */
 
@@ -424,6 +424,7 @@ static void app_task(void *unused)
     if (screen == SCR_STARS) stars_leave();
     bmp_draw_to_idle(0);
     clrscr();
+    zoom_buf_release();
     if (fullscreen) { menu_fullscreen_end(); fullscreen = 0; }
     menu_redraw_blocked = 0;
     app_running = 0;
@@ -690,6 +691,7 @@ static unsigned int iride_init()
     menu_add("Shoot", iride_menu, COUNT(iride_menu));
     lvinfo_add_items(roll_info_items, COUNT(roll_info_items));
     prefix_pending = 1;
+    task_create("iride_bg", 0x1f, 0x1000, iride_bg_task, (void *)0);
     if (opt_boot_open) task_create("iride_boot", 0x1e, 0x1000, boot_task, (void *)0);
     return 0;
 }

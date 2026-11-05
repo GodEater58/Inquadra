@@ -161,7 +161,10 @@ static void roll_rewind()
 
 /* ------------------------------------------------------------------ contatore (ogni secondo) */
 
-static unsigned int iride_clock(unsigned int ctx)
+/* lavori lenti su scheda (prefisso dei file, salvataggio, registro della sessione): girano in un
+   task di Iride, non nel task dell'orologio di Magic Lantern, che serve anche alle altre
+   funzioni di ML ogni secondo e non deve aspettare la scheda */
+static void iride_bg_tick()
 {
     if (prefix_pending && !app_running && job_running == JOB_NONE)
     {
@@ -175,7 +178,21 @@ static unsigned int iride_clock(unsigned int ctx)
 
     /* scatti dal cavo (per esempio dalla montatura) nel registro della sessione */
     session_watch_external(current_file_number());
+}
 
+static void iride_bg_task(void *unused)
+{
+    TASK_LOOP
+    {
+        if (ml_shutdown_requested) break;
+        iride_bg_tick();
+        msleep(1000);
+    }
+}
+
+/* ogni secondo, nel task dell'orologio di ML: solo il contatore del rullino (veloce) */
+static unsigned int iride_clock(unsigned int ctx)
+{
     if (!P.roll_loaded) return CBR_RET_CONTINUE;
     int fn = current_file_number();
     if (fn <= 0) return CBR_RET_CONTINUE;
