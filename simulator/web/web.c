@@ -224,6 +224,7 @@ static void web_deliver(int key)
         if (key == MODULE_KEY_MENU) { web_canon_msg = "Il menu Canon non e' nella demo"; web_canon_msg_until = web_ms() + 2500; }
         if (key == MODULE_KEY_TRASH) { web_canon_msg = "Il menu di Magic Lantern non e' nella demo"; web_canon_msg_until = web_ms() + 2500; }
         if (key == MODULE_KEY_PRESS_SET) { web_canon_msg = "SET: in Opzioni puoi farlo aprire il bianco"; web_canon_msg_until = web_ms() + 2500; }
+        if (key == MODULE_KEY_PLAY) { web_canon_msg = "La riproduzione delle foto non e' nella demo"; web_canon_msg_until = web_ms() + 2500; }
     }
 }
 
@@ -265,6 +266,14 @@ static void web_shooting_screen(void)
     web_text(FONT(FONT_MED, COLOR_GRAY(30), 0xFF), 360 - web_str_width(2, h2) / 2, 334, h2);
     if (web_ms() < web_canon_msg_until)
         web_text(FONT(FONT_MED, COLOR_YELLOW, 0xFF), 360 - web_str_width(2, web_canon_msg) / 2, 400, web_canon_msg);
+    /* i NotifyBox di Iride (rullino finito, sequenza finita...) come li mostra Magic Lantern */
+    if (web_ms() < notify_until && last_notify[0])
+    {
+        int w = web_str_width(2, last_notify) + 24;
+        bmp_fill(COLOR_BLACK, 360 - w / 2, 236, w, 36);
+        web_rect(COLOR_WHITE, 360 - w / 2, 236, w, 36);
+        web_text(FONT(FONT_MED, COLOR_WHITE, 0xFF), 360 - w / 2 + 12, 242, last_notify);
+    }
 }
 
 /* mezzo scatto a Iride chiusa: una "foto" (il contatore Canon avanza, il rullino conta) */
@@ -300,7 +309,7 @@ int main(void)
             t.f(t.arg);
             continue;
         }
-        if (!app_running)
+        if (!app_running && job_running == JOB_NONE)
         {
             menu_open = 0;
             int now = web_ms();

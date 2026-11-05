@@ -408,7 +408,12 @@ int FIO_WriteFile(FILE *f, const void *p, size_t n) { return (int)fwrite(p, 1, n
 void FIO_CloseFile(FILE *f) { fclose(f); }
 int my_fprintf(FILE *f, const char *fmt, ...) { va_list ap; va_start(ap, fmt); int r = vfprintf(f, fmt, ap); va_end(ap); return r; }
 static char last_notify[160];
-void NotifyBox(int t, const char *fmt, ...) { (void)t; va_list ap; va_start(ap, fmt); vsnprintf(last_notify, sizeof(last_notify), fmt, ap); va_end(ap); }
+static int notify_until = 0;
+void NotifyBox(int t, const char *fmt, ...) { (void)t; va_list ap; va_start(ap, fmt); vsnprintf(last_notify, sizeof(last_notify), fmt, ap); va_end(ap);
+#ifdef IRIDE_WEB
+    notify_until = web_ms() + t;                   /* la demo lo mostra sulla schermata di scatto */
+#endif
+}
 void beep(void) {}
 void beep_times(int n) { (void)n; }
 static char sim_prefix[8] = "IMG_";

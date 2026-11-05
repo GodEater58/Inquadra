@@ -19,33 +19,66 @@
   .btn-link.primary { border-color: var(--accent); color: var(--accent); }
   main { max-width: 1100px; margin: 0 auto; padding: 10px 20px 40px; }
 
-  /* la 6D vista da dietro */
-  .camera { position: relative; margin: 18px auto 0; max-width: 1040px; background: linear-gradient(#25252a, #1a1a1e); border-radius: 46px 46px 34px 34px;
-            padding: 34px 26px 30px; box-shadow: 0 30px 60px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.06);
-            display: grid; grid-template-columns: 92px 1fr 170px; gap: 22px; align-items: center; user-select: none; -webkit-user-select: none; }
-  .brand { position: absolute; top: 9px; left: 50%; transform: translateX(-50%); color: #77777f; font-size: 13px; letter-spacing: 4px; }
-  .screen-wrap { position: relative; background: #000; border-radius: 10px; padding: 10px; box-shadow: inset 0 0 0 2px #0a0a0b, 0 0 0 1px #333; }
-  canvas { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; image-rendering: pixelated; border-radius: 3px; background: #000; }
-  .loading { position: absolute; inset: 10px; display: flex; align-items: center; justify-content: center; color: var(--dim); font-size: 15px; }
-  .col { display: flex; flex-direction: column; gap: 14px; align-items: center; }
-  .key { width: 64px; height: 34px; border-radius: 17px; border: none; background: #2d2d33; color: #d5d5da; font: 600 12px system-ui, sans-serif;
-         letter-spacing: .5px; cursor: pointer; box-shadow: 0 2px 0 #0b0b0c, inset 0 1px 0 rgba(255,255,255,.08); touch-action: manipulation; }
-  .key:active, .key.pressed { transform: translateY(2px); box-shadow: 0 0 0 #0b0b0c; background: #3a3a41; }
-  .key.round { width: 46px; height: 46px; border-radius: 50%; }
-  .key.small { width: 52px; height: 28px; font-size: 11px; }
+  /* ---- la 6D vista da dietro (disposizione dei tasti della EOS 6D) ---- */
+  .cam { max-width: 1060px; margin: 18px auto 0; user-select: none; -webkit-user-select: none; }
+  .plate { display: flex; align-items: center; justify-content: flex-end; gap: 14px; padding: 0 70px 10px; color: #77777f; font-size: 12px; }
+  .plate .lbl { letter-spacing: 1px; }
+  .back { position: relative; background: radial-gradient(120% 140% at 30% 0%, #2a2a2f 0%, #1b1b1f 55%, #141417 100%);
+          border-radius: 38px 38px 46px 46px; padding: 86px 24px 26px 30px; box-shadow: 0 30px 60px rgba(0,0,0,.65), inset 0 1px 0 rgba(255,255,255,.07), inset 0 -8px 20px rgba(0,0,0,.4);
+          display: grid; grid-template-columns: 1fr 236px; gap: 22px; align-items: start; }
+  .back::before { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: .35;
+                  background-image: radial-gradient(rgba(255,255,255,.05) 1px, transparent 1px); background-size: 3px 3px; }
+  /* gobba del pentaprisma con l'oculare */
+  .hump { position: absolute; top: -34px; left: 36%; transform: translateX(-50%); width: 230px; height: 104px; border-radius: 40px 40px 0 0;
+          background: linear-gradient(#2c2c31, #1f1f23); box-shadow: inset 0 1px 0 rgba(255,255,255,.07); }
+  .eyepiece { position: absolute; left: 50%; top: 22px; transform: translateX(-50%); width: 128px; height: 74px; border-radius: 22px;
+              background: radial-gradient(70% 60% at 50% 40%, #0c0c0e, #050506); box-shadow: 0 0 0 7px #121214, 0 0 0 9px #2e2e33; }
+  .eyepiece::after { content: ""; position: absolute; inset: 20px 30px; border-radius: 8px; background: radial-gradient(#1a1d24, #08090b); }
+  .brand { position: absolute; top: 18px; right: 30px; color: #8a8a92; font: 600 12px system-ui; letter-spacing: 3px; }
+  .tl { position: absolute; top: 26px; left: 34px; display: flex; gap: 10px; }
+  .tr { position: absolute; top: 18px; right: 260px; display: flex; gap: 12px; align-items: center; }
+  .lvsw { position: relative; width: 74px; height: 74px; border-radius: 50%; background: conic-gradient(from 200deg, #3a3a40, #26262b 40%, #3a3a40);
+          box-shadow: 0 2px 0 #0a0a0b, inset 0 0 0 1px #45454c; display: flex; align-items: center; justify-content: center; }
+  .lvsw::after { content: "📷 🎥"; position: absolute; top: -16px; font-size: 10px; letter-spacing: 6px; color: #888; }
+  .screen { background: #050506; border-radius: 12px; padding: 14px; box-shadow: inset 0 0 0 2px #000, 0 0 0 2px #2e2e33, 0 0 0 4px #17171a; position: relative; }
+  canvas { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; image-rendering: pixelated; border-radius: 2px; background: #000; }
+  .loading { position: absolute; inset: 14px; display: flex; align-items: center; justify-content: center; color: var(--dim); font-size: 15px; }
+  .rc { display: flex; flex-direction: column; align-items: center; gap: 14px; padding-top: 0; }
+  .row { display: flex; gap: 12px; align-items: center; justify-content: center; }
+  .key { width: 58px; height: 30px; border-radius: 15px; border: none; background: linear-gradient(#36363c, #26262b); color: #d7d7dc;
+         font: 600 11px system-ui, sans-serif; letter-spacing: .5px; cursor: pointer; box-shadow: 0 2px 0 #0a0a0b, inset 0 1px 0 rgba(255,255,255,.1); touch-action: manipulation; }
+  .key:active, .key.pressed { transform: translateY(2px); box-shadow: 0 0 0 #0a0a0b; background: #3c3c43; }
+  .key.round { width: 44px; height: 44px; border-radius: 50%; }
+  .key.small { width: 70px; }
+  .key.ss { width: 50px; height: 50px; border-radius: 50%; color: #ff5a4f; font-size: 10px; }
+  .key.blue { color: #6fa8ff; } .key.inert { color: #6c6c74; }
   .key.accent { color: var(--accent); }
-  .key.red { color: #ff5a4f; }
-  /* ghiera posteriore con croce e SET */
-  .dial { position: relative; width: 156px; height: 156px; border-radius: 50%; background: radial-gradient(circle at 50% 45%, #34343a, #1d1d21 70%);
-          box-shadow: 0 3px 0 #0b0b0c, inset 0 0 0 9px #26262b; }
-  .dial button { position: absolute; border: none; background: transparent; color: #c9c9ce; font-size: 15px; cursor: pointer; width: 46px; height: 40px; touch-action: manipulation; }
-  .dial .up { top: 12px; left: 55px; } .dial .dn { bottom: 12px; left: 55px; } .dial .left { left: 10px; top: 58px; } .dial .right { right: 10px; top: 58px; }
-  .dial .set { left: 46px; top: 46px; width: 64px; height: 64px; border-radius: 50%; background: #2b2b31; box-shadow: 0 2px 0 #0b0b0c; font: 700 13px system-ui; }
-  .dial button:active { color: var(--accent); }
-  .row { display: flex; gap: 10px; align-items: center; }
-  .top { display: flex; justify-content: center; gap: 12px; margin: 12px auto 0; flex-wrap: wrap; max-width: 1040px; }
-  .status { text-align: center; color: var(--dim); font-size: 14px; margin-top: 10px; min-height: 21px; }
+  /* ghiera di controllo rapido con il multicontrollore e SET */
+  .qcd { position: relative; width: 196px; height: 196px; border-radius: 50%;
+         background: repeating-conic-gradient(#2d2d33 0 4deg, #232327 4deg 8deg); box-shadow: 0 3px 0 #0a0a0b, inset 0 0 0 2px #3a3a40; }
+  .qcd .in { position: absolute; inset: 22px; border-radius: 50%; background: radial-gradient(circle at 50% 40%, #2b2b30, #19191c 70%); box-shadow: inset 0 0 0 1px #3a3a40; }
+  .qcd button { position: absolute; border: none; background: transparent; color: #c9c9ce; font-size: 15px; cursor: pointer; width: 44px; height: 40px; touch-action: manipulation; }
+  .qcd .up { top: 26px; left: 76px; } .qcd .dn { bottom: 26px; left: 76px; } .qcd .lf { left: 26px; top: 78px; } .qcd .rt { right: 26px; top: 78px; }
+  .qcd .set { left: 63px; top: 63px; width: 70px; height: 70px; border-radius: 50%; background: linear-gradient(#34343a, #242428); box-shadow: 0 2px 0 #0a0a0b, inset 0 1px 0 rgba(255,255,255,.08); font: 700 13px system-ui; }
+  .qcd button:active, .qcd button.pressed { color: var(--accent); }
+  .qcd .wl, .qcd .wr { width: 30px; height: 60px; top: 68px; font-size: 12px; color: #77777f; }
+  .qcd .wl { left: -2px; } .qcd .wr { right: -2px; }
+  .lock { color: #77777f; font-size: 11px; letter-spacing: 2px; }
+  .lock b { display: inline-block; width: 26px; height: 10px; border-radius: 5px; background: #2a2a2f; margin-left: 6px; vertical-align: middle; box-shadow: inset 0 0 0 1px #3d3d44; }
+  .status { text-align: center; color: var(--dim); font-size: 14px; margin-top: 12px; min-height: 21px; }
 
+  @media (max-width: 860px) {
+    .plate { justify-content: center; padding: 0 0 34px; flex-wrap: wrap; gap: 10px; }
+    main { padding: 6px 6px 30px; }
+    .back { grid-template-columns: 1fr; padding: 58px 8px 18px; border-radius: 24px; gap: 14px; }
+    .hump { width: 150px; height: 70px; top: -22px; left: 50%; }
+    .eyepiece { width: 84px; height: 48px; top: 14px; border-radius: 14px; }
+    .eyepiece::after { inset: 12px 18px; }
+    .tl { top: 14px; left: 14px; } .brand { top: 20px; right: 16px; font-size: 10px; }
+    .tr { position: static; justify-content: center; order: 3; }
+    .screen { order: 1; padding: 5px; border-radius: 8px; } .rc { order: 2; }
+    .lvsw { width: 60px; height: 60px; }
+  }
   section.info { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-top: 30px; }
   .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
   .card h3 { margin: 0 0 6px; font-size: 15px; color: var(--accent); letter-spacing: .5px; }
@@ -77,38 +110,55 @@
 </header>
 
 <main>
-  <div class="camera" id="camera">
-    <div class="brand">CANON EOS 6D · IRIDE</div>
-    <div class="col left">
-      <button class="key" data-k="22" title="MENU (Esc)">MENU</button>
-      <button class="key" data-k="23" title="INFO (I)">INFO</button>
-      <button class="key red" data-k="25" title="Cestino (Canc)">🗑</button>
-      <button class="key small" data-k="100" title="Luce del display superiore (B)">LUCE</button>
+  <div class="cam" id="camera">
+    <div class="plate">
+      <span class="lbl">SOPRA:</span>
+      <button class="key small" data-k="100" title="Illuminazione del display superiore (B)">LUCE ☼</button>
+      <button class="key round" data-k="7" data-rep title="Ghiera principale a sinistra ([)">◀︎</button>
+      <span class="lbl">ghiera</span>
+      <button class="key round" data-k="8" data-rep title="Ghiera principale a destra (])">▶︎</button>
+      <button class="key accent" data-k="1" title="Pulsante di scatto a meta' (Spazio)" style="width:96px">SCATTO</button>
     </div>
+    <div class="back">
+      <div class="hump"><div class="eyepiece"></div></div>
+      <div class="brand">EOS 6D</div>
+      <div class="tl">
+        <button class="key" data-k="22" title="MENU (Esc)">MENU</button>
+        <button class="key" data-k="23" title="INFO (I)">INFO.</button>
+      </div>
+      <div class="tr">
+        <div class="lvsw"><button class="key ss" data-k="28" title="Live View, START/STOP (L)">START<br>STOP</button></div>
+        <button class="key inert" title="AF-ON (non usato da Iride)">AF-ON</button>
+        <button class="key inert round" title="Blocco AE (non usato da Iride)">✱</button>
+        <button class="key inert round" title="Selezione punto AF (non usato da Iride)">⊞</button>
+      </div>
 
-    <div class="screen-wrap">
-      <canvas id="lcd" width="720" height="480" aria-label="Schermo della 6D con Iride"></canvas>
-      <div class="loading" id="loading">Avvio di Magic Lantern e Iride…</div>
-    </div>
+      <div class="screen">
+        <canvas id="lcd" width="720" height="480" aria-label="Schermo della 6D con Iride"></canvas>
+        <div class="loading" id="loading">Avvio di Magic Lantern e Iride…</div>
+      </div>
 
-    <div class="col right">
-      <div class="row">
-        <button class="key small" data-k="29" title="Q (Q)">Q</button>
-        <button class="key small red" data-k="28" title="START/STOP Live View (L)">LV</button>
+      <div class="rc">
+        <div class="row">
+          <button class="key inert blue round" title="Ingrandimento (non usato da Iride)">🔍</button>
+          <button class="key round" data-k="29" title="Controllo rapido Q (Q)" style="font-size:15px">Q</button>
+        </div>
+        <div class="qcd">
+          <div class="in"></div>
+          <button class="wl" data-k="5" data-rep title="Ghiera di controllo rapido (sinistra)">⟲</button>
+          <button class="wr" data-k="6" data-rep title="Ghiera di controllo rapido (destra)">⟳</button>
+          <button class="up" data-k="12" data-rep title="Su (freccia)">▲</button>
+          <button class="lf" data-k="16" data-rep title="Sinistra (freccia)">◀</button>
+          <button class="set" data-k="9" title="SET (Invio)">SET</button>
+          <button class="rt" data-k="15" data-rep title="Destra (freccia)">▶</button>
+          <button class="dn" data-k="19" data-rep title="Giu' (freccia)">▼</button>
+        </div>
+        <div class="lock">LOCK<b></b></div>
+        <div class="row">
+          <button class="key round blue" data-k="24" title="Riproduzione (P)">▶</button>
+          <button class="key round blue" data-k="25" title="Cancella / cestino (Canc)">🗑</button>
+        </div>
       </div>
-      <div class="row">
-        <button class="key round" data-k="7" title="Ghiera superiore a sinistra ([)">◀︎</button>
-        <span style="color:#77777f;font-size:11px">ghiera</span>
-        <button class="key round" data-k="8" title="Ghiera superiore a destra (])">▶︎</button>
-      </div>
-      <div class="dial">
-        <button class="up" data-k="12" title="Su (freccia)">▲</button>
-        <button class="left" data-k="16" title="Sinistra (freccia)">◀</button>
-        <button class="set" data-k="9" title="SET (Invio)">SET</button>
-        <button class="right" data-k="15" title="Destra (freccia)">▶</button>
-        <button class="dn" data-k="19" title="Giu' (freccia)">▼</button>
-      </div>
-      <button class="key accent" data-k="1" title="Mezzo scatto / scatta (Spazio)" style="width:120px">SCATTO</button>
     </div>
   </div>
   <div class="status" id="status"></div>
@@ -122,7 +172,9 @@
         <tr><td><kbd>Esc</kbd></td><td>MENU: indietro</td></tr>
         <tr><td><kbd>I</kbd> · <kbd>Q</kbd></td><td>INFO (aiuto) · Q</td></tr>
         <tr><td><kbd>Canc</kbd> · <kbd>B</kbd></td><td>cestino · tasto luce: apri Iride</td></tr>
-        <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>ghiera superiore: passi grandi</td></tr>
+        <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>ghiera principale (sopra): passi grandi</td></tr>
+        <tr><td><kbd>,</kbd> <kbd>.</kbd></td><td>ghiera posteriore: su e giu' nelle liste</td></tr>
+        <tr><td colspan="2" style="white-space:normal;padding-top:6px">Tieni premuti croce e ghiere sullo schermo: ripetono, come sulla 6D.</td></tr>
         <tr><td><kbd>L</kbd> · <kbd>Spazio</kbd></td><td>Live View · scatto (chiude Iride)</td></tr>
       </table>
     </div>
@@ -190,12 +242,17 @@
     keys.push(k);
   }
   document.querySelectorAll('[data-k]').forEach(b => {
-    const k = +b.dataset.k;
-    b.addEventListener('pointerdown', e => { e.preventDefault(); press(k); b.classList.add('pressed'); });
-    ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => b.addEventListener(ev, () => b.classList.remove('pressed')));
+    const k = +b.dataset.k, rep = b.hasAttribute('data-rep');
+    let t1 = 0, t2 = 0;
+    const stop = () => { clearTimeout(t1); clearInterval(t2); b.classList.remove('pressed'); };
+    b.addEventListener('pointerdown', e => {
+      e.preventDefault(); press(k); b.classList.add('pressed');
+      if (rep) t1 = setTimeout(() => { t2 = setInterval(() => press(k), 110); }, 420);   /* tenuto premuto: ripete, come la croce */
+    });
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => b.addEventListener(ev, stop));
   });
   const MAP = { ArrowUp: 12, ArrowDown: 19, ArrowLeft: 16, ArrowRight: 15, Enter: 9, Escape: 22, Backspace: 22,
-                i: 23, I: 23, q: 29, Q: 29, Delete: 25, c: 25, C: 25, b: 100, B: 100, l: 28, L: 28, ' ': 1, '[': 7, ']': 8 };
+                i: 23, I: 23, q: 29, Q: 29, Delete: 25, c: 25, C: 25, b: 100, B: 100, l: 28, L: 28, p: 24, P: 24, ' ': 1, '[': 7, ']': 8, ',': 5, '.': 6 };
   document.addEventListener('keydown', e => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     const k = MAP[e.key];
